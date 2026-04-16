@@ -17,19 +17,32 @@ class EngineType(Enum):
 
 @dataclass
 class Vehicle:
-    id: str
-    brand: str
-    model: str
-    price: float
-    type: VehicleType
-    mileage: int
-    year: int
-
-    # US2 👇
-    description: str
-    engineType: EngineType
-    equipments: List[str]
-    condition: str
-
-    isAvailable: bool
-    images: List[str]
+    def __init__(
+        self,
+        id: str,
+        brand: str,
+        model: str,
+        price: float,
+        type,
+        mileage: int,
+        year: int,
+        description: str,
+        engine_type,
+        equipments,
+        condition: str,
+        is_available: bool,
+        images
+    ):
+        self.id = id
+        self.brand = brand
+        self.model = model
+        self.price = price
+        self.type = type
+        self.mileage = mileage
+        self.year = year
+        self.description = description
+        self.engine_type = engine_type
+        self.equipments = equipments
+        self.condition = condition
+        self.is_available = is_available
+        self.images = images

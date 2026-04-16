@@ -9,31 +9,68 @@ class VehicleRepositorySQL(VehicleRepository):
     def search(self, filters: dict):
 
         db = SessionLocal()
-        query = db.query(VehicleModel)
+        try:
+            query = db.query(VehicleModel)
 
-        if "type" in filters:
-            query = query.filter(VehicleModel.type == filters["type"])
+            if "type" in filters:
+                query = query.filter(VehicleModel.type == filters["type"])
 
-        if "brand" in filters:
-            query = query.filter(VehicleModel.brand == filters["brand"])
+            if "brand" in filters:
+                query = query.filter(VehicleModel.brand == filters["brand"])
 
-        if "engineType" in filters:
-            query = query.filter(VehicleModel.engineType == filters["engineType"])
+            if "model" in filters:
+                query = query.filter(VehicleModel.model == filters["model"])
 
-        if "year" in filters:
-            query = query.filter(VehicleModel.year >= filters["year"])
+            if "engine_type" in filters:
+                query = query.filter(VehicleModel.engine_type == filters["engine_type"])
 
-        if "mileage" in filters:
-            query = query.filter(VehicleModel.mileage <= filters["mileage"])
+            if "year" in filters:
+                query = query.filter(VehicleModel.year >= filters["year"])
 
-        if "price_max" in filters:
-            query = query.filter(VehicleModel.price <= filters["price_max"])
+            if "mileage" in filters:
+                query = query.filter(VehicleModel.mileage <= filters["mileage"])
 
-        results = query.all()
+            if "price_min" in filters:
+                query = query.filter(VehicleModel.price >= filters["price_min"])
 
-        # 🔥 mapping ORM → DOMAIN (important)
-        return [
-            Vehicle(
+            if "price_max" in filters:
+                query = query.filter(VehicleModel.price <= filters["price_max"])
+
+            if "is_available" in filters:
+                query = query.filter(VehicleModel.is_available == filters["is_available"])
+
+            results = query.all()
+
+            return [
+                Vehicle(
+                    id=v.id,
+                    brand=v.brand,
+                    model=v.model,
+                    price=v.price,
+                    type=v.type,
+                    mileage=v.mileage,
+                    year=v.year,
+                    engine_type=v.engine_type,
+                    is_available=v.is_available,
+                    images=v.images or []
+                )
+                for v in results
+            ]
+
+        finally:
+            db.close()
+
+
+    def get_by_id(self, vehicle_id: str):
+
+        db = SessionLocal()
+        try:
+            v = db.query(VehicleModel).filter(VehicleModel.id == vehicle_id).first()
+
+            if not v:
+                return None
+
+            return Vehicle(
                 id=v.id,
                 brand=v.brand,
                 model=v.model,
@@ -41,36 +78,12 @@ class VehicleRepositorySQL(VehicleRepository):
                 type=v.type,
                 mileage=v.mileage,
                 year=v.year,
-                engineType=v.engineType,
-                isAvailable=v.isAvailable,
+                description=v.description,
+                engine_type=v.engine_type,
+                equipments=v.equipments or [],
+                condition=v.condition,
+                is_available=v.is_available,
                 images=v.images or []
-            )
-            for v in results
-        ]
-    
-
-
-    def get_by_id(self, vehicle_id: str):
-
-        db = SessionLocal()
-
-        v = db.query(VehicleModel).filter(VehicleModel.id == vehicle_id).first()
-
-        if not v:
-            return None
-
-        return Vehicle(
-            id=v.id,
-            brand=v.brand,
-            model=v.model,
-            price=v.price,
-            type=v.type,
-            mileage=v.mileage,
-            year=v.year,
-            description=v.description,
-            engineType=v.engineType,
-            equipments=v.equipments or [],
-            condition=v.condition,
-            isAvailable=v.isAvailable,
-            images=v.images or []
-        )
+            )   
+        finally:
+            db.close()

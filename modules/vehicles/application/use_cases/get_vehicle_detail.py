@@ -7,6 +7,6 @@ class GetVehicleDetail:
         vehicle = self.vehicle_repository.get_by_id(vehicle_id)
 
         if not vehicle:
-            raise Exception("Vehicle not found")
+            raise Exception("VEHICLE_NOT_FOUND")
 
         return vehicle
