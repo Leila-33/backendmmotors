@@ -7,31 +7,27 @@ from modules.clients.api.schemas import RegisterRequest, RegisterResponse
 
 router = APIRouter()
 
+def get_user_repo():
+    return UserRepositorySQL()
 
 @router.post("/register", response_model=RegisterResponse)
-def register(data: RegisterRequest):
+def register(
+    data: RegisterRequest,
+    repo=Depends(get_user_repo)
+):
 
-    repo = UserRepositorySQL()
     use_case = RegisterUser(repo)
 
     try:
-        return use_case.execute(data.model_dump())
+        result = use_case.execute(data.model_dump())
+        return result
 
     except Exception as e:
 
         if str(e) == "EMAIL_ALREADY_EXISTS":
-            raise HTTPException(
-                status_code=400,
-                detail="Cet email est déjà utilisé"
-            )
+            raise HTTPException(400, "Email déjà utilisé")
 
         if str(e) == "CGU_NOT_ACCEPTED":
-            raise HTTPException(
-                status_code=400,
-                detail="Vous devez accepter les CGU"
-            )
+            raise HTTPException(400, "CGU non acceptées")
 
-        raise HTTPException(
-            status_code=500,
-            detail="Erreur interne"
-        )
+        raise HTTPException(500, "Erreur interne")

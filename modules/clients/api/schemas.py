@@ -23,4 +23,5 @@ class RegisterRequest(BaseModel):
 
 
 class RegisterResponse(BaseModel):
+    id: str
     message: str
