@@ -21,8 +21,8 @@ class Document:
     application_id: str
 
     type: DocumentType
-
     file_url: str
 
     status: DocumentStatus
-    comment: str | None
+
+    comment: str | None = None

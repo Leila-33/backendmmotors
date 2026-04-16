@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-from enum import Enum
+from dataclasses import dataclass, field
 from typing import List
+from enum import Enum
 
 
 class ApplicationStatus(str, Enum):
@@ -21,6 +21,6 @@ class Application:
     monthly_expenses: float
     employment_status: str
 
-    status: ApplicationStatus
+    status: ApplicationStatus = ApplicationStatus.DRAFT
 
-    document_ids: List[str]
+    document_ids: List[str] = field(default_factory=list)

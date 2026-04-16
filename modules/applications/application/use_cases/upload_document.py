@@ -1,99 +1,57 @@
 import uuid
+from modules.applications.domain.entities.document import Document, DocumentStatus
 
-from modules.applications.domain.entities.document import (
-    Document,
-    DocumentStatus,
-    DocumentType
-)
-
-from modules.applications.domain.entities.application import (
-    Application,
-    ApplicationStatus
-)
-
-from modules.applications.api.schemas import UploadDocumentRequest
-from modules.applications.api.schemas import UploadDocumentWithDraftRequest
 
 class UploadDocument:
 
-    def __init__(self, repo):
-        self.repo = repo
+    def __init__(self, application_repo, document_repo):
+        self.application_repo = application_repo
+        self.document_repo = document_repo
 
-    def execute(
-        self,
-        user_id: str,
-        application_id: str,
-        data: UploadDocumentRequest
-    ):
+    def execute(self, user_id: str, application_id: str, data):
 
-        # 🔹 1. Récupérer application
-        application = self.repo.get_by_id(application_id)
+        application = self.application_repo.get_by_id(application_id)
 
         if not application:
             raise Exception("APPLICATION_NOT_FOUND")
 
-        # 🔐 sécurité : vérifier propriétaire
         if application.user_id != user_id:
             raise Exception("FORBIDDEN")
 
-        # 🔹 2. Vérifier statut
-        if application.status != ApplicationStatus.DRAFT:
+        if application.status != application.status.DRAFT:
             raise Exception("APPLICATION_NOT_EDITABLE")
 
-        # 🔹 3. Créer document
+        # 🔹 récupérer documents existants
+        existing_documents = self.document_repo.get_by_application_id(application.id)
+
+        existing_doc = next(
+            (doc for doc in existing_documents if doc.type == data.type),
+            None
+        )
+
+        if existing_doc:
+            # 🔄 UPDATE (remplacement)
+            existing_doc.file_url = str(data.file_url)
+            existing_doc.status = DocumentStatus.PENDING
+            existing_doc.comment = None
+
+            self.document_repo.update(existing_doc)
+
+            return existing_doc
+
+        # 🔹 sinon créer nouveau
         document = Document(
             id=str(uuid.uuid4()),
             application_id=application.id,
-            type=DocumentType(data.type.value),
-            file_url=data.file_url,
+            type=data.type,
+            file_url=str(data.file_url),
             status=DocumentStatus.PENDING,
             comment=None
         )
 
-        self.repo.save_document(document)
+        self.document_repo.save(document)
 
-        # 🔹 4. Lier document à application
         application.document_ids.append(document.id)
-        self.repo.update(application)
+        self.application_repo.update(application)
 
-        # 🔹 5. Response
-        return document
-    
-    def execute_with_draft(
-        self,
-        user_id: str,
-        data: UploadDocumentWithDraftRequest
-    ):
-
-        # 🔹 1. Créer application (avec véhicule obligatoire)
-        application = Application(
-            id=str(uuid.uuid4()),
-            user_id=user_id,
-            vehicle_id=data.vehicle_id,
-            monthly_income=None,
-            monthly_expenses=None,
-            employment_status=None,
-            status=ApplicationStatus.DRAFT,
-            document_ids=[]
-        )
-
-        self.repo.save(application)
-
-        # 🔹 2. Créer document
-        document = Document(
-            id=str(uuid.uuid4()),
-            application_id=application.id,
-            type=DocumentType(data.type.value),
-            file_url=data.file_url,
-            status=DocumentStatus.PENDING,
-            comment=None
-        )
-
-        self.repo.save_document(document)
-
-        # 🔹 3. Lier document
-        application.document_ids.append(document.id)
-        self.repo.update(application)
-
-        # 🔹 4. Response
         return document

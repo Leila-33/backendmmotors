@@ -8,6 +8,7 @@ from modules.applications.application.use_cases.update_application import Update
 from modules.applications.application.use_cases.upload_document import UploadDocument
 from modules.applications.application.use_cases.submit_application import SubmitApplication
 from modules.applications.application.use_cases.submit_new_application import SubmitNewApplication
+from modules.applications.application.use_cases.create_application_with_document import SubmitNewApplication
 
 from modules.applications.api.schemas import (
   CreateApplicationRequest,
@@ -30,6 +31,9 @@ def get_repository():
 def get_vehicle_repository():
     return VehicleRepositorySQL()
 
+def get_document_repository():
+    return DocumentRepositorySQL()
+
 # =========================
 # 🟢 CREATE APPLICATION (DRAFT)
 # =========================
@@ -46,30 +50,32 @@ def create_application(
     try:
         result = use_case.execute(data, current_user.id)
 
-        return ApplicationResponse(**result)
+        return ApplicationResponse.model_validate(result)
 
-    except Exception:
-        raise HTTPException(
-            status_code=500,
-            detail="Erreur lors de la création du dossier"
-        )
+    except Exception as e:
+
+        if str(e) == "VEHICLE_NOT_FOUND":
+            raise HTTPException(404, "Véhicule introuvable")
+
+        if str(e) == "VEHICLE_NOT_AVAILABLE":
+            raise HTTPException(400, "Véhicule indisponible")
+
+        raise HTTPException(500, "Erreur serveur")
 
 
 # =========================
 # 🟡 UPLOAD DOCUMENT
 # =========================
-@router.post(
-    "/applications/{application_id}/documents",
-    response_model=DocumentResponse
-)
+@router.post("/applications/{application_id}/documents", response_model=DocumentResponse)
 def upload_document(
     application_id: str,
     data: UploadDocumentRequest,
-    repo=Depends(get_repository),
+    application_repo=Depends(get_repository),
+    document_repo=Depends(get_document_repository),
     current_user=Depends(get_current_user)
 ):
 
-    use_case = UploadDocument(repo)
+    use_case = UploadDocument(application_repo, document_repo)
 
     try:
         return use_case.execute(
@@ -89,25 +95,21 @@ def upload_document(
         if str(e) == "FORBIDDEN":
             raise HTTPException(403, "Accès interdit")
 
-        raise HTTPException(
-            status_code=500,
-            detail="Erreur lors de l'ajout du document"
-        )
+        raise HTTPException(500, "Erreur lors de l'ajout du document")
     
-@router.post(
-    "/documents/with-draft",
-    response_model=DocumentResponse
-)
+    
+@router.post("/documents/with-draft", response_model=DocumentResponse)
 def upload_document_with_draft(
     data: UploadDocumentWithDraftRequest,
-    repo=Depends(get_repository),
+    application_repo=Depends(get_repository),
+    document_repo=Depends(get_document_repository),
     current_user=Depends(get_current_user)
 ):
 
-    use_case = UploadDocument(repo)
+    use_case = CreateApplicationWithDocument(application_repo, document_repo)
 
     try:
-        return use_case.execute_with_draft(
+        return use_case.execute(
             user_id=current_user.id,
             data=data
         )
@@ -120,17 +122,14 @@ def upload_document_with_draft(
         if str(e) == "VEHICLE_NOT_AVAILABLE":
             raise HTTPException(400, "Véhicule indisponible")
 
-        raise HTTPException(
-            status_code=500,
-            detail="Erreur lors de la création du dossier et ajout du document"
-        )
+        raise HTTPException(500, "Erreur serveur")
 # =========================
 # 🔵 SUBMIT APPLICATION
 # =========================
 @router.post("/applications/{application_id}/submit")
 def submit_application(
     application_id: str,
-    data: SubmitApplicationRequest,  # ✅ AJOUT
+    data: SubmitApplicationRequest,
     repo=Depends(get_repository)
 ):
 
