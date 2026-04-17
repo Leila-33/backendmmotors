@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 from enum import Enum
+from datetime import datetime
 
 
 class ApplicationStatus(str, Enum):
@@ -21,6 +22,13 @@ class Application:
     monthly_expenses: float
     employment_status: str
 
-    status: ApplicationStatus = ApplicationStatus.DRAFT
+    # 🔹 champs obligatoires d'abord
+    created_at: datetime
 
+    # 🔹 ensuite les champs avec défaut
+    status: ApplicationStatus = ApplicationStatus.DRAFT
     document_ids: List[str] = field(default_factory=list)
+
+    submitted_at: Optional[datetime] = None
+
+

@@ -105,3 +105,24 @@ class DocumentResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+    # =========================
+# 🔥 US5 – STATUS RESPONSE
+# =========================
+class VehicleInfo(BaseModel):
+    brand: str
+    model: str
+
+
+class ProjectInfo(BaseModel):
+    type: str
+    vehicle: VehicleInfo
+
+
+class ApplicationStatusResponse(BaseModel):
+    id: str
+    status: str
+    createdAt: str
+    submittedAt: Optional[str]
+    project: ProjectInfo

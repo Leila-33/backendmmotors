@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from modules.applications.infrastructure.repositories.application_repository_sql import ApplicationRepositorySQL
 from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import VehicleRepositorySQL
+from modules.applications.infrastructure.repositories.document_repository_sql import DocumentRepositorySQL
+from modules.applications.infrastructure.repositories.event_repository_sql import EventRepositorySQL
 from modules.auth.dependencies import get_current_user
 from modules.applications.application.use_cases.create_application import CreateApplication
 from modules.applications.application.use_cases.update_application import UpdateApplication
@@ -9,7 +11,8 @@ from modules.applications.application.use_cases.upload_document import UploadDoc
 from modules.applications.application.use_cases.submit_application import SubmitApplication
 from modules.applications.application.use_cases.submit_new_application import SubmitNewApplication
 from modules.applications.application.use_cases.create_application_with_document import SubmitNewApplication
-
+from modules.applications.application.use_cases.get_applications_status import GetApplicationStatus
+from modules.applications.application.use_cases.create_application_with_document import CreateApplicationWithDocument
 from modules.applications.api.schemas import (
   CreateApplicationRequest,
     UpdateApplicationRequest,   
@@ -18,14 +21,15 @@ from modules.applications.api.schemas import (
     ApplicationResponse,
     DocumentResponse,
     SubmitApplicationRequest,
-    SubmitNewApplicationRequest
+    SubmitNewApplicationRequest,
+    ApplicationStatusResponse
 
 )
 router = APIRouter()
 
 
 # 🔹 Dependency
-def get_repository():
+def get_application_repository():
     return ApplicationRepositorySQL()
 
 def get_vehicle_repository():
@@ -34,18 +38,21 @@ def get_vehicle_repository():
 def get_document_repository():
     return DocumentRepositorySQL()
 
+def get_event_repository():
+    return EventRepositorySQL()
 # =========================
 # 🟢 CREATE APPLICATION (DRAFT)
 # =========================
 @router.post("/applications", response_model=ApplicationResponse)
 def create_application(
     data: CreateApplicationRequest,
-    repo=Depends(get_repository),
+    repo=Depends(get_application_repository),
     vehicle_repo=Depends(get_vehicle_repository),
+    event_repo=Depends(get_event_repository),  # 🔥 AJOUT ICI
     current_user=Depends(get_current_user)
 ):
 
-    use_case = CreateApplication(repo, vehicle_repo)
+    use_case = CreateApplication(repo, vehicle_repo, event_repo)
 
     try:
         result = use_case.execute(data, current_user.id)
@@ -70,12 +77,13 @@ def create_application(
 def upload_document(
     application_id: str,
     data: UploadDocumentRequest,
-    application_repo=Depends(get_repository),
+    application_repo=Depends(get_application_repository),
     document_repo=Depends(get_document_repository),
+    event_repo=Depends(get_event_repository),  # 🔥 AJOUT ICI
     current_user=Depends(get_current_user)
 ):
 
-    use_case = UploadDocument(application_repo, document_repo)
+    use_case = UploadDocument(application_repo, document_repo, event_repo)
 
     try:
         return use_case.execute(
@@ -101,12 +109,13 @@ def upload_document(
 @router.post("/documents/with-draft", response_model=DocumentResponse)
 def upload_document_with_draft(
     data: UploadDocumentWithDraftRequest,
-    application_repo=Depends(get_repository),
+    application_repo=Depends(get_application_repository),
     document_repo=Depends(get_document_repository),
+    event_repo=Depends(get_event_repository),
     current_user=Depends(get_current_user)
 ):
 
-    use_case = CreateApplicationWithDocument(application_repo, document_repo)
+    use_case = CreateApplicationWithDocument(application_repo, document_repo, event_repo)
 
     try:
         return use_case.execute(
@@ -130,10 +139,11 @@ def upload_document_with_draft(
 def submit_application(
     application_id: str,
     data: SubmitApplicationRequest,
-    repo=Depends(get_repository)
+    repo=Depends(get_application_repository),
+    event_repo=Depends(get_event_repository)
 ):
 
-    use_case = SubmitApplication(repo)
+    use_case = SubmitApplication(repo, event_repo)
 
     try:
         result = use_case.execute(
@@ -177,7 +187,7 @@ def submit_application(
 def update_application(
     application_id: str,
     data: UpdateApplicationRequest,
-    repo=Depends(get_repository)
+    repo=Depends(get_application_repository)
 ):
 
     use_case = UpdateApplication(repo)
@@ -208,11 +218,12 @@ def update_application(
 @router.post("/applications", response_model=ApplicationResponse)
 def submit_new_application(
     data: SubmitNewApplicationRequest,
-    repo=Depends(get_repository),
+    repo=Depends(get_application_repository),
+    event_repo=Depends(get_event_repository),
     current_user=Depends(get_current_user)
 ):
 
-    use_case = SubmitNewApplication(repo)
+    use_case = SubmitNewApplication(repo, event_repo)
 
     try:
         result = use_case.execute(data, current_user.id)
@@ -229,3 +240,31 @@ def submit_new_application(
         raise HTTPException(500, "Erreur lors de la soumission du dossier")
 
 
+# Get application status
+
+@router.get(
+    "/applications/{application_id}/status",
+    response_model=ApplicationStatusResponse
+)
+def get_application_status(
+    application_id: str,
+    application_repo=Depends(get_application_repository),
+    vehicle_repo=Depends(get_vehicle_repository),
+    current_user=Depends(get_current_user)
+):
+
+    use_case = GetApplicationStatus(application_repo, vehicle_repo)
+
+    try:
+        result = use_case.execute(application_id, current_user.id)
+        return result
+
+    except Exception as e:
+
+        if str(e) == "APPLICATION_NOT_FOUND":
+            raise HTTPException(404, "Dossier introuvable")
+
+        if str(e) == "FORBIDDEN":
+            raise HTTPException(403, "Accès interdit")
+
+        raise HTTPException(500, "Erreur serveur")

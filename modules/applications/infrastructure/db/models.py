@@ -1,6 +1,5 @@
-from sqlalchemy import Column, String, Float, Enum as SqlEnum
-from sqlalchemy.dialects.postgresql import ARRAY
-
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from infrastructure.db.session import Base
 
 
@@ -19,7 +18,11 @@ class ApplicationModel(Base):
 
     status = Column(String)
 
-    document_ids = Column(ARRAY(String))
+    # =========================
+    # RELATIONS
+    # =========================
+    documents = relationship("DocumentModel", back_populates="application")
+    events = relationship("ApplicationEventModel", back_populates="application")
 
 
 class DocumentModel(Base):
@@ -27,12 +30,31 @@ class DocumentModel(Base):
 
     id = Column(String, primary_key=True)
 
-    application_id = Column(String)
+    application_id = Column(String, ForeignKey("applications.id"))
 
     type = Column(String)
-
     file_url = Column(String)
 
     status = Column(String)
-
     comment = Column(String)
+
+    application = relationship("ApplicationModel", back_populates="documents")
+
+class ApplicationEventModel(Base):
+    __tablename__ = "application_events"
+
+    id = Column(String, primary_key=True, index=True)
+
+    application_id = Column(
+        String,
+        ForeignKey("applications.id"),
+        nullable=False,
+        index=True
+    )
+
+    type = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+
+    created_at = Column(DateTime, nullable=False)
+
+    application = relationship("ApplicationModel", back_populates="events")

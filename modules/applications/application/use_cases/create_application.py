@@ -2,12 +2,15 @@
 from modules.applications.api.schemas import CreateApplicationRequest
 import uuid
 from modules.applications.domain.entities.application import Application, ApplicationStatus
+from datetime import datetime, timezone
+from modules.applications.domain.entities.application_event import ApplicationEvent
 
 class CreateApplication:
 
-    def __init__(self, repo, vehicle_repo):
+    def __init__(self, repo, vehicle_repo, event_repo):
         self.repo = repo
         self.vehicle_repo = vehicle_repo
+        self.event_repo = event_repo
 
     def execute(self, data: CreateApplicationRequest, user_id: str):
 
@@ -29,9 +32,16 @@ class CreateApplication:
             status=ApplicationStatus.DRAFT,
             document_ids=[]
         )
-
+        application.created_at = datetime.now(timezone.utc)
+        event = ApplicationEvent(
+            id=str(uuid.uuid4()),
+            application_id=application.id,
+            type="CREATED",
+            message="Dossier créé",
+            created_at=datetime.now(timezone.utc)
+        )
         self.repo.save(application)
-
+        self.event_repo.save(event)
         return {
             "id": application.id,
             "status": application.status.value,

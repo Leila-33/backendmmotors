@@ -1,12 +1,14 @@
 import uuid
 from modules.applications.domain.entities.document import Document, DocumentStatus
-
+from modules.applications.domain.entities.application_event import ApplicationEvent
+from datetime import datetime, timezone
 
 class UploadDocument:
 
-    def __init__(self, application_repo, document_repo):
+    def __init__(self, application_repo, document_repo, event_repo):
         self.application_repo = application_repo
         self.document_repo = document_repo
+        self.event_repo = event_repo
 
     def execute(self, user_id: str, application_id: str, data):
 
@@ -50,6 +52,15 @@ class UploadDocument:
         )
 
         self.document_repo.save(document)
+        event = ApplicationEvent(
+            id=str(uuid.uuid4()),
+            application_id=application.id,
+            type="DOCUMENT_ADDED",
+            message=f"Document {document.type} ajouté",
+            created_at=datetime.now(timezone.utc)
+        )
+
+        self.event_repo.save(event)
 
         application.document_ids.append(document.id)
         self.application_repo.update(application)

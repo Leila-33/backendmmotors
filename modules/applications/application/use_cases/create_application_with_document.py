@@ -1,14 +1,17 @@
 import uuid
 from modules.applications.domain.entities.application import Application, ApplicationStatus
 from modules.applications.domain.entities.document import Document, DocumentStatus
-
+from datetime import datetime, timezone
+from modules.applications.domain.entities.application_event import ApplicationEvent
 
 class CreateApplicationWithDocument:
 
-    def __init__(self, application_repo, document_repo, vehicle_repo):
+    def __init__(self, application_repo, document_repo, vehicle_repo, event_repo):
         self.application_repo = application_repo
         self.document_repo = document_repo
         self.vehicle_repo = vehicle_repo
+        self.event_repo = event_repo
+
 
     def execute(self, user_id: str, data):
 
@@ -32,8 +35,16 @@ class CreateApplicationWithDocument:
             status=ApplicationStatus.DRAFT,
             document_ids=[]
         )
-
         self.application_repo.save(application)
+        application.created_at = datetime.now(timezone.utc)
+        event = ApplicationEvent(
+            id=str(uuid.uuid4()),
+            application_id=application.id,
+            type="CREATED",
+            message="Dossier créé",
+            created_at=datetime.now(timezone.utc)
+        )
+        self.event_repo.save(event)
 
         # 🔹 3. créer document
         document = Document(
@@ -46,6 +57,15 @@ class CreateApplicationWithDocument:
         )
 
         self.document_repo.save(document)
+        event = ApplicationEvent(
+            id=str(uuid.uuid4()),
+            application_id=application.id,
+            type="DOCUMENT_ADDED",
+            message=f"Document {document.type} ajouté",
+            created_at=datetime.now(timezone.utc)
+        )
+
+        self.event_repo.save(event)
 
         # 🔹 4. lier document à application
         application.document_ids.append(document.id)

@@ -1,14 +1,17 @@
 from modules.applications.domain.entities.application import ApplicationStatus
-
-
+from datetime import datetime
+from datetime import datetime, timezone
+from modules.applications.domain.entities.application_event import ApplicationEvent
+import uuid
 from modules.applications.api.schemas import SubmitApplicationRequest
 
 
 
 class SubmitApplication:
 
-    def __init__(self, repository):
-        self.repository = repository
+    def __init__(self, repository, event_repo):
+            self.repository = repository
+            self.event_repo = event_repo
 
     def execute(self, application_id: str, data: SubmitApplicationRequest):
         application = self.repository.get_by_id(application_id)
@@ -44,9 +47,17 @@ class SubmitApplication:
 
         # 🔹 SUBMIT
         application.status = ApplicationStatus.SUBMITTED
-
+        application.submitted_at = datetime.now(timezone.utc)
         self.repository.update(application)
+        event = ApplicationEvent(
+            id=str(uuid.uuid4()),
+            application_id=application.id,
+            type="SUBMITTED",
+            message="Dossier soumis",
+            created_at=datetime.now(timezone.utc)
+        )
 
+        self.event_repo.save(event)
         return {
             "status": application.status.value,
             "message": "Dossier soumis avec succès"
