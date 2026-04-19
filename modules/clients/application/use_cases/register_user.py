@@ -1,6 +1,6 @@
 import uuid
 from modules.clients.domain.entities.user import User
-from shared.security import hash_password
+from modules.shared.security import hash_password
 
 
 class RegisterUser:

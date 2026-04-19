@@ -1,9 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
 
-from modules.applications.infrastructure.repositories.application_repository_sql import ApplicationRepositorySQL
-from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import VehicleRepositorySQL
-from modules.applications.infrastructure.repositories.document_repository_sql import DocumentRepositorySQL
-from modules.applications.infrastructure.repositories.event_repository_sql import EventRepositorySQL
 from modules.auth.dependencies import get_current_user
 from modules.applications.application.use_cases.create_application import CreateApplication
 from modules.applications.application.use_cases.update_application import UpdateApplication
@@ -28,18 +24,16 @@ from modules.applications.api.schemas import (
 router = APIRouter()
 
 
-# 🔹 Dependency
-def get_application_repository():
-    return ApplicationRepositorySQL()
 
-def get_vehicle_repository():
-    return VehicleRepositorySQL()
 
-def get_document_repository():
-    return DocumentRepositorySQL()
+from modules.applications.api.dependencies import (
+    get_application_repository,
+    get_document_repository,
+    get_event_repository,
+)
 
-def get_event_repository():
-    return EventRepositorySQL()
+from modules.vehicles.api.dependencies import get_vehicle_repository
+
 # =========================
 # 🟢 CREATE APPLICATION (DRAFT)
 # =========================
@@ -268,3 +262,22 @@ def get_application_status(
             raise HTTPException(403, "Accès interdit")
 
         raise HTTPException(500, "Erreur serveur")
+    
+
+@router.get("/applications/{application_id}")
+def get_application_detail_client(
+    application_id: str,
+    repo=Depends(get_application_repository),
+    current_user=Depends(get_current_user)
+):
+
+    result = repo.get_detail_application(
+        application_id,
+        user_id=current_user.id,
+        is_admin=False
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Dossier introuvable")
+
+    return result

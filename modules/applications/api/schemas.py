@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from enum import Enum
-from typing import Optional
-
+from typing import List, Optional
+from modules.vehicles.domain.entities.vehicle import VehicleType
 
 # =========================
 # ENUMS
@@ -106,6 +106,20 @@ class DocumentResponse(BaseModel):
         "from_attributes": True
     }
 
+class DocumentInfo(BaseModel):
+    id: str
+    type: str
+    file_url: str
+    status: str
+    comment: Optional[str]
+
+
+class EventInfo(BaseModel):
+    id: str
+    type: str
+    message: str
+    created_at: str
+
 
     # =========================
 # 🔥 US5 – STATUS RESPONSE
@@ -113,11 +127,9 @@ class DocumentResponse(BaseModel):
 class VehicleInfo(BaseModel):
     brand: str
     model: str
+    type: VehicleType 
 
 
-class ProjectInfo(BaseModel):
-    type: str
-    vehicle: VehicleInfo
 
 
 class ApplicationStatusResponse(BaseModel):
@@ -125,4 +137,83 @@ class ApplicationStatusResponse(BaseModel):
     status: str
     createdAt: str
     submittedAt: Optional[str]
-    project: ProjectInfo
+    vehicle: VehicleInfo
+
+
+# US6 - GESTION BACK-OFFICE
+
+class ClientInfo(BaseModel):
+    nom: str
+    prenom: str
+
+class AdminApplicationResponse(BaseModel):
+    id: str
+    status: ApplicationStatus
+    createdAt: str
+    submittedAt: Optional[str]
+
+    client: ClientInfo
+    vehicle: VehicleInfo
+
+
+
+class AdminApplicationListResponse(BaseModel):
+    data: List[AdminApplicationResponse]
+    total: int
+    page: int
+    size: int
+
+
+
+
+
+# =====================
+# Detail
+# =====================
+class ClientInfoDetail(BaseModel):
+    nom: str
+    prenom: str
+    email: Optional[str]
+    telephone: Optional[str]
+    adresse: Optional[str]
+
+
+class VehicleInfoDetail(BaseModel):
+    id: str
+    brand: str
+    model: str
+    price: float
+    type: VehicleType
+
+
+
+class AdminApplicationDetailResponse(BaseModel):
+    id: str
+
+    status: ApplicationStatus
+    created_at: str
+    submitted_at: Optional[str]
+
+    monthly_income: float
+    monthly_expenses: float
+    employment_status: str
+
+    client: ClientInfo
+    vehicle: VehicleInfo
+
+    documents: List[DocumentInfo]
+    events: List[EventInfo]
+
+
+
+
+class RejectApplicationRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+
+
+class ApplicationActionResponse(BaseModel):
+    id: str
+    status: str
+    message: str
