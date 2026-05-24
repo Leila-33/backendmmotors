@@ -1,283 +1,211 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
 
-from modules.auth.dependencies import get_current_user
-from modules.applications.application.use_cases.create_application import CreateApplication
-from modules.applications.application.use_cases.update_application import UpdateApplication
-from modules.applications.application.use_cases.upload_document import UploadDocument
-from modules.applications.application.use_cases.submit_application import SubmitApplication
-from modules.applications.application.use_cases.submit_new_application import SubmitNewApplication
-from modules.applications.application.use_cases.create_application_with_document import SubmitNewApplication
-from modules.applications.application.use_cases.get_applications_status import GetApplicationStatus
-from modules.applications.application.use_cases.create_application_with_document import CreateApplicationWithDocument
+from modules.applications.application.use_cases.save_draft_application_use_case import (
+    SaveDraftApplicationUseCase
+)
+from modules.applications.application.use_cases.get_application_by_vehicle import (
+    GetApplicationByVehicleUseCase
+)
+from modules.applications.application.use_cases.delete_application import (DeleteApplicationUseCase)
+
+
+from core.security.dependencies import get_current_user
+
 from modules.applications.api.schemas import (
-  CreateApplicationRequest,
-    UpdateApplicationRequest,   
-    UploadDocumentRequest,
-    UploadDocumentWithDraftRequest,
-    ApplicationResponse,
-    DocumentResponse,
-    SubmitApplicationRequest,
-    SubmitNewApplicationRequest,
-    ApplicationStatusResponse
-
+    SaveDraftApplicationDTO,
+    GetApplicationsResponse,
+    SubmitApplicationDTO,
 )
-router = APIRouter()
-
-
-
-
+from modules.auth.infrastructure.db.user_model import (UserModel)
 from modules.applications.api.dependencies import (
-    get_application_repository,
-    get_document_repository,
-    get_event_repository,
-)
+    get_save_draft_use_case,
+    get_application_by_vehicle_usecase,
+    get_delete_application_usecase,
+    get_applications_usecase,
+    get_submit_usecase
+    )
+router = APIRouter(tags=["Applications"])
 
-from modules.vehicles.api.dependencies import get_vehicle_repository
+@router.post("/draft")
+def save_or_update_draft_application(
+    dto: SaveDraftApplicationDTO,
 
-# =========================
-# 🟢 CREATE APPLICATION (DRAFT)
-# =========================
-@router.post("/applications", response_model=ApplicationResponse)
-def create_application(
-    data: CreateApplicationRequest,
-    repo=Depends(get_application_repository),
-    vehicle_repo=Depends(get_vehicle_repository),
-    event_repo=Depends(get_event_repository),  # 🔥 AJOUT ICI
-    current_user=Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user),
+
+    usecase: SaveDraftApplicationUseCase = Depends(
+        get_save_draft_use_case
+    ),
 ):
 
-    use_case = CreateApplication(repo, vehicle_repo, event_repo)
-
-    try:
-        result = use_case.execute(data, current_user.id)
-
-        return ApplicationResponse.model_validate(result)
-
-    except Exception as e:
-
-        if str(e) == "VEHICLE_NOT_FOUND":
-            raise HTTPException(404, "Véhicule introuvable")
-
-        if str(e) == "VEHICLE_NOT_AVAILABLE":
-            raise HTTPException(400, "Véhicule indisponible")
-
-        raise HTTPException(500, "Erreur serveur")
-
-
-# =========================
-# 🟡 UPLOAD DOCUMENT
-# =========================
-@router.post("/applications/{application_id}/documents", response_model=DocumentResponse)
-def upload_document(
-    application_id: str,
-    data: UploadDocumentRequest,
-    application_repo=Depends(get_application_repository),
-    document_repo=Depends(get_document_repository),
-    event_repo=Depends(get_event_repository),  # 🔥 AJOUT ICI
-    current_user=Depends(get_current_user)
-):
-
-    use_case = UploadDocument(application_repo, document_repo, event_repo)
-
-    try:
-        return use_case.execute(
-            user_id=current_user.id,
-            application_id=application_id,
-            data=data
-        )
-
-    except Exception as e:
-
-        if str(e) == "APPLICATION_NOT_FOUND":
-            raise HTTPException(404, "Dossier introuvable")
-
-        if str(e) == "APPLICATION_NOT_EDITABLE":
-            raise HTTPException(400, "Le dossier ne peut plus être modifié")
-
-        if str(e) == "FORBIDDEN":
-            raise HTTPException(403, "Accès interdit")
-
-        raise HTTPException(500, "Erreur lors de l'ajout du document")
-    
-    
-@router.post("/documents/with-draft", response_model=DocumentResponse)
-def upload_document_with_draft(
-    data: UploadDocumentWithDraftRequest,
-    application_repo=Depends(get_application_repository),
-    document_repo=Depends(get_document_repository),
-    event_repo=Depends(get_event_repository),
-    current_user=Depends(get_current_user)
-):
-
-    use_case = CreateApplicationWithDocument(application_repo, document_repo, event_repo)
-
-    try:
-        return use_case.execute(
-            user_id=current_user.id,
-            data=data
-        )
-
-    except Exception as e:
-
-        if str(e) == "VEHICLE_NOT_FOUND":
-            raise HTTPException(404, "Véhicule introuvable")
-
-        if str(e) == "VEHICLE_NOT_AVAILABLE":
-            raise HTTPException(400, "Véhicule indisponible")
-
-        raise HTTPException(500, "Erreur serveur")
-# =========================
-# 🔵 SUBMIT APPLICATION
-# =========================
-@router.post("/applications/{application_id}/submit")
-def submit_application(
-    application_id: str,
-    data: SubmitApplicationRequest,
-    repo=Depends(get_application_repository),
-    event_repo=Depends(get_event_repository)
-):
-
-    use_case = SubmitApplication(repo, event_repo)
-
-    try:
-        result = use_case.execute(
-            application_id,
-            data
-        )
-
-        return result
-
-    except Exception as e:
-
-        if str(e) == "APPLICATION_NOT_FOUND":
-            raise HTTPException(404, "Dossier introuvable")
-
-        if str(e) == "APPLICATION_NOT_MODIFIABLE":
-            raise HTTPException(
-                400,
-                "Le dossier ne peut plus être modifié"
-            )
-
-        if str(e) == "DOCUMENTS_REQUIRED":
-            raise HTTPException(
-                400,
-                "Veuillez ajouter au moins un document"
-            )
-        if "MISSING_DOCUMENTS" in str(e):
-            missing = str(e).split(":")[1]
-            raise HTTPException(
-                400,
-                f"Documents manquants : {missing}"
-            )
-
-        raise HTTPException(
-            status_code=500,
-            detail="Erreur lors de la soumission du dossier"
-        )
-    
-# Update application
-
-@router.put("/applications/{application_id}")
-def update_application(
-    application_id: str,
-    data: UpdateApplicationRequest,
-    repo=Depends(get_application_repository)
-):
-
-    use_case = UpdateApplication(repo)
-
-    try:
-        result = use_case.execute(application_id, data) 
-        return result
-
-    except Exception as e:
-
-        if str(e) == "APPLICATION_NOT_FOUND":
-            raise HTTPException(404, "Dossier introuvable")
-
-        if str(e) == "APPLICATION_NOT_EDITABLE":
-            raise HTTPException(
-                400,
-                "Le dossier ne peut plus être modifié"
-            )
-
-        raise HTTPException(
-            status_code=500,
-            detail="Erreur lors de la mise à jour du dossier"
-        )
-    
-
-# Submit new application
-
-@router.post("/applications", response_model=ApplicationResponse)
-def submit_new_application(
-    data: SubmitNewApplicationRequest,
-    repo=Depends(get_application_repository),
-    event_repo=Depends(get_event_repository),
-    current_user=Depends(get_current_user)
-):
-
-    use_case = SubmitNewApplication(repo, event_repo)
-
-    try:
-        result = use_case.execute(data, current_user.id)
-        return ApplicationResponse(**result)
-
-    except Exception as e:
-
-        if str(e) == "VEHICLE_NOT_FOUND":
-            raise HTTPException(404, "Véhicule introuvable")
-
-        if str(e) == "VEHICLE_NOT_AVAILABLE":
-            raise HTTPException(400, "Véhicule indisponible")
-
-        raise HTTPException(500, "Erreur lors de la soumission du dossier")
-
-
-# Get application status
-
-@router.get(
-    "/applications/{application_id}/status",
-    response_model=ApplicationStatusResponse
-)
-def get_application_status(
-    application_id: str,
-    application_repo=Depends(get_application_repository),
-    vehicle_repo=Depends(get_vehicle_repository),
-    current_user=Depends(get_current_user)
-):
-
-    use_case = GetApplicationStatus(application_repo, vehicle_repo)
-
-    try:
-        result = use_case.execute(application_id, current_user.id)
-        return result
-
-    except Exception as e:
-
-        if str(e) == "APPLICATION_NOT_FOUND":
-            raise HTTPException(404, "Dossier introuvable")
-
-        if str(e) == "FORBIDDEN":
-            raise HTTPException(403, "Accès interdit")
-
-        raise HTTPException(500, "Erreur serveur")
-    
-
-@router.get("/applications/{application_id}")
-def get_application_detail_client(
-    application_id: str,
-    repo=Depends(get_application_repository),
-    current_user=Depends(get_current_user)
-):
-
-    result = repo.get_detail_application(
-        application_id,
-        user_id=current_user.id,
-        is_admin=False
+    result = usecase.execute(
+        dto,
+        current_user=current_user
     )
 
-    if not result:
-        raise HTTPException(status_code=404, detail="Dossier introuvable")
+    return {
+        "id": result.id,
+        "status": result.status
+    }
+
+
+
+@router.get("/by-vehicle/{vehicle_id}")
+def get_application_by_vehicle(
+    vehicle_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    usecase: GetApplicationByVehicleUseCase = Depends(
+        get_application_by_vehicle_usecase
+    )
+):
+
+    application = usecase.execute(
+        vehicle_id=vehicle_id,
+        current_user=current_user
+    )
+
+    if not application:
+        return None
+
+    return {
+        "id": application.id,
+        "status": application.status
+    }
+
+
+
+from fastapi import Query
+
+
+
+@router.get(
+    "/me",
+    response_model=GetApplicationsResponse
+)
+def get_applications(
+
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+
+    search: str | None = None,
+    status: str | None = None,
+    application_type: str | None = None,
+
+    sort: str = "created_at_desc",
+    archived: bool | None = None,
+
+    usecase: GetApplicationsUseCase = Depends(get_applications_usecase),
+    current_user=Depends(get_current_user)
+):
+
+    dto = GetApplicationsDTO(
+        page=page,
+        limit=limit,
+        search=search,
+        status=status,
+        application_type=application_type,
+        sort=sort,
+        archived=archived
+    )
+
+    return usecase.execute(
+        dto=dto,
+        role="client",
+        user_id=current_user.id
+    )
+
+
+# =========================
+# IMPORTS
+# =========================
+
+
+
+
+
+
+from modules.applications.application.use_cases.get_application import (
+    GetApplicationUseCase
+)
+
+from modules.applications.api.dependencies import (
+    get_application_usecase
+)
+
+
+
+# =========================
+# ROUTE
+# =========================
+@router.get("/{application_id}")
+def get_application(
+    application_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    usecase: GetApplicationUseCase = Depends(
+        get_application_usecase
+    )
+):
+
+    application = usecase.execute(
+        application_id=application_id,
+        current_user=current_user
+    )
+
+    return application
+
+
+
+
+# =========================
+# ROUTE
+# =========================
+@router.delete("/{application_id}")
+def delete_application(
+    application_id: str,
+    usecase: DeleteApplicationUseCase = Depends(get_delete_application_usecase),
+    current_user=Depends(get_current_user)
+):
+
+    return usecase.execute(application_id, current_user)
+
+
+
+# =========================================
+# GET APPLICATIONS
+# =========================================
+
+
+
+
+
+from modules.applications.application.use_cases.get_applications import (
+    GetApplicationsUseCase
+)
+
+from modules.applications.api.schemas import (
+    GetApplicationsDTO
+)
+
+
+
+
+
+
+
+
+from modules.applications.application.use_cases.submit_application import SubmitApplicationUseCase
+
+
+
+@router.post("/submit")
+def submit_application(
+    dto: SubmitApplicationDTO,
+    current_user=Depends(get_current_user),
+    usecase: SubmitApplicationUseCase = Depends(get_submit_usecase)
+):
+
+    result = usecase.execute(
+        dto=dto,
+        current_user=current_user
+    )
 
     return result

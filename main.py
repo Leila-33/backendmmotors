@@ -1,31 +1,52 @@
-from fastapi import FastAPI
-from modules.vehicles.api.vehicle_routes import router
-from modules.vehicles.infrastructure.db.models import Base, VehicleModel
-from infrastructure.db.session import engine, SessionLocal
+from fastapi import FastAPI, Request, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+
+import infrastructure.db.import_models
+from modules.core.exception_handlers import register_exception_handlers
+from api.routes import api_router
+
+# =========================
+# APP INIT
+# =========================
 app = FastAPI()
 
-app.include_router(router)
+register_exception_handlers(app)
 
+# =========================
+# CORS
+# =========================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+# =========================
+# ROUTES
+# =========================
+app.include_router(api_router, prefix="/api")
 
+# =========================
+# VALIDATION ERROR HANDLER
+# =========================
+@app.exception_handler(ValidationError)
+async def handler(request: Request, exc: ValidationError):
 
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": [
+                {
+                    "field": ".".join(map(str, err["loc"])),
+                    "message": err["msg"],
+                    "type": err["type"]
+                }
+                for err in exc.errors()
+            ]
+        }
+    )
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
-
-    db = SessionLocal()
-
-    # vérifier si déjà des données
-    if db.query(VehicleModel).first():
-        return
-
-    vehicles = [
-        VehicleModel(id="1", type="achat", price=20000, brand="BMW", mileage=50000, motorization="diesel", year=2020),
-        VehicleModel(id="2", type="location", price=30000, brand="Audi", mileage=30000, motorization="essence", year=2022),
-        VehicleModel(id="3", type="achat", price=15000, brand="Peugeot", mileage=80000, motorization="diesel", year=2018),
-    ]
-
-    db.add_all(vehicles)
-    db.commit()
-
-init_db()

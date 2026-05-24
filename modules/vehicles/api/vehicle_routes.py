@@ -1,51 +1,55 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional, List
+from fastapi import APIRouter, Depends
 
-from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import VehicleRepositorySQL
-from modules.vehicles.application.use_cases.search_vehicles import SearchVehicles
+# =========================
+# SCHEMAS
+# ========================
+from modules.vehicles.api.schemas import (
+    VehicleResponse,
+    VehicleSearchFilters,
+    VehicleListResponse
+)
+
+# =========================
+# DEPENDENCIES
+# =========================
+from modules.vehicles.api.dependencies import (
+    get_vehicle_detail_uc,
+    get_get_vehicles_client_uc
+)
+
+# =========================
+# USE CASES
+# =========================
 from modules.vehicles.application.use_cases.get_vehicle_detail import GetVehicleDetail
+from modules.vehicles.application.use_cases.get_vehicles import GetVehiclesForClientUseCase
 
-from modules.vehicles.api.schemas import VehicleSearchRequest, VehicleSearchResponse, VehicleResponse
+# =========================
+# AUTH
+# =========================
+from core.security.dependencies import get_current_user
 
-router = APIRouter()
+router = APIRouter(tags=["Vehicles"])
 
-
-def get_repo():
-    return VehicleRepositorySQL()
-
-
-@router.get("/vehicles/search", response_model=List[VehicleSearchResponse])
-def search_vehicles(
-    filters: VehicleSearchRequest = Depends(),
-    repo: VehicleRepositorySQL = Depends(get_repo)
-):
-
-    use_case = SearchVehicles(repo)
-
-    vehicles = use_case.execute(filters.model_dump(exclude_none=True))
-
-    return [
-        VehicleSearchResponse.model_validate(v)
-        for v in vehicles
-    ]
-
-
-@router.get("/vehicles/{vehicle_id}", response_model=VehicleResponse)
-def get_vehicle(
+# =========================
+# get_vehicle_detail
+# =========================
+@router.get("/{vehicle_id}", response_model=VehicleResponse)
+def get_vehicle_detail(
     vehicle_id: str,
-    repo: VehicleRepositorySQL = Depends(get_repo)
+    use_case: GetVehicleDetail = Depends(get_vehicle_detail_uc)
 ):
+    return use_case.execute(vehicle_id)
+    
+# =========================
+# get_vehicles_client
+# =========================
+@router.get("/", response_model=VehicleListResponse)
+def get_vehicles_client(
+    filters: VehicleSearchFilters = Depends(),
+    use_case: GetVehiclesForClientUseCase = Depends(get_get_vehicles_client_uc),
+    current_user=Depends(get_current_user)
+):
+    return use_case.execute(filters)
 
-    use_case = GetVehicleDetail(repo)
 
-    try:
-        vehicle = use_case.execute(vehicle_id)
-
-        return VehicleResponse.model_validate(vehicle)
-
-    except Exception as e:
-
-        if str(e) == "VEHICLE_NOT_FOUND":
-            raise HTTPException(404, "Véhicule introuvable")
-
-        raise HTTPException(500, "Erreur serveur")
+    

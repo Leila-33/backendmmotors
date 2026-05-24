@@ -1,33 +1,43 @@
-from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Optional
 
-
-class NotificationType(str, Enum):
-    APPLICATION_APPROVED = "application_approved"
-    APPLICATION_REJECTED = "application_rejected"
-    APPLICATION_SUBMITTED = "application_submitted"
-    DOCUMENT_APPROVED = "application_approved"
-    DOCUMENT_REJECTED = "document_rejected"
-
-
-class NotificationStatus(str, Enum):
-    UNREAD = "unread"
-    READ = "read"
+from modules.core.enums import (
+    NotificationType,
+    NotificationStatus
+)
 
 
 @dataclass
 class Notification:
-    id: str
-    user_id: str
-    application_id: str
 
+    id: str
+
+    user_id: str
+
+    # =====================
+    # CONTENT
+    # =====================
     title: str
     message: str
 
+    # =====================
+    # ENUMS
+    # =====================
     type: NotificationType
 
     status: NotificationStatus = NotificationStatus.UNREAD
-    is_read: bool = False
 
-    created_at: datetime = None
+    # =====================
+    # TIMESTAMP
+    # =====================
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+     # =====================
+    # CONTEXT (OPTIONAL)
+    # =====================
+    application_id: Optional[str] = None
+    document_id: Optional[str] = None
+    test_drive_id: Optional[str] = None

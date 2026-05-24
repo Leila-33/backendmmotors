@@ -1,58 +1,89 @@
+# =========================================================
+# DOMAIN ENTITY
+# modules/applications/domain/entities/application.py
+# =========================================================
+
 from dataclasses import dataclass, field
-from typing import List, Optional
-from enum import Enum
 from datetime import datetime
+from typing import Optional
 
+from modules.core.enums import (
+    ApplicationStatus
+)
 
-class ApplicationStatus(str, Enum):
-    DRAFT = "draft"
-    SUBMITTED = "submitted"
-    APPROVED = "approved"
-    REJECTED = "rejected"
+from modules.applications.domain.entities.application_financing import (
+    ApplicationFinancing
+)
 
+from modules.applications.domain.entities.application_trade_in import (
+    ApplicationTradeIn
+)
 
 
 @dataclass
 class Application:
-    # =====================
+
+    # =====================================================
     # IDENTIFIERS
-    # =====================
+    # =====================================================
     id: str
+
     user_id: str
+
     vehicle_id: str
 
-    # =====================
-    # USER SNAPSHOT
-    # =====================
-    first_name: str
-    last_name: str
-    email: str
-    phone: str
-    address: str
-    birth_date: datetime
+    # =====================================================
+    # SNAPSHOT USER
+    # DRAFT => optional
+    # SUBMIT => validated later
+    # =====================================================
+    first_name: Optional[str] = None
 
-    # =====================
+    last_name: Optional[str] = None
+
+    email: Optional[str] = None
+
+    phone: Optional[str] = None
+
+    address: Optional[str] = None
+
+    birth_date: Optional[datetime] = None
+
+    # =====================================================
     # FINANCIAL INFO
-    # =====================
-    monthly_income: float
-    monthly_expenses: float
-    employment_status: str
+    # =====================================================
+    monthly_income: Optional[float] = None
 
-    # =====================
-    # OPTIONS (DOSSIER MÉTIER)
-    # =====================
-    options_included: List[str] = field(default_factory=list)
-    options_optional: List[str] = field(default_factory=list)
-    options_selected: List[str] = field(default_factory=list)
+    monthly_expenses: Optional[float] = None
 
-    # =====================
-    # SYSTEM FIELDS
-    # =====================
-    created_at: datetime
+    employment_status: Optional[str] = None
 
+    # =====================================================
+    # STATUS
+    # =====================================================
     status: ApplicationStatus = ApplicationStatus.DRAFT
-    document_ids: List[str] = field(default_factory=list)
+
+    created_at: datetime = field(
+        default_factory=datetime.utcnow
+    )
 
     submitted_at: Optional[datetime] = None
 
+    is_archived: bool = False
+    
+    deleted_at: Optional[datetime] = None
 
+    # =====================================================
+    # RELATIONS
+    # =====================================================
+    financing: Optional[ApplicationFinancing] = None
+
+    trade_in: Optional[ApplicationTradeIn] = None
+
+    documents: list = field(default_factory=list)
+
+    options: list = field(default_factory=list)
+
+    events: list = field(default_factory=list)
+
+    notifications: list = field(default_factory=list)

@@ -1,35 +1,103 @@
-from modules.applications.domain.entities.application import ApplicationStatus
-from modules.applications.api.schemas import UpdateApplicationRequest
+from modules.core.enums import ApplicationStatus, VehicleOptionType
+from modules.applications.api.schemas import UpdateApplicationFullRequest
+from datetime import datetime, timezone
+
+from modules.applications.api.schemas import (
+    UpdateApplicationResponse
+    )
+
+from modules.core.exceptions import (
+    NoActiveDraft,
+    ApplicationNotModifiable,
+    OptionNotAllowed
+)
+
+from datetime import datetime, timezone
 
 
-class UpdateApplication:
+class UpdateApplicationFull:
 
-    def __init__(self, repository):
+    def __init__(
+        self,
+        repository,
+        vehicle_option_repo,
+        application_option_repo,
+    ):
         self.repository = repository
+        self.vehicle_option_repo = vehicle_option_repo
+        self.application_option_repo = application_option_repo
 
-    def execute(self, application_id: str, data: UpdateApplicationRequest):
+    def execute(self, user_id: str, data: UpdateApplicationFullRequest):
 
-        # 🔹 1. Get application
-        application = self.repository.get_by_id(application_id)
+        # =========================
+        # 1. GET DRAFT
+        # =========================
+        application = self.repository.get_draft_by_user(user_id)
 
         if not application:
-            raise Exception("APPLICATION_NOT_FOUND")
+            raise NoActiveDraft()
 
-        # 🔹 2. Check if editable
         if application.status != ApplicationStatus.DRAFT:
-            raise Exception("APPLICATION_NOT_EDITABLE")
+            raise ApplicationNotModifiable()
 
-        # 🔹 3. Update fields (seulement ceux fournis)
-        update_data = data.model_dump(exclude_none=True)
+        # =========================
+        # 2. UPDATE FIELDS
+        # =========================
+        if data.monthly_income is not None:
+            application.monthly_income = data.monthly_income
 
-        for key, value in update_data.items():
-            if hasattr(application, key):
-                setattr(application, key, value)
+        if data.monthly_expenses is not None:
+            application.monthly_expenses = data.monthly_expenses
 
-        # 🔹 4. Save
+        if data.employment_status is not None:
+            application.employment_status = data.employment_status
+
+        # =========================
+        # 3. OPTIONS
+        # =========================
+        if data.selected_options:
+
+            vehicle_options = self.vehicle_option_repo.get_by_vehicle(application.vehicle_id)
+
+            optional_options = {
+                vo.option_id
+                for vo in vehicle_options
+                if vo.type == VehicleOptionType.OPTIONAL
+            }
+
+            # =========================
+            # VALIDATION
+            # =========================
+            for opt_id in data.selected_options:
+                if opt_id not in optional_options:
+                    raise OptionNotAllowed(opt_id)
+
+            # =========================
+            # CLEAN OLD SELECTED OPTIONS
+            # =========================
+            self.application_option_repo.delete_selected_by_application(application.id)
+
+            # =========================
+            # INSERT NEW SELECTED
+            # =========================
+            for opt_id in data.selected_options:
+                self.application_option_repo.create(
+                    application_id=application.id,
+                    option_id=opt_id,
+                )
+
+        # =========================
+        # 4. SAVE APPLICATION
+        # =========================
+        application.updated_at = datetime.now(timezone.utc)
         self.repository.update(application)
 
-        # 🔹 5. Response
-        return {
-            "message": "Dossier mis à jour avec succès"
-        }
+        # =========================
+        # 5. RESPONSE
+        # =========================
+        return UpdateApplicationResponse(
+            id=application.id,
+            status=application.status.value,
+            selected_options=data.selected_options or [],
+            message="Application mise à jour"
+        )

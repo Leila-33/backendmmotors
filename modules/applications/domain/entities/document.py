@@ -1,28 +1,18 @@
 from dataclasses import dataclass
-from enum import Enum
-
-
-class DocumentType(str, Enum):
-    IDENTITY = "identity"
-    RIB = "rib"
-    PAYSLIP = "payslip"
-    PROOF_OF_ADDRESS = "proof_of_address"
-
-
-class DocumentStatus(str, Enum):
-    PENDING = "pending"
-    VALIDATED = "validated"
-    REJECTED = "rejected"
-
+from modules.core.enums import DocumentStatus, DocumentType
+from typing import Optional
 
 @dataclass
 class Document:
     id: str
+
     application_id: str
 
     type: DocumentType
-    file_url: str
+
+    # clé S3 stockée en DB
+    s3_key: str
 
     status: DocumentStatus
 
-    comment: str | None = None
+    comment: Optional[str] = None
