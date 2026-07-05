@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from modules.core.enums import ApplicationStatus
+from modules.core.enums import ApplicationStatus, ReservationStatus
 from modules.applications.api.schemas import SaveDraftApplicationDTO
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.applications.domain.repositories.event_repository import EventRepository
@@ -15,17 +15,20 @@ from modules.auth.infrastructure.db.user_model import UserModel
 from modules.applications.domain.entities.application_financing import ApplicationFinancing
 from modules.core.enums import EventType
 from modules.applications.domain.entities.event import Event
+from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 
 class SaveDraftApplicationUseCase:
 
     def __init__(
         self,
         application_repository: ApplicationRepository,
+        reservation_repository: ReservationRepository,
         financing_service: FinancingService,
         trade_in_service: TradeInService,
         event_repository: EventRepository
     ):
         self.application_repository = application_repository
+        self.reservation_repository = reservation_repository
         self.financing_service = financing_service
         self.trade_in_service = trade_in_service
         self.event_repository = event_repository
@@ -141,7 +144,21 @@ class SaveDraftApplicationUseCase:
             )
 
 
+        # =========================
+        # RESERVATION (RENT ONLY)
+        # =========================
+        if (
+            dto.application_type == "rent"
+            and dto.selected_dates
+        ):
 
+            self.reservation_repository.create_or_update(
+                application_id=application.id,
+                vehicle_id=application.vehicle_id,
+                start_date=dto.selected_dates.start,
+                end_date=dto.selected_dates.end,
+                status=ReservationStatus.DRAFT
+            )
 
         event = Event(
             id=str(uuid4()),

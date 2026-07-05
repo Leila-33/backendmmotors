@@ -1,10 +1,7 @@
 # =========================
 # IMPORTS
 # =========================
-from modules.auth.infrastructure.db.user_model import (
-    UserModel
-)
-
+from modules.auth.infrastructure.db.user_model import UserModel
 from modules.applications.domain.repositories.application_repository import (
     ApplicationRepository
 )
@@ -12,18 +9,21 @@ from modules.applications.domain.repositories.application_repository import (
 from modules.core.exceptions import (
     ApplicationNotFound
 )
+from modules.payments.domain.repositories.payment_repository import PaymentRepository
 
 from modules.storage.api.upload_routes import get_s3_client
 from core.config import settings
-
+from modules.applications.api.schemas import SelectedDatesDTO
 
 class GetApplicationUseCase:
 
     def __init__(
         self,
-        application_repository: ApplicationRepository
+        application_repository: ApplicationRepository,
+        payment_repository: PaymentRepository
     ):
         self.application_repository = application_repository
+        self.payment_repository = payment_repository
 
     # =========================
     # EXECUTE
@@ -132,7 +132,9 @@ class GetApplicationUseCase:
                 "message": event.message,
                 "created_at": event.created_at
             })
-
+        latest_payment = self.payment_repository.get_latest_payment(
+            application_id=application.id
+        )
         # =========================
         # RESPONSE
         # =========================
@@ -164,7 +166,15 @@ class GetApplicationUseCase:
             "monthly_income": application.monthly_income,
             "monthly_expenses": application.monthly_expenses,
             "employment_status": application.employment_status,
-
+            
+            "selected_dates": (
+                SelectedDatesDTO(
+                    start=application.reservation.start_date,
+                    end=application.reservation.end_date
+                )
+                if application.reservation
+                else None
+            ),
             # =========================
             # VEHICLE
             # =========================
@@ -175,6 +185,8 @@ class GetApplicationUseCase:
                 "year": application.vehicle.year,
                 "price": application.vehicle.price,
                 "type": application.vehicle.type,
+                "mileage": application.vehicle.mileage,
+                "engine_type": application.vehicle.engine_type,
 
                 "included_options": included_options,
                 "optional_options": optional_options
@@ -241,5 +253,12 @@ class GetApplicationUseCase:
             # =========================
             # EVENTS
             # =========================
-            "events": events
+            "events": events,
+
+
+            "payment_status" : (
+        latest_payment.status
+        if latest_payment
+        else None
+    )
         }

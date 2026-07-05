@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from core.security.dependencies import get_current_admin
-from modules.options.api.dependencies import get_option_repository
+from modules.core.infrastructure.dependencies import get_option_repository
 
 from modules.options.application.use_cases.create_option import CreateOption
 from modules.options.application.use_cases.get_options import GetOptions

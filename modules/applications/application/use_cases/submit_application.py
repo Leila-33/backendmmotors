@@ -1,12 +1,13 @@
 
 
 from modules.core.exceptions import (
-   ApplicationNotFound
+   ApplicationNotFound,
+   FinancingAmountNegative
 )
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from modules.core.enums import ApplicationStatus
+from modules.core.enums import ApplicationStatus, EventType, ReservationStatus
 from modules.applications.api.schemas import SubmitApplicationDTO
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.applications.domain.repositories.event_repository import EventRepository
@@ -18,8 +19,10 @@ from modules.financing.api.schemas import TradeInEstimateRequest
 from modules.financing.domain.services.trade_in_service import TradeInService
 from modules.auth.infrastructure.db.user_model import UserModel
 from modules.applications.domain.entities.application_financing import ApplicationFinancing
-from modules.core.enums import EventType
 from modules.applications.domain.entities.event import Event
+from modules.core.exceptions import ApplicationAlreadyExists, VehicleNotAvailable
+from modules.applications.api.schemas import SubmitApplicationResponse
+from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 
 class SubmitApplicationUseCase:
 
@@ -28,12 +31,14 @@ class SubmitApplicationUseCase:
         application_repository: ApplicationRepository,
         financing_service: FinancingService,
         trade_in_service: TradeInService,
-        event_repository: EventRepository
+        event_repository: EventRepository,
+        reservation_repository: ReservationRepository
     ):
         self.application_repository = application_repository
         self.financing_service = financing_service
         self.trade_in_service = trade_in_service
         self.event_repository = event_repository
+        self.reservation_repository = reservation_repository
 
     # =========================
     # MAIN ENTRYPOINT
@@ -58,6 +63,17 @@ class SubmitApplicationUseCase:
                 raise ApplicationNotFound()
 
         else:
+
+            existing = (
+                self.application_repository
+                .find_active_by_user_and_vehicle(
+                    user_id=current_user.id,
+                    vehicle_id=dto.vehicle_id
+                )
+            )
+
+            if existing:
+                raise ApplicationAlreadyExists()
 
             application = (
                 self.application_repository
@@ -90,6 +106,12 @@ class SubmitApplicationUseCase:
                 self.trade_in_service
                 .estimate(trade_request)
             )
+        
+            if (
+                dto.financing
+                and dto.financing.down_payment + trade_in_value > dto.total_price
+            ):
+                raise FinancingAmountNegative()
 
             self.application_repository.save_trade_in(
                 application_id=application.id,
@@ -162,6 +184,28 @@ class SubmitApplicationUseCase:
                 documents=dto.documents
             )
 
+        overlapping = (
+            self.reservation_repository.exists_overlap(
+                vehicle_id=dto.vehicle_id,
+                start_date=dto.selected_dates.start,
+                end_date=dto.selected_dates.end
+            )
+        )
+
+        if overlapping:
+            raise VehicleNotAvailable()
+
+        if (
+            dto.application_type == "rent"
+            and dto.selected_dates
+        ):
+            self.reservation_repository.create_or_update(
+                application_id=application.id,
+                vehicle_id=application.vehicle_id,
+                start_date=dto.selected_dates.start,
+                end_date=dto.selected_dates.end,
+                status=ReservationStatus.ACTIVE
+            )
         # =========================
         # EVENT
         # =========================
@@ -185,8 +229,11 @@ class SubmitApplicationUseCase:
         # =========================
         # RESPONSE
         # =========================
-        return application
-
+        return SubmitApplicationResponse(
+    id=application.id,
+    status=application.status,
+    message="Dossier soumis avec succès"
+)
 
 
 

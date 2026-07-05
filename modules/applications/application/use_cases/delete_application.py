@@ -9,6 +9,7 @@ class DeleteApplicationUseCase:
         trade_in_repo,
         financing_repo,
         application_option_repo,
+        reservation_repo,
         event_repo,
         notification_repo,
         s3_service
@@ -19,6 +20,7 @@ class DeleteApplicationUseCase:
         self.trade_in_repo = trade_in_repo
         self.financing_repo = financing_repo
         self.application_option_repo = application_option_repo
+        self.reservation_repo = reservation_repo
         self.event_repo = event_repo
         self.notification_repo = notification_repo
         self.s3_service = s3_service
@@ -59,6 +61,8 @@ class DeleteApplicationUseCase:
         self.financing_repo.delete_by_application(application_id)
 
         self.application_option_repo.delete_by_application(application_id)
+        
+        self.reservation.delete_by_application(application_id)
 
         # =========================
         # 3. DELETE APPLICATION

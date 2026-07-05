@@ -1,0 +1,410 @@
+# modules/core/infrastructure/dependencies.py
+
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+from infrastructure.db.dependencies import get_db
+
+# =====================================================
+# APPLICATIONS
+# =====================================================
+
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
+
+from modules.applications.infrastructure.repositories.application_repository_sql import (
+    ApplicationRepositorySQL,
+)
+from modules.applications.infrastructure.repositories.document_repository_sql import (
+    DocumentRepositorySQL,
+)
+from modules.applications.infrastructure.repositories.event_repository_sql import (
+    EventRepositorySQL,
+)
+from modules.applications.infrastructure.repositories.application_trade_in_repository_sql import (
+    ApplicationTradeInRepositorySQL,
+)
+from modules.applications.infrastructure.repositories.application_financing_repository_sql import (
+    ApplicationFinancingRepositorySQL,
+)
+from modules.applications.infrastructure.repositories.application_option_repository_sql import (
+    ApplicationOptionRepositorySQL,
+)
+
+
+def get_application_repository(
+    db: Session = Depends(get_db),
+) -> ApplicationRepository:
+    return ApplicationRepositorySQL(db)
+
+
+def get_event_repository(
+    db: Session = Depends(get_db),
+):
+    return EventRepositorySQL(db)
+
+
+def get_document_repository(
+    db: Session = Depends(get_db),
+):
+    return DocumentRepositorySQL(db)
+
+
+def get_trade_in_repository(
+    db: Session = Depends(get_db),
+):
+    return ApplicationTradeInRepositorySQL(db)
+
+
+def get_financing_repository(
+    db: Session = Depends(get_db),
+):
+    return ApplicationFinancingRepositorySQL(db)
+
+
+def get_application_option_repository(
+    db: Session = Depends(get_db),
+):
+    return ApplicationOptionRepositorySQL(db)
+
+
+# =====================================================
+# PAYMENTS
+# =====================================================
+
+from modules.payments.infrastructure.repositories.payment_repository_sql import (
+    PaymentRepositorySQL,
+)
+from modules.payments.infrastructure.services.stripe_service import (
+    StripeService,
+)
+
+
+def get_payment_repository(
+    db: Session = Depends(get_db),
+):
+    return PaymentRepositorySQL(db)
+
+
+def get_stripe_service():
+    return StripeService()
+
+
+# =====================================================
+# FINANCING SERVICES
+# =====================================================
+
+from modules.financing.domain.services.trade_in_service import (
+    TradeInService,
+)
+from modules.financing.domain.services.financing_service import (
+    FinancingService,
+)
+
+
+def get_trade_in_service():
+    return TradeInService()
+
+
+def get_financing_service():
+    return FinancingService()
+
+
+# =====================================================
+# FAVORITES
+# =====================================================
+
+from modules.favorites.infrastructure.repositories.favorite_repository_sql import (
+    FavoriteRepositorySQL,
+)
+
+
+def get_favorite_repository(
+    db: Session = Depends(get_db),
+):
+    return FavoriteRepositorySQL(db)
+
+# =====================================================
+# INSPECTIONS
+# =====================================================
+
+from modules.inspections.infrastructure.repositories.inspection_repository_sql import (
+    InspectionRepositorySQL,
+)
+
+
+def get_inspection_repository(
+    db: Session = Depends(get_db),
+):
+    return InspectionRepositorySQL(db)
+
+
+# =====================================================
+# JOB QUEUE
+# =====================================================
+from modules.vehicles.infrastructure.queue.redis_job_queue import RedisJobQueue
+
+
+def get_job_queue():
+    return RedisJobQueue()
+# =====================================================
+# NOTIFICATIONS
+# =====================================================
+
+from modules.notifications.infrastructure.repositories.notification_repository_sql import (
+    NotificationRepositorySQL,
+)
+
+
+def get_notification_repository(
+    db: Session = Depends(get_db),
+):
+    return NotificationRepositorySQL(db)
+
+
+# =====================================================
+# OPTIONS
+# =====================================================
+
+from modules.options.infrastructure.repositories.option_repository_sql import (
+    OptionRepositorySQL,
+)
+
+
+def get_option_repository(
+    db: Session = Depends(get_db),
+):
+    return OptionRepositorySQL(db)
+
+# =====================================================
+# RECONDITIONINGS
+# =====================================================
+
+from modules.reconditionings.infrastructure.repositories.reconditioning_repository_sql import (
+    ReconditioningRepositorySQL,
+)
+
+
+def get_reconditioning_repository(
+    db: Session = Depends(get_db),
+):
+    return ReconditioningRepositorySQL(db)
+
+# =====================================================
+# RESERVATIONS
+# =====================================================
+
+from modules.reservations.infrastructure.repositories.reservation_repository_sql import (
+    ReservationRepositorySQL
+)
+
+
+def get_reservation_repository(
+    db: Session = Depends(get_db),
+):
+    return ReservationRepositorySQL(db)
+
+
+from modules.reservations.application.use_cases.complete_expired_rentals import (
+    CompleteExpiredRentalsUseCase
+)
+
+def get_complete_rentals_usecase(db: Session = Depends(get_db)):
+
+    reservation_repository = ReservationRepositorySQL(db)
+    application_repository = ApplicationRepositorySQL(db)
+    event_repository = EventRepositorySQL(db)
+
+    return CompleteExpiredRentalsUseCase(
+        reservation_repository=reservation_repository,
+        application_repository=application_repository,
+        event_repository=event_repository
+    )
+
+from modules.reservations.application.use_cases.create_reservation import (
+    CreateReservationUseCase
+)
+def get_create_reservation_usecase(
+    db: Session = Depends(get_db)
+):
+
+    reservation_repository = ReservationRepositorySQL(db)
+
+    return CreateReservationUseCase(
+        repo=reservation_repository
+    )
+
+from modules.reservations.application.use_cases.cancel_reservation import (
+    CancelReservationUseCase
+)
+
+def get_cancel_reservation_usecase(
+    db: Session = Depends(get_db)
+):
+
+    reservation_repository = ReservationRepositorySQL(db)
+
+    application_repository = ApplicationRepositorySQL(db)
+
+    event_repository = EventRepositorySQL(db)
+
+    return CancelReservationUseCase(
+        reservation_repository=reservation_repository,
+        application_repository=application_repository,
+        event_repository=event_repository
+    )
+# =====================================================
+# AUTH
+# =====================================================
+
+from modules.auth.infrastructure.repositories.user_repository_sql import (
+    UserRepositorySQL,
+)
+from modules.auth.infrastructure.repositories.refresh_repository_sql import (
+    RefreshRepositorySQL,
+)
+from modules.auth.infrastructure.repositories.blacklist_repository_sql import (
+    BlacklistRepositorySQL,
+)
+
+
+def get_user_repository(
+    db: Session = Depends(get_db),
+):
+    return UserRepositorySQL(db)
+
+
+def get_refresh_repository(
+    db: Session = Depends(get_db),
+):
+    return RefreshRepositorySQL(db)
+
+
+def get_blacklist_repository(
+    db: Session = Depends(get_db),
+):
+    return BlacklistRepositorySQL(db)
+
+
+# =====================================================
+# STORAGE
+# =====================================================
+
+from modules.storage.storage_service import S3Service
+
+
+def get_s3_service():
+    return S3Service()
+
+
+# =====================================================
+# TEST DRIVES
+# =====================================================
+
+from modules.test_drives.infrastructure.repositories.test_drive_repository_sql import (
+    TestDriveRepositorySQL,
+)
+
+
+def get_test_drive_repository(
+    db: Session = Depends(get_db),
+):
+    return TestDriveRepositorySQL(db)
+
+
+# =====================================================
+# VEHICLES
+# =====================================================
+
+from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import (
+    VehicleRepositorySQL,
+)
+from modules.vehicles.infrastructure.repositories.vehicle_option_repository_sql import (
+    VehicleOptionRepositorySQL,
+)
+
+
+def get_vehicle_repository(
+    db: Session = Depends(get_db),
+):
+    return VehicleRepositorySQL(db)
+
+
+def get_vehicle_option_repository(
+    db: Session = Depends(get_db),
+):
+    return VehicleOptionRepositorySQL(db)
+
+
+# =====================================================
+# WARRANTIES
+# =====================================================
+
+from modules.warranties.infrastructure.repositories.warranty_plan_repository_sql import (
+    WarrantyPlanRepositorySQL,
+)
+from modules.warranties.infrastructure.repositories.vehicle_warranty_repository_sql import (
+    VehicleWarrantyRepositorySQL,
+)
+
+
+def get_warranty_plan_repository(
+    db: Session = Depends(get_db),
+):
+    return WarrantyPlanRepositorySQL(db)
+
+
+def get_vehicle_warranty_repository(
+    db: Session = Depends(get_db),
+):
+    return VehicleWarrantyRepositorySQL(db)
+
+
+# =====================================================
+# SAV
+# =====================================================
+from modules.sav.infrastructure.repositories.support_ticket_repository_sql import SupportTicketSQLRepository
+
+
+def get_ticket_repository(db: Session = Depends(get_db)):
+    return SupportTicketSQLRepository(db)
+
+from modules.sav.infrastructure.repositories.ticket_message_repository_sql import TicketMessageSQLRepository
+
+def get_ticket_message_repository(db: Session = Depends(get_db)):
+    return TicketMessageSQLRepository(db)
+
+from modules.sav.infrastructure.repositories.ticket_read_state_repository_sql import TicketReadStateRepositorySQL
+
+def get_ticket_read_state_repository(db: Session = Depends(get_db)):
+    return TicketReadStateRepositorySQL(db)
+
+from modules.sav.application.ticket_chat_manager import ticket_chat_manager
+
+def get_ticket_chat_manager():
+    return ticket_chat_manager
+
+# =====================================================
+# SECURITY
+# =====================================================
+
+from core.config import settings
+from core.security.jwt_service import JwtService
+
+
+def get_jwt_service():
+    return JwtService(
+        secret=settings.JWT_SECRET,
+        algorithm="HS256",
+    )
+
+
+
+# =====================================================
+# WEBSOCKET
+# =====================================================
+from modules.notifications.application.services.websocket_manager import manager
+
+def get_websocket_manager():
+    return manager

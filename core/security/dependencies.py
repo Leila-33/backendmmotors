@@ -42,7 +42,6 @@ def get_current_user(
 
     if not user.is_active:
         raise Forbidden()
-
     return user
 
 
@@ -52,5 +51,14 @@ def get_current_admin(
 ):
 
     if current_user.role != UserRole.ADMIN:
+        raise Forbidden()
+    return current_user
+
+
+def get_current_sav_agent(
+    current_user=Depends(get_current_user)
+):
+
+    if current_user.role != UserRole.SAV_AGENT:
         raise Forbidden()
     return current_user

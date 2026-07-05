@@ -4,9 +4,6 @@ from sqlalchemy.orm import relationship
 from infrastructure.db.session import Base
 from modules.core.enums import NotificationType, NotificationStatus
 
-from modules.test_drives.infrastructure.db.test_drive_model import TestDriveModel
-from modules.applications.infrastructure.db.document_model import DocumentModel
-
 class NotificationModel(Base):
 
     __tablename__ = "notifications"

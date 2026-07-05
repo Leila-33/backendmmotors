@@ -20,7 +20,7 @@ class EventRepositorySQL:
                 id=event.id,
                 application_id=event.application_id,
                 test_drive_id=event.test_drive_id,
-                type=event.type,
+                type=event.type.name,
                 message=event.message,
                 user_id=event.user_id,
                 metadata=event.event_metadata,

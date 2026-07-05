@@ -1,16 +1,11 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
+from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
+from modules.core.enums import VehicleCondition, VehicleType, EngineType, VehicleStatus
+from datetime import datetime
 
-from modules.core.enums import VehicleCondition, VehicleType, EngineType
-# =========================
-# ENTITY
-# =========================
 
-from dataclasses import dataclass, field
-from typing import List, Optional
 
-from dataclasses import dataclass, field
-from typing import List, Optional
 
 @dataclass
 class Vehicle:
@@ -34,8 +29,14 @@ class Vehicle:
     condition: VehicleCondition = VehicleCondition.USED
 
     is_available: bool = True
+    
+    published_at: Optional[str] = None
 
     images: List[str] = field(default_factory=list)
 
     # 🚗 NEW FIELD
     license_plate: Optional[str] = None
+
+    warranty: Optional[VehicleWarranty] = None
+    status: VehicleStatus = VehicleStatus.AVAILABLE
+    final_check_at: Optional[datetime] = None

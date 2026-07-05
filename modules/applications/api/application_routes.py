@@ -7,7 +7,9 @@ from modules.applications.application.use_cases.get_application_by_vehicle impor
     GetApplicationByVehicleUseCase
 )
 from modules.applications.application.use_cases.delete_application import (DeleteApplicationUseCase)
+from modules.applications.application.use_cases.get_applications import GetApplicationsUseCase
 
+from modules.auth.domain.entities.user import User
 
 from core.security.dependencies import get_current_user
 
@@ -15,6 +17,9 @@ from modules.applications.api.schemas import (
     SaveDraftApplicationDTO,
     GetApplicationsResponse,
     SubmitApplicationDTO,
+    SubmitApplicationResponse,
+    ApplicationCancelResponse,
+    ApplicationRestoreCancelledResponse
 )
 from modules.auth.infrastructure.db.user_model import (UserModel)
 from modules.applications.api.dependencies import (
@@ -22,7 +27,9 @@ from modules.applications.api.dependencies import (
     get_application_by_vehicle_usecase,
     get_delete_application_usecase,
     get_applications_usecase,
-    get_submit_usecase
+    get_submit_usecase,
+    get_cancel_application_usecase,
+    get_restore_cancelled_usecase
     )
 router = APIRouter(tags=["Applications"])
 
@@ -91,7 +98,7 @@ def get_applications(
     application_type: str | None = None,
 
     sort: str = "created_at_desc",
-    archived: bool | None = None,
+    view_mode: str = "active",
 
     usecase: GetApplicationsUseCase = Depends(get_applications_usecase),
     current_user=Depends(get_current_user)
@@ -104,7 +111,7 @@ def get_applications(
         status=status,
         application_type=application_type,
         sort=sort,
-        archived=archived
+        view_mode=view_mode
     )
 
     return usecase.execute(
@@ -196,16 +203,71 @@ from modules.applications.application.use_cases.submit_application import Submit
 
 
 
-@router.post("/submit")
+@router.post(
+    "/submit",
+    response_model=SubmitApplicationResponse
+)
 def submit_application(
     dto: SubmitApplicationDTO,
     current_user=Depends(get_current_user),
-    usecase: SubmitApplicationUseCase = Depends(get_submit_usecase)
+    usecase: SubmitApplicationUseCase = Depends(
+        get_submit_usecase
+    )
 ):
-
-    result = usecase.execute(
+    return usecase.execute(
         dto=dto,
         current_user=current_user
     )
 
-    return result
+
+from modules.applications.application.use_cases.cancel_application import CancelApplicationUseCase
+
+@router.patch(
+    "/{application_id}/cancel",
+    response_model=ApplicationCancelResponse
+)
+def cancel_application(
+    application_id: str,
+    current_user: User = Depends(get_current_user),
+    usecase: CancelApplicationUseCase = Depends(
+        get_cancel_application_usecase
+    )
+):
+
+    application = usecase.execute(
+        application_id=application_id,
+        role=current_user.role,
+        user_id=current_user.id
+    )
+
+    return ApplicationCancelResponse(
+        id=application.id,
+        status=application.status,
+        message="Application annulée avec succès"
+    )
+
+
+from modules.applications.application.use_cases.admin.restore_cancelled_application import RestoreCancelledApplicationUseCase
+
+@router.patch(
+    "/{application_id}/restore-cancelled",
+    response_model=ApplicationRestoreCancelledResponse
+)
+def restore_cancelled_application(
+    application_id: str,
+    current_user: User = Depends(get_current_user),
+    usecase: RestoreCancelledApplicationUseCase = Depends(
+        get_restore_cancelled_usecase
+    )
+):
+
+    application = usecase.execute(
+        application_id=application_id,
+        role=current_user.role
+    )
+
+    return ApplicationRestoreCancelledResponse(
+        id=application.id,
+        status=application.status,
+        message="Application restaurée avec succès"
+    )

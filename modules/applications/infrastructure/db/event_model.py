@@ -51,12 +51,9 @@ class EventModel(Base):
     # =====================
 
     type = Column(
-        Enum(
-            EventType,
-            name="event_type"
-        ),
-        nullable=False
-    )
+    String(100),
+    nullable=False
+)
 
     message = Column(
         String,

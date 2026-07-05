@@ -2,50 +2,29 @@
 
 from fastapi import Depends
 
-from core.security.jwt_service import JwtService
-from core.config import settings
+from core.dependencies import get_email_service
 
+from modules.core.infrastructure.dependencies import (
+    get_user_repository,
+    get_refresh_repository,
+    get_blacklist_repository,
+    get_jwt_service
 
+)
 from modules.auth.application.use_cases.register_user import RegisterUser
 from modules.auth.application.use_cases.login_user import LoginUser
 from modules.auth.application.use_cases.refresh_token import RefreshTokenUseCase
 from modules.auth.application.use_cases.logout_user import LogoutUser
 from modules.auth.application.use_cases.verify_email import VerifyEmail
+from modules.auth.application.use_cases.admin.find_users import FindUsersUseCase
+from modules.auth.application.use_cases.admin.delete_user import DeleteUserUseCase
+from modules.auth.application.use_cases.admin.update_user_role import UpdateUserRoleUseCase
+from modules.auth.application.use_cases.admin.create_user import CreateUserUseCase
+from modules.auth.application.use_cases.admin.toggle_user_active import ToggleUserActiveUseCase
+from modules.auth.application.use_cases.admin.archive_user import ArchiveUserUseCase
+from modules.auth.application.use_cases.admin.archive_users import ArchiveUsersUseCase
+from modules.auth.application.use_cases.admin.delete_user import DeleteUserUseCase
 
-from modules.auth.infrastructure.repositories.user_repository_sql import UserRepositorySQL
-
-from infrastructure.db.dependencies import get_db
-
-
-# =========================
-# BASE SERVICES
-# =========================
-
-def get_jwt_service():
-    return JwtService(
-        secret=settings.JWT_SECRET,
-        algorithm="HS256"
-    )
-
-
-from modules.auth.infrastructure.repositories.user_repository_sql import UserRepositorySQL
-from modules.auth.infrastructure.repositories.refresh_repository_sql import RefreshRepositorySQL
-from modules.auth.infrastructure.repositories.blacklist_repository_sql import BlacklistRepositorySQL
-from core.dependencies import get_email_service
-
-
-def get_user_repository(db=Depends(get_db)):
-    return UserRepositorySQL(db)
-
-def get_refresh_repository(db=Depends(get_db)):
-    return RefreshRepositorySQL(db)
-
-
-def get_blacklist_repository(db=Depends(get_db)):
-    return BlacklistRepositorySQL(db)
-
-def get_user_repository(db=Depends(get_db)):
-    return UserRepositorySQL(db)
 # =========================
 # USE CASES
 # =========================
@@ -91,15 +70,45 @@ def get_verify_email_uc(
     return VerifyEmail(user_repo, jwt)
 
 
-# dependencies/users.py
-
-# dependencies/usecases.py
-
-from fastapi import Depends
-from modules.auth.application.use_cases.admin.get_users import GetUsersUseCase
-
-
-def get_users_usecase(
+def get_find_users_usecase(
     user_repository=Depends(get_user_repository)
 ):
-    return GetUsersUseCase(user_repository)
+    return FindUsersUseCase(user_repository)
+
+def get_delete_user_usecase(
+    user_repository=Depends(get_user_repository)
+):
+    return DeleteUserUseCase(user_repository)
+
+
+
+def get_update_user_role_usecase(
+    user_repository=Depends(get_user_repository)
+):
+    return UpdateUserRoleUseCase(user_repository)
+
+
+def get_create_user_usecase(
+    user_repository=Depends(get_user_repository)
+):
+    return CreateUserUseCase(user_repository)
+
+def get_toggle_active_usecase(
+    user_repository=Depends(get_user_repository)
+):
+    return ToggleUserActiveUseCase(user_repository)
+
+def get_archive_user_usecase(
+    user_repository=Depends(get_user_repository)
+):
+    return ArchiveUserUseCase(user_repository)
+
+def get_archive_users_usecase(
+    user_repository=Depends(get_user_repository)
+):
+    return ArchiveUsersUseCase(user_repository)
+
+def get_delete_user_usecase(
+    user_repository=Depends(get_user_repository)
+):
+    return DeleteUserUseCase(user_repository)

@@ -4,7 +4,6 @@ from sqlalchemy.orm import relationship
 from modules.core.enums import DocumentType, DocumentStatus
 from infrastructure.db.session import Base
 
-
 class DocumentModel(Base):
     __tablename__ = "documents"
 

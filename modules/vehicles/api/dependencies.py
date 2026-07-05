@@ -1,25 +1,23 @@
 
 from fastapi import Depends
-from infrastructure.db.dependencies import get_db
-from sqlalchemy.orm import Session
 
 # =========================
 # REPOSITORIES
 # =========================
-from modules.options.api.dependencies import get_option_repository
 from modules.vehicles.domain.repositories.vehicle_repository import VehicleRepository
-from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import VehicleRepositorySQL
-from modules.vehicles.infrastructure.repositories.vehicle_option_repository_sql import VehicleOptionRepositorySQL
 from modules.vehicles.domain.repositories.vehicle_option_repository import VehicleOptionRepository
 from modules.options.domain.repositories.option_repository import OptionRepository
+from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 
-def get_vehicle_repository(db: Session = Depends(get_db)):
-    return VehicleRepositorySQL(db)
-
-
-def get_vehicle_option_repository(db: Session = Depends(get_db)):
-    return VehicleOptionRepositorySQL(db)
-
+from modules.core.infrastructure.dependencies import (
+    get_option_repository,
+    get_vehicle_option_repository,
+    get_vehicle_repository,
+    get_reservation_repository,
+    get_job_queue,
+    get_inspection_repository,
+    get_reconditioning_repository
+)
 # =========================
 # USE CASES
 # =========================
@@ -27,9 +25,14 @@ from modules.vehicles.application.use_cases.admin.create_vehicle import CreateVe
 from modules.vehicles.application.use_cases.admin.update_vehicle import UpdateVehicle
 from modules.vehicles.application.use_cases.admin.toggle_vehicle_type import ToggleVehicleType
 from modules.vehicles.application.use_cases.admin.create_vehicle import AssignOptionsToVehicleUseCase
+from modules.vehicles.application.use_cases.admin.final_check import FinalCheckUseCase
+from modules.vehicles.application.use_cases.admin.publish_vehicle import PublishVehicleUseCase
+from modules.vehicles.application.use_cases.admin.set_availibity import SetAvailabilityUseCase
+from modules.vehicles.application.use_cases.admin.delete_vehicle import DeleteVehicle
 from modules.vehicles.application.use_cases.get_vehicle_detail import GetVehicleDetail
 from modules.vehicles.application.use_cases.get_vehicles import GetVehiclesForClientUseCase, GetVehiclesForAdminUseCase
-from modules.vehicles.application.use_cases.admin.delete_vehicle import DeleteVehicle
+from modules.vehicles.application.use_cases.get_vehicle_avaibility import GetVehicleAvailabilityUseCase
+
 
 
 # =====================================================
@@ -98,3 +101,68 @@ def get_delete_vehicle_use_case(
     repo: VehicleRepository = Depends(get_vehicle_repository),
 ) -> DeleteVehicle:
     return DeleteVehicle(repo)
+
+
+# =====================================================
+# GET AVAIBILITY
+# =====================================================
+def get_vehicle_availability_usecase(
+    reservation_repository: ReservationRepository = Depends(
+        get_reservation_repository
+    )
+) -> GetVehicleAvailabilityUseCase:
+
+    return GetVehicleAvailabilityUseCase(
+        reservation_repository=reservation_repository
+    )
+
+
+
+# =====================================================
+# GET LIFECYCLE
+# =====================================================
+from modules.vehicles.application.use_cases.admin.get_vehicle_lifecycle import GetVehicleLifecycleUseCase
+
+def get_vehicle_lifecycle_uc(
+    inspection_repository=Depends(
+        get_inspection_repository
+    ),
+    reconditioning_repository=Depends(
+        get_reconditioning_repository
+    )
+):
+    return GetVehicleLifecycleUseCase(
+        inspection_repository,
+        reconditioning_repository
+    )
+
+
+
+# =====================================================
+# FINAL CHECK
+# =====================================================
+
+def get_final_check_uc(
+    vehicle_repository=Depends(get_vehicle_repository),
+    reconditioning_repository=Depends(get_reconditioning_repository),
+):
+    return FinalCheckUseCase(
+        vehicle_repository,
+        reconditioning_repository,
+    )
+
+# =====================================================
+# PUBLISH VEHICLE
+# =====================================================
+def get_publish_vehicle_uc(
+    vehicle_repository=Depends(get_vehicle_repository),
+):
+    return PublishVehicleUseCase(vehicle_repository)
+
+# =====================================================
+# TOGGLE AVAIBILITY
+# =====================================================
+def get_set_availability_uc(
+    vehicle_repository=Depends(get_vehicle_repository),
+):
+    return SetAvailabilityUseCase(vehicle_repository)

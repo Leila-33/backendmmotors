@@ -1,15 +1,9 @@
-from pydantic import BaseModel, Field
-from typing import List
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 from modules.applications.api.schemas import OptionDTO
-
-from pydantic import field_validator
-
-from typing import List, Optional
-from pydantic import BaseModel, field_validator, model_validator
 from datetime import datetime
-from modules.core.enums import VehicleType, VehicleCondition, EngineType
+from pydantic import BaseModel, field_validator, model_validator, Field
+from modules.core.enums import VehicleType, VehicleCondition, EngineType, VehicleStatus
 
 
 
@@ -21,11 +15,7 @@ class AssignOptionsToVehicleRequest(BaseModel):
     selected_options: List[str]
 
 
-from pydantic import BaseModel
-from typing import Optional, List
 
-from pydantic import BaseModel, field_validator
-from typing import Optional, List
 import re
 
 class CreateVehicleRequest(BaseModel):
@@ -36,10 +26,13 @@ class CreateVehicleRequest(BaseModel):
     mileage: int
     year: int
     condition: VehicleCondition
-    is_available: bool = True
 
     # 🚗 IMMATRICULATION (OBLIGATOIRE)
     license_plate: str
+
+
+    # 🛡️ GARANTIE (OPTIONNEL)
+    warranty_plan_id: Optional[str] = None
 
     # optionnel côté backend
     description: Optional[str] = None
@@ -123,6 +116,17 @@ class CreateVehicleRequest(BaseModel):
 
         return self
     
+class WarrantyPlanResponse(BaseModel):
+    id: str
+    name: str
+    price: float
+    duration_months: int
+
+class VehicleWarrantyResponse(BaseModel):
+    id: str
+    warranty_plan: WarrantyPlanResponse | None = None
+    
+
 
 class VehicleResponse(BaseModel):
     id: str
@@ -141,6 +145,10 @@ class VehicleResponse(BaseModel):
 
     is_available: bool
     images: list[str] = Field(default_factory=list)
+    status: VehicleStatus
+
+    published_at: datetime | None = None
+    final_check_at: datetime | None = None
 
     # 🚗 NEW FIELD
     license_plate: Optional[str] = Field(
@@ -150,7 +158,7 @@ class VehicleResponse(BaseModel):
 
     included_options: list[OptionDTO] = Field(default_factory=list)
     optional_options: list[OptionDTO] = Field(default_factory=list)
-
+    warranty: VehicleWarrantyResponse | None = None
 # =========================
 # update_vehicle
 # =========================
@@ -170,10 +178,12 @@ class UpdateVehicleRequest(BaseModel):
     condition: Optional[VehicleCondition] = None
 
     images: Optional[List[str]] = None
-    is_available: Optional[bool] = None
 
     # 🚗 IMMATRICULATION
     license_plate: Optional[str] = None
+
+    # 🛡️ GARANTIE (OPTIONNEL)
+    warranty_plan_id: Optional[str] = None
 
     included_options: Optional[List[str]] = None
     optional_options: Optional[List[str]] = None
@@ -325,3 +335,26 @@ class VehicleListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+
+
+from modules.inspections.api.schemas import InspectionDTO
+from modules.reconditionings.api.schemas import ReconditioningDTO
+
+
+class VehicleLifecycleDTO(BaseModel):
+    inspection: Optional[InspectionDTO] = None
+    reconditioning: Optional[ReconditioningDTO] = None
+
+
+
+class FinalCheckResponseDTO(BaseModel):
+    vehicle_id: str
+    vehicle_status: str
+    reconditioning_status: str
+    final_check_at: Optional[datetime] = None
+
+
+class SetAvailabilityDTO(BaseModel):
+    value: bool

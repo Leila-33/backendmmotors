@@ -1,6 +1,6 @@
 from pydantic import BaseModel, HttpUrl, field_validator, model_validator, Field
 from typing import List, Optional
-from modules.core.enums import DocumentType, DocumentStatus
+from modules.core.enums import DocumentType, DocumentStatus, ViewMode
 from datetime import datetime
 
 # =========================
@@ -163,7 +163,9 @@ class FinancingDTO(BaseModel):
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 import re
-
+class SelectedDatesDTO(BaseModel):
+    start: date
+    end: date
 
 class SaveDraftApplicationDTO(BaseModel):
 
@@ -174,17 +176,27 @@ class SaveDraftApplicationDTO(BaseModel):
     vehicle_id: Optional[str] = None
 
     # =========================
+    # TYPE
+    # =========================
+    application_type: Optional[str] = None  # "sale" | "rent"
+
+    # =========================
     # USER INFOS
     # =========================
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     address: Optional[str] = None
-    birth_date: Optional[str] = None
+    birth_date: Optional[date] = None
 
     # =========================
-    # FINANCIAL
+    # RENT ONLY
+    # =========================
+    selected_dates: Optional[SelectedDatesDTO] = None
+
+    # =========================
+    # FINANCIAL (SALE ONLY)
     # =========================
     monthly_income: Optional[float] = None
     monthly_expenses: Optional[float] = None
@@ -201,12 +213,12 @@ class SaveDraftApplicationDTO(BaseModel):
     total_price: Optional[float] = None
 
     # =========================
-    # FINANCING
+    # FINANCING (SALE ONLY)
     # =========================
     financing: Optional[FinancingDTO] = None
 
     # =========================
-    # TRADE-IN
+    # TRADE-IN (SALE ONLY)
     # =========================
     trade_in: Optional[TradeInDTO] = None
 
@@ -235,20 +247,6 @@ class SaveDraftApplicationDTO(BaseModel):
             return v or None
         return v
 
-    # =====================================================
-    # EMAIL VALIDATION
-    # =====================================================
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v):
-        if not v:
-            return v
-
-        email_regex = r"^[\w\.-]+@[\w\.-]+\.\w+$"
-        if not re.match(email_regex, v):
-            raise ValueError("Email invalide")
-
-        return v.lower()
 
     # =====================================================
     # PHONE VALIDATION (FR simple)
@@ -319,6 +317,11 @@ class SaveDraftApplicationDTO(BaseModel):
 
         return self
 
+
+
+class SelectedDatesDTO(BaseModel):
+    start: date
+    end: date
 class SubmitApplicationDTO(BaseModel):
 
     # =========================
@@ -331,32 +334,28 @@ class SubmitApplicationDTO(BaseModel):
     # USER INFOS
     # =========================
     first_name: str
-
     last_name: str
-
     email: EmailStr
-
     phone: str
-
     address: str
-
     birth_date: date
+    selected_dates: Optional[SelectedDatesDTO] = None
+    # =========================
+    # TYPE
+    # =========================
+    application_type: str  # "sale" | "rent"
 
     # =========================
-    # FINANCIAL
+    # FINANCIAL (SALE ONLY)
     # =========================
-    monthly_income: float
-
-    monthly_expenses: float
-
-    employment_status: str
+    monthly_income: Optional[float] = None
+    monthly_expenses: Optional[float] = None
+    employment_status: Optional[str] = None
 
     # =========================
     # OPTIONS
     # =========================
-    selected_option_ids: list[str] = Field(
-        default_factory=list
-    )
+    selected_option_ids: list[str] = Field(default_factory=list)
 
     # =========================
     # PRICE
@@ -364,20 +363,19 @@ class SubmitApplicationDTO(BaseModel):
     total_price: float
 
     # =========================
-    # FINANCING
+    # FINANCING (SALE ONLY)
     # =========================
-    financing: FinancingDTO
+    financing: Optional[FinancingDTO] = None
 
     # =========================
-    # TRADE-IN
+    # TRADE-IN (SALE ONLY)
     # =========================
     trade_in: Optional[TradeInDTO] = None
 
     # =========================
     # DOCUMENTS
     # =========================
-    documents: list[DocumentDTO]
-
+    documents: list[DocumentDTO] = Field(default_factory=list)
     # =====================================================
     # STRING VALIDATION
     # =====================================================
@@ -387,7 +385,6 @@ class SubmitApplicationDTO(BaseModel):
         "last_name",
         "phone",
         "address",
-        "employment_status"
     )
     @classmethod
     def validate_required_strings(cls, value: str):
@@ -397,35 +394,58 @@ class SubmitApplicationDTO(BaseModel):
 
         return value.strip()
 
-    # =====================================================
-    # INCOME
-    # =====================================================
+    
+    @model_validator(mode="after")
+    def validate_business_rules(self):
+        if self.application_type == "sale":
 
-    @field_validator("monthly_income")
-    @classmethod
-    def validate_income(cls, value: float):
+            if self.selected_dates is not None:
+                raise ValueError(
+                    "selected_dates non autorisé pour une vente"
+                )
 
-        if value <= 0:
-            raise ValueError(
-                "Les revenus doivent être supérieurs à 0"
-            )
+            if not self.monthly_income or self.monthly_income <= 0:
+                raise ValueError("Revenus requis pour un achat")
 
-        return value
+            if self.monthly_expenses is not None and self.monthly_expenses < 0:
+                raise ValueError("Les charges ne peuvent pas être négatives")
+            
+            if self.monthly_expenses >= self.monthly_income:
+                raise ValueError(
+                    "Les charges doivent être inférieures aux revenus"
+                )
 
-    # =====================================================
-    # EXPENSES
-    # =====================================================
+            if not self.financing:
+                raise ValueError("Financement requis pour un achat")
 
-    @field_validator("monthly_expenses")
-    @classmethod
-    def validate_expenses(cls, value: float):
+            if not self.employment_status:
+                raise ValueError("Situation professionnelle requise")
 
-        if value < 0:
-            raise ValueError(
-                "Les charges ne peuvent pas être négatives"
-            )
+        else:
+            if not self.selected_dates:
+                raise ValueError(
+                    "selected_dates requis pour une location"
+                )
 
-        return value
+            if self.selected_dates.start > self.selected_dates.end:
+                raise ValueError(
+                    "Date de début invalide"
+                )
+            if self.selected_dates.start < date.today():
+                raise ValueError("Date de début passée invalide")
+            
+            if self.financing:
+                raise ValueError("Pas de financement pour une location")
+
+            if self.monthly_income or self.monthly_expenses:
+                raise ValueError("Pas de données financières pour une location")
+
+            if self.trade_in:
+                raise ValueError("Trade-in non autorisé pour une location")
+        return self
+
+
+
 
     # =====================================================
     # TOTAL PRICE
@@ -467,23 +487,6 @@ class SubmitApplicationDTO(BaseModel):
             )
 
         return value
-
-    # =====================================================
-    # GLOBAL BUSINESS RULES
-    # =====================================================
-
-    @model_validator(mode="after")
-    def validate_financial_ratio(self):
-
-        if self.monthly_expenses >= self.monthly_income:
-
-            raise ValueError(
-                "Les charges doivent être inférieures aux revenus"
-            )
-
-        return self
-    
-
     # =====================================================
     # REQUIRED DOCUMENTS VALIDATION
     # =====================================================
@@ -664,14 +667,21 @@ class UpdateApplicationResponse(BaseModel):
 
 
 
+from pydantic import BaseModel
+
+
 class GetApplicationsDTO(BaseModel):
+
     page: int
     limit: int
+
     search: str | None = None
     status: str | None = None
     application_type: str | None = None
-    sort: str | None = None
-    archived: bool | None = None
+
+    sort: str = "created_at_desc"
+
+    view_mode: ViewMode = ViewMode.ACTIVE
 
 
 
@@ -687,10 +697,16 @@ class ApplicationListItemBase(BaseModel):
 class ApplicationListItemAdmin(ApplicationListItemBase):
     client: str
     submitted_at: Optional[str]
+    can_cancel: bool
+    can_restore_cancelled: bool
 
 class ApplicationListItemUser(ApplicationListItemBase):
     created_at: str
     submitted_at: Optional[str]
+    can_cancel: bool
+
+
+
 
 
 from typing import List, Union
@@ -806,4 +822,28 @@ class UpdateApplicationStatusDTO(BaseModel):
 class UpdateApplicationStatusResponseDTO(BaseModel):
     application_id: str
     status: ApplicationStatus
+    message: str
+
+
+
+
+class SubmitApplicationResponse(BaseModel):
+    id: str
+    status: ApplicationStatus
+    message: str
+
+
+
+
+class ApplicationCancelResponse(BaseModel):
+    id: str
+    status: str
+    message: str
+
+from pydantic import BaseModel
+
+
+class ApplicationRestoreCancelledResponse(BaseModel):
+    id: str
+    status: str
     message: str

@@ -22,10 +22,6 @@ from infrastructure.db.session import Base
 from modules.core.enums import (
     ApplicationStatus
 )
-from modules.applications.infrastructure.db.application_financing_model import ApplicationFinancingModel
-from modules.applications.infrastructure.db.application_trade_in_model import ApplicationTradeInModel
-
-
 class ApplicationModel(Base):
 
     __tablename__ = "applications"
@@ -90,6 +86,11 @@ class ApplicationModel(Base):
         nullable=False,
         default=ApplicationStatus.DRAFT
     )
+
+    previous_status = Column(
+    SqlEnum(ApplicationStatus),
+    nullable=True
+)
 
     created_at = Column(
         DateTime(timezone=True),
@@ -173,3 +174,21 @@ class ApplicationModel(Base):
         uselist=False,
         cascade="all, delete-orphan"
     )
+
+    payments = relationship(
+    "PaymentModel",
+    back_populates="application",
+    cascade="all, delete-orphan"
+)
+    
+    financing_contract = relationship(
+    "FinancingContractModel",
+    back_populates="application",
+    uselist=False
+)
+    reservation = relationship(
+    "ReservationModel",
+    back_populates="application",
+    uselist=False
+)
+    tickets = relationship("SupportTicketModel", back_populates="application")

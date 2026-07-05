@@ -1,17 +1,6 @@
-from sqlalchemy.orm import Session
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from modules.applications.infrastructure.db.application_model import ApplicationModel
-from modules.applications.infrastructure.db.application_option_model import ApplicationOptionModel
-from modules.applications.infrastructure.db.application_financing_model import ApplicationFinancingModel
-from modules.applications.infrastructure.db.application_trade_in_model import ApplicationTradeInModel
-from modules.applications.infrastructure.db.document_model import (
-    DocumentModel
-)
-from modules.vehicles.infrastructure.db.vehicle_model import (
-    VehicleModel
-)
 import logging
 
 from core.config import settings
@@ -21,11 +10,19 @@ logger = logging.getLogger(__name__)
 
 from sqlalchemy import or_
 
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, Session 
 
-from modules.core.enums import ApplicationStatus
+from modules.core.enums import ApplicationStatus, ViewMode, ReservationStatus
 
 from modules.core.exceptions import UserIdRequiredForClient
+
+
+from modules.applications.infrastructure.db.application_model import ApplicationModel
+from modules.applications.infrastructure.db.application_option_model import ApplicationOptionModel
+from modules.applications.infrastructure.db.document_model import DocumentModel
+from modules.applications.infrastructure.db.application_financing_model import ApplicationFinancingModel
+from modules.applications.infrastructure.db.application_trade_in_model import ApplicationTradeInModel
+from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
 
 
 
@@ -147,22 +144,7 @@ class ApplicationRepositorySQL:
     def rollback(self):
         self.session.rollback()
 
-    def find_draft_by_user_and_vehicle(
-        self,
-        user_id: str,
-        vehicle_id: str
-    ):
 
-        return (
-            self.session.query(ApplicationModel)
-            .filter(
-                ApplicationModel.user_id == user_id,
-                ApplicationModel.vehicle_id == vehicle_id,
-                ApplicationModel.status == ApplicationStatus.DRAFT,
-                ApplicationModel.deleted_at.is_(None)  # 👈 IMPORTANT
-            )
-            .first()
-        )
     def get_full_by_id(
     self,
     application_id: str
@@ -301,7 +283,7 @@ class ApplicationRepositorySQL:
         status,
         application_type,
         sort,
-        archived=None,
+        view_mode="active",
         user_id=None,
         role="client"
     ):
@@ -333,12 +315,24 @@ class ApplicationRepositorySQL:
         # =========================
         # ARCHIVE
         # =========================
-        if archived is True:
-            query = query.filter(ApplicationModel.is_archived.is_(True))
+        # =========================
+        # VIEW MODE FILTER
+        # =========================
+        if view_mode == ViewMode.ACTIVE:
+            query = query.filter(
+                ApplicationModel.is_archived.is_(False),
+                ApplicationModel.status != ApplicationStatus.CANCELLED
+            )
 
-        elif archived is False:
-            query = query.filter(ApplicationModel.is_archived.is_(False))
+        elif view_mode == ViewMode.CANCELLED:
+            query = query.filter(
+                ApplicationModel.status == ApplicationStatus.CANCELLED
+            )
 
+        elif view_mode == ViewMode.ARCHIVED:
+            query = query.filter(
+                ApplicationModel.is_archived.is_(True)
+            )
         # =========================
         # SEARCH
         # =========================
@@ -448,10 +442,42 @@ class ApplicationRepositorySQL:
     # =========================
     def soft_delete(self, application_id: str):
 
-        self.session.query(ApplicationModel).filter(
-            ApplicationModel.id == application_id
-        ).update({
-            ApplicationModel.deleted_at: datetime.now(timezone.utc)
-        })
+        application = (
+            self.session.query(ApplicationModel)
+            .filter(ApplicationModel.id == application_id)
+            .first()
+        )
+
+        if not application:
+            return None
+
+        # Soft delete du dossier
+        application.deleted_at = datetime.now(timezone.utc)
+
+        # Libération de la réservation
+        if application.reservation:
+            application.reservation.status = ReservationStatus.CANCELLED
 
         self.session.commit()
+
+        return application
+
+    def find_active_by_user_and_vehicle(
+    self,
+    user_id: str,
+    vehicle_id: str
+):
+        return (
+            self.session.query(ApplicationModel)
+            .filter(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.vehicle_id == vehicle_id,
+                ApplicationModel.status.in_([
+                    ApplicationStatus.DRAFT,
+                    ApplicationStatus.PROCESSING,
+                    ApplicationStatus.SUBMITTED,
+                ]),
+                ApplicationModel.deleted_at.is_(None)  # 👈 soft delete safe
+            )
+            .first()
+        )

@@ -7,13 +7,15 @@ from modules.core.enums import ReservationStatus
 
 @dataclass
 class Reservation:
-    id: Optional[int] = None
 
-    vehicle_id: str = 0
-    user_id: str = 0
+    id: str
 
-    start_date: date = None
-    end_date: date = None
+    vehicle_id: str
+
+    application_id: str
+
+    start_date: date
+    end_date: date
 
     status: ReservationStatus = ReservationStatus.ACTIVE
 

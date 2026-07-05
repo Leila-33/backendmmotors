@@ -20,7 +20,7 @@ class UpdateApplicationStatusUseCase:
         self.notification_service = notification_service
         self.event_repository = event_repository
 
-    def execute(self, application_id: str, dto: UpdateApplicationStatusDTO):
+    async def execute(self, application_id: str, dto: UpdateApplicationStatusDTO):
 
         # =========================
         # GET APPLICATION
@@ -47,7 +47,7 @@ class UpdateApplicationStatusUseCase:
                 dto.status,
                 dto.reason
             )
-        self.notification_service.send(
+        await self.notification_service.send(
             user_id=application.user_id,
             email=application.email,
             application_id=application.id,

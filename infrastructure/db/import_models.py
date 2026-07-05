@@ -11,6 +11,16 @@ from modules.auth.infrastructure.db.token_blacklist_model import TokenBlacklistM
 from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
 from modules.vehicles.infrastructure.db.vehicle_option_model import VehicleOptionModel
 
+# Reconditioning
+from modules.reconditionings.infrastructure.db.reconditioning_model import ReconditioningModel
+
+# Inspection
+from modules.inspections.infrastructure.db.inspection_model import InspectionModel
+
+# Warranties
+from modules.warranties.infrastructure.db.vehicle_warranty_model import VehicleWarrantyModel
+from modules.warranties.infrastructure.db.warranty_plan_model import WarrantyPlanModel
+
 # Applications
 from modules.applications.infrastructure.db.application_model import ApplicationModel
 from modules.applications.infrastructure.db.application_option_model import ApplicationOptionModel
@@ -33,3 +43,15 @@ from modules.reservations.infrastructure.db.reservation_model import Reservation
 
 #Favorites
 from modules.favorites.infrastructure.db.favorite_model import FavoriteModel
+
+#Financing
+from modules.financing.infrastructure.db.financing_contract_model import FinancingContractModel
+from modules.financing.infrastructure.db.installment_model import InstallmentPaymentModel
+
+#Payments
+from modules.payments.infrastructure.db.payment_model import PaymentModel
+
+#Sav
+from modules.sav.infrastructure.db.support_ticket_model import SupportTicketModel
+from modules.sav.infrastructure.db.ticket_message_model import TicketMessageModel
+from modules.sav.infrastructure.db.ticket_read_state_model import TicketReadStateModel

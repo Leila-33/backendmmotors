@@ -38,3 +38,7 @@ class UserRepository(ABC):
             - total count
         """
         pass
+
+    @abstractmethod
+    def get_active_agents(self):
+        pass

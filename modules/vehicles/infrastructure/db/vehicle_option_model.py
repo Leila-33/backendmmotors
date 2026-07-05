@@ -5,7 +5,6 @@ from sqlalchemy import Enum as SQLEnum
 from infrastructure.db.session import Base
 from sqlalchemy import UniqueConstraint
 
-from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
 from modules.core.enums import VehicleOptionType
 
 

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 import re
-
+from modules.core.enums import UserRole
+from datetime import datetime
 
 # =========================
 # REGISTER
@@ -79,26 +80,23 @@ class UserResponse(BaseModel):
     email: str
     role: str
     is_verified: bool
+    first_name: str
+    last_name: str
 
 
 # dto/get_users_dto.py
-
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
+from datetime import datetime
 
 
-class GetUsersDTO(BaseModel):
+class FindUsersQuery(BaseModel):
     page: int = 1
     limit: int = 10
     search: Optional[str] = None
     role: Optional[str] = None
-
-
-# dto/get_users_response.py
-
-from pydantic import BaseModel
-from typing import List
-
+    status: Optional[str] = None  # all | active | inactive
+    sort: Optional[str] = "created_at_desc"
 
 class UserItemDTO(BaseModel):
     id: str
@@ -106,11 +104,60 @@ class UserItemDTO(BaseModel):
     last_name: str
     email: str
     role: str
+    is_active: bool
+    is_deleted: bool
+    created_at: Optional[datetime]
 
 
-class GetUsersResponseDTO(BaseModel):
+class PaginatedUsersResponse(BaseModel):
     items: List[UserItemDTO]
     page: int
     limit: int
     total: int
     pages: int
+
+# dto/get_users_response.py
+
+from typing import List
+
+from datetime import datetime
+
+
+
+
+class UpdateUserRoleSchema(BaseModel):
+    role: UserRole
+
+
+
+class CreateUserSchema(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    password: str
+    role: UserRole
+
+
+
+
+class ToggleActiveSchema(BaseModel):
+    is_active: bool
+
+
+
+
+class ToggleUserActiveResponse(BaseModel):
+    id: str
+    is_active: bool
+
+class ArchiveUserResponse(BaseModel):
+    message: str
+
+
+class ArchiveUsersSchema(BaseModel):
+    ids: List[str]
+
+class ArchiveUsersResponse(BaseModel):
+    archived_count: int
+    user_ids: List[str]
+    message: str

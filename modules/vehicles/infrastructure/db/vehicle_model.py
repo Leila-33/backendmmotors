@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Integer, Boolean, Text, Enum as SqlEnum
+from sqlalchemy import Column, String, Float, Integer, Boolean, Text, DateTime, Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 
@@ -6,9 +6,10 @@ from infrastructure.db.session import Base
 from modules.core.enums import (
     VehicleType,
     EngineType,
-    VehicleCondition
+    VehicleCondition,
+    VehicleStatus
 )
-from modules.reservations.infrastructure.db.reservation_model import ReservationModel
+from modules.applications.infrastructure.db.application_model import ApplicationModel
 
 class VehicleModel(Base):
     __tablename__ = "vehicles"
@@ -33,7 +34,7 @@ class VehicleModel(Base):
 
     mileage = Column(Integer, nullable=False)
     year = Column(Integer, nullable=False)
-
+    final_check_at = Column(DateTime(timezone=True), nullable=True)
     # =========================
     # DETAILS
     # =========================
@@ -69,7 +70,12 @@ class VehicleModel(Base):
     # =========================
     # STATUS
     # =========================
-    is_available = Column(Boolean, default=True, nullable=False)
+    is_available = Column(Boolean, default=False, nullable=False)
+    
+    published_at = Column(
+    DateTime(timezone=True),
+    nullable=True
+)
 
     # =========================
     # MEDIA
@@ -77,9 +83,14 @@ class VehicleModel(Base):
     images = Column(
         ARRAY(String),
         nullable=False,
-        default=list  # ✔ correction importante
+        default=list
     )
+    status = Column(
+        SqlEnum(VehicleStatus),
+        nullable=False,
+        default=VehicleStatus.AVAILABLE,
 
+    )
     # =========================
     # RELATIONS
     # =========================
@@ -91,7 +102,7 @@ class VehicleModel(Base):
     )
 
     applications = relationship(
-        "ApplicationModel",
+        ApplicationModel,
         back_populates="vehicle",
         cascade="all, delete-orphan",
         lazy="selectin"
@@ -110,6 +121,25 @@ class VehicleModel(Base):
 )
     favorites = relationship(
         "FavoriteModel",
+        back_populates="vehicle",
+        cascade="all, delete-orphan"
+    )
+
+    warranty = relationship(
+        "VehicleWarrantyModel",
+        back_populates="vehicle",
+        cascade="all, delete-orphan",
+        uselist=False
+    )
+
+    reconditioning = relationship(
+    "ReconditioningModel",
+    back_populates="vehicle",
+    uselist=False,
+    cascade="all, delete-orphan"
+)
+    inspections = relationship(
+        "InspectionModel",
         back_populates="vehicle",
         cascade="all, delete-orphan"
     )

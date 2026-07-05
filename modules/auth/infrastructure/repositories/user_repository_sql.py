@@ -2,8 +2,10 @@ from modules.auth.domain.entities.user import User
 from modules.auth.domain.repositories.user_repository import UserRepository
 from modules.auth.infrastructure.db.user_model import UserModel
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-
+from modules.core.enums import UserRole
+from modules.auth.infrastructure.mapper.user_mapper import UserMapper
+from sqlalchemy import update, or_, desc, asc
+from datetime import datetime, timezone
 
 class UserRepositorySQL(UserRepository):
 
@@ -14,114 +16,79 @@ class UserRepositorySQL(UserRepository):
     # GET USER BY EMAIL
     # =========================
     def get_by_email(self, email: str):
-        u = self.db.query(UserModel).filter(UserModel.email == email).first()
+        model = self.db.query(UserModel).filter(UserModel.email == email).first()
 
-        if not u:
+        if not model:
             return None
 
-        return User(
-            id=u.id,
-            first_name=u.first_name,
-            last_name=u.last_name,
-            email=u.email,
-            password=u.password,
-            accepted_cgu=u.accepted_cgu,
-            is_verified=u.is_verified,
-            is_active=u.is_active,
-            role=u.role
-        )
+        return UserMapper.to_domain(model)
 
     # =========================
     # GET USER BY ID
     # =========================
     def get_by_id(self, user_id: str):
-        u = self.db.query(UserModel).filter(UserModel.id == user_id).first()
 
-        if not u:
+        model = (
+            self.db.query(UserModel)
+            .filter(UserModel.id == user_id)
+            .first()
+        )
+
+        if not model:
             return None
 
-        return User(
-            id=u.id,
-            first_name=u.first_name,
-            last_name=u.last_name,
-            email=u.email,
-            password=u.password,
-            accepted_cgu=u.accepted_cgu,
-            is_verified=u.is_verified,
-            is_active=u.is_active,
-            role=u.role
-        )
+        return UserMapper.to_domain(model)
 
     # =========================
     # SAVE USER
     # =========================
     def save(self, user: User):
-        model = UserModel(
-            id=user.id,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            email=user.email,
-            password=user.password,
-            accepted_cgu=user.accepted_cgu,
-            is_verified=user.is_verified,
-            is_active=user.is_active,
-            role=user.role
-        )
 
-        try:
-            self.db.add(model)
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
+        model = UserMapper.to_model(user)
 
+        self.db.add(model)
+        self.db.commit()
+        self.db.refresh(model)
+
+        return UserMapper.to_domain(model)
+    
     # =========================
     # UPDATE USER
     # =========================
-    def update(self, user: User):
-        u = self.db.query(UserModel).filter(UserModel.id == user.id).first()
 
-        if not u:
+    def update(self, user: User):
+
+        model = (
+            self.db.query(UserModel)
+            .filter(UserModel.id == user.id)
+            .first()
+        )
+
+        if not model:
             return None
 
-        u.first_name = user.first_name
-        u.last_name = user.last_name
-        u.email = user.email
-        u.password = user.password
-        u.accepted_cgu = user.accepted_cgu
-        u.is_verified = user.is_verified
-        u.is_active = user.is_active
-        u.role = user.role
+        UserMapper.update_model(model, user)
 
         try:
             self.db.commit()
-            self.db.refresh(u)
+            self.db.refresh(model)
         except Exception:
             self.db.rollback()
             raise
 
-        return User(
-            id=u.id,
-            first_name=u.first_name,
-            last_name=u.last_name,
-            email=u.email,
-            password=u.password,
-            accepted_cgu=u.accepted_cgu,
-            is_verified=u.is_verified,
-            is_active=u.is_active,
-            role=u.role
-        )
+        return UserMapper.to_domain(model)
     
-    def find_all(self, page, limit, search, role):
+
+
+    def find_all(self, page, limit, search, role, status, sort):
 
         query = self.db.query(UserModel)
 
-        # =========================
+        # =====================
         # SEARCH
-        # =========================
+        # =====================
         if search:
             search = search.strip()
-
             query = query.filter(
                 or_(
                     UserModel.first_name.ilike(f"%{search}%"),
@@ -130,12 +97,42 @@ class UserRepositorySQL(UserRepository):
                 )
             )
 
-        # =========================
+        # =====================
         # ROLE FILTER
-        # =========================
-        if role and role != "all":
-            query = query.filter(UserModel.role == role)
+        # =====================
+        if role:
+            role = role.strip().upper()
 
+            if role != "ALL":
+                query = query.filter(UserModel.role == role)
+
+        # =====================
+        # STATUS FILTER
+        # =====================
+        if status == "active":
+            query = query.filter(UserModel.is_active == True)
+
+        elif status == "inactive":
+            query = query.filter(UserModel.is_active == False)
+
+        # =====================
+        # SORTING
+        # =====================
+        if sort == "created_at_desc":
+            query = query.order_by(desc(UserModel.created_at))
+
+        elif sort == "created_at_asc":
+            query = query.order_by(asc(UserModel.created_at))
+
+        elif sort == "name_asc":
+            query = query.order_by(asc(UserModel.first_name))
+
+        elif sort == "name_desc":
+            query = query.order_by(desc(UserModel.first_name))
+
+        # =====================
+        # COUNT
+        # =====================
         total = query.count()
 
         users = (
@@ -146,3 +143,38 @@ class UserRepositorySQL(UserRepository):
         )
 
         return users, total
+    
+    def get_active_agents(self):
+        return (
+            self.db.query(UserModel)
+            .filter(UserModel.role == UserRole.SAV_AGENT, UserModel.is_active == True)
+            .order_by(UserModel.id.asc())
+            .all()
+        )
+    
+    def find_by_ids(self, ids: list[str]):
+        return (
+            self.db.query(UserModel)
+            .filter(UserModel.id.in_(ids))
+            .all()
+        )
+
+
+    def archive_many(self, ids: list[str]):
+
+        try:
+            self.db.execute(
+                update(UserModel)
+                .where(UserModel.id.in_(ids))
+                .values(
+                    is_deleted=True,
+                    is_active=False,
+                    deleted_at=datetime.now(timezone.utc)
+                )
+            )
+
+            self.db.commit()
+
+        except Exception:
+            self.db.rollback()
+            raise

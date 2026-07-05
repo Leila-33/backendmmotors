@@ -1,6 +1,6 @@
 # app/modules/auth/routes.py
 
-from fastapi import APIRouter, Depends, Request, Response, Query
+from fastapi import APIRouter, Depends, Request, Response
 
 from modules.auth.api.schemas import (
     RegisterRequest,
@@ -11,7 +11,6 @@ from modules.auth.api.schemas import (
     VerifyEmailRequest,
     LogoutRequest,
     UserResponse,
-    GetUsersDTO
 )
 
 from modules.auth.api.dependencies import (
@@ -19,10 +18,8 @@ from modules.auth.api.dependencies import (
     get_login_uc,
     get_refresh_uc,
     get_logout_uc,
-    get_verify_email_uc,
-    get_users_usecase
-
-)
+    get_verify_email_uc
+    )
 
 from modules.auth.application.use_cases.register_user import RegisterUser
 from modules.auth.application.use_cases.login_user import LoginUser
@@ -141,10 +138,3 @@ def me(
     user=Depends(get_current_user)
 ):
     return user
-
-
-
-
-
-# routes/admin_users.py
-

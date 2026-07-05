@@ -3,8 +3,14 @@ from modules.vehicles.api.schemas import UpdateVehicleRequest
 from modules.vehicles.application.use_cases.admin.create_vehicle import AssignOptionsToVehicleUseCase, VehicleMapper
 from modules.core.exceptions import (
     VehicleNotFound,
-    VehicleAlreadyExists
+    VehicleAlreadyExists,
+    WarrantyNotAllowedForRental,
+    WarrantyRequiredForSale
 )
+from modules.warranties.infrastructure.db.vehicle_warranty_model import VehicleWarrantyModel
+from modules.core.enums import VehicleType
+import uuid
+
 class UpdateVehicle:
 
     def __init__(
@@ -24,34 +30,69 @@ class UpdateVehicle:
 
         if not vehicle:
             raise VehicleNotFound()
-        
+
+        # =========================
+        # 2. CHECK LICENSE PLATE
+        # =========================
         if data.license_plate:
 
             existing = self.repo.get_by_license_plate(
                 data.license_plate
             )
 
-        if existing and existing.id != vehicle.id:
-            raise VehicleAlreadyExists()
+            if existing and existing.id != vehicle.id:
+                raise VehicleAlreadyExists()
 
         # =========================
-        # 2. HANDLE IMAGES (IMPORTANT)
+        # 3. WARRANTY RULES (IMPORTANT)
+        # =========================
+        payload = data.model_dump(exclude_unset=True)
+
+        if "warranty_plan_id" in payload:
+
+            new_warranty = data.warranty_plan_id
+
+            # =========================
+            # BUSINESS RULES (FINAL STATE)
+            # =========================
+            if data.type == VehicleType.SALE and new_warranty is None:
+                raise WarrantyRequiredForSale()
+
+            if data.type == VehicleType.RENT and new_warranty is not None:
+                raise WarrantyNotAllowedForRental()
+
+            # =========================
+            # APPLY CHANGE
+            # =========================
+            if new_warranty is None:
+                vehicle.warranty = None
+            else:
+                if vehicle.warranty:
+                    vehicle.warranty.warranty_plan_id = new_warranty
+                else:
+                    vehicle.warranty = VehicleWarrantyModel(
+                        id=str(uuid.uuid4()),
+                        vehicle_id=vehicle.id,
+                        warranty_plan_id=new_warranty,
+                        is_active=False
+                    )
+        # =========================
+        # 4. IMAGES (KEEP ORDER)
         # =========================
         if data.images is not None:
-            old_images = set(vehicle.images or [])
-            new_images = set(data.images or [])
 
-            # 🔥 images supprimées par l'utilisateur
-            images_to_delete = old_images - new_images
+            old_images = vehicle.images or []
+            new_images = data.images or []
+
+            images_to_delete = set(old_images) - set(new_images)
 
             for key in images_to_delete:
                 self.repo.delete_image_from_s3(key)
 
-            # 👉 update images
-            vehicle.images = list(new_images)
+            vehicle.images = new_images
 
         # =========================
-        # 3. UPDATE FIELDS (SAFE)
+        # 5. UPDATE FIELDS
         # =========================
         update_data = data.model_dump(exclude_unset=True)
 
@@ -60,7 +101,6 @@ class UpdateVehicle:
             "mileage", "year", "description",
             "engine_type", "equipments",
             "condition", "is_available", "license_plate"
-            # ⚠️ images retiré d’ici (déjà géré)
         }
 
         for key, value in update_data.items():
@@ -68,12 +108,12 @@ class UpdateVehicle:
                 setattr(vehicle, key, value)
 
         # =========================
-        # 4. SAVE VEHICLE
+        # 6. SAVE
         # =========================
         self.repo.update(vehicle)
 
         # =========================
-        # 5. UPDATE OPTIONS
+        # 7. OPTIONS
         # =========================
         if (
             data.included_options is not None or
@@ -85,6 +125,6 @@ class UpdateVehicle:
             )
 
         # =========================
-        # 6. RESPONSE
+        # 8. RESPONSE
         # =========================
         return VehicleMapper.to_response(vehicle)

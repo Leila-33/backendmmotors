@@ -17,7 +17,7 @@ class GetApplicationByVehicleUseCase:
 
         return (
             self.application_repository
-            .find_draft_by_user_and_vehicle(
+            .find_active_by_user_and_vehicle(
                 user_id=current_user.id,
                 vehicle_id=vehicle_id
             )

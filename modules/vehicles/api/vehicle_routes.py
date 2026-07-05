@@ -14,7 +14,8 @@ from modules.vehicles.api.schemas import (
 # =========================
 from modules.vehicles.api.dependencies import (
     get_vehicle_detail_uc,
-    get_get_vehicles_client_uc
+    get_get_vehicles_client_uc,
+    get_vehicle_availability_usecase
 )
 
 # =========================
@@ -22,7 +23,7 @@ from modules.vehicles.api.dependencies import (
 # =========================
 from modules.vehicles.application.use_cases.get_vehicle_detail import GetVehicleDetail
 from modules.vehicles.application.use_cases.get_vehicles import GetVehiclesForClientUseCase
-
+from modules.vehicles.application.use_cases.get_vehicle_avaibility import GetVehicleAvailabilityUseCase
 # =========================
 # AUTH
 # =========================
@@ -47,9 +48,17 @@ def get_vehicle_detail(
 def get_vehicles_client(
     filters: VehicleSearchFilters = Depends(),
     use_case: GetVehiclesForClientUseCase = Depends(get_get_vehicles_client_uc),
-    current_user=Depends(get_current_user)
 ):
     return use_case.execute(filters)
 
 
-    
+@router.get(
+    "/{vehicle_id}/unavailable-dates"
+)
+def get_unavailable_dates(
+    vehicle_id: str,
+    usecase: GetVehicleAvailabilityUseCase = Depends(
+        get_vehicle_availability_usecase
+    )
+):
+    return usecase.execute(vehicle_id)

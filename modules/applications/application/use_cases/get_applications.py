@@ -1,7 +1,3 @@
-# =========================================
-# app/application/usecases/get_applications_usecase.py
-# =========================================
-
 from modules.applications.api.schemas import (
     GetApplicationsDTO,
     ApplicationListItemAdmin,
@@ -9,12 +5,13 @@ from modules.applications.api.schemas import (
     ApplicationListItemUser
 )
 
-
-
+from modules.applications.domain.policies.cancel_application_policy import CancelApplicationPolicy
+from modules.applications.domain.policies.restore_application_policy import RestoreApplicationPolicy
 class GetApplicationsUseCase:
 
-    def __init__(self, application_repository):
+    def __init__(self, application_repository, reservation_repository):
         self.application_repository = application_repository
+        self.reservation_repository = reservation_repository
 
 
     def execute(
@@ -43,11 +40,10 @@ class GetApplicationsUseCase:
         status=dto.status,
         application_type=dto.application_type,
         sort=dto.sort,
-        archived=dto.archived,
-        user_id=user_id,   # 👈 IMPORTANT
+        view_mode=dto.view_mode,
+        user_id=user_id,
         role=role
     )
-
         # =========================
         # FILTER BY ROLE (SAFETY LAYER)
         # =========================
@@ -61,7 +57,7 @@ class GetApplicationsUseCase:
         # MAPPING
         # =========================
         items = [
-            self._map_application(app, role)
+            self._map_application(app, role, self.reservation_repository)
             for app in applications
         ]
 
@@ -78,13 +74,23 @@ class GetApplicationsUseCase:
             pages=pages
         )
     
-    def _map_application(self, app, role: str):
+    def _map_application(self, app, role: str, reservation_repository):
+
+        submitted_at = (
+            app.submitted_at.isoformat()
+            if app.submitted_at else None
+        )
+
+        vehicle_name = (
+            f"{app.vehicle.brand} {app.vehicle.model}"
+        )
 
         base = {
             "id": app.id,
             "type": app.vehicle.type,
-            "vehicle": f"{app.vehicle.brand} {app.vehicle.model}",
-            "status": app.status
+            "vehicle": vehicle_name,
+            "status": app.status,
+            "submitted_at": submitted_at,
         }
 
         # =========================
@@ -95,9 +101,13 @@ class GetApplicationsUseCase:
             return ApplicationListItemAdmin(
                 **base,
                 client=f"{app.first_name} {app.last_name}",
-                submitted_at=(
-                    app.submitted_at.isoformat()
-                    if app.submitted_at else None
+                can_cancel=CancelApplicationPolicy.can_cancel(
+                    app,
+                    role
+                ),
+                can_restore_cancelled=RestoreApplicationPolicy.can_restore(
+                    app,
+                    reservation_repository
                 )
             )
 
@@ -107,8 +117,8 @@ class GetApplicationsUseCase:
         return ApplicationListItemUser(
             **base,
             created_at=app.created_at.isoformat(),
-            submitted_at=(
-                app.submitted_at.isoformat()
-                if app.submitted_at else None
+            can_cancel=CancelApplicationPolicy.can_cancel(
+                app,
+                role
             )
         )

@@ -12,3 +12,14 @@ def get_email_service():
         password=settings.SMTP_PASSWORD,
         frontend_url=settings.FRONTEND_URL
     )
+
+
+from core.config import settings
+
+from core.security.jwt_service import JwtService
+
+def get_jwt_service():
+    return JwtService(
+        secret=settings.JWT_SECRET,
+        algorithm="HS256"
+    )

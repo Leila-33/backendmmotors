@@ -1,7 +1,6 @@
-from sqlalchemy import Column, String, ForeignKey, Enum
+from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.orm import relationship
 from infrastructure.db.session import Base
-from modules.applications.infrastructure.db.application_model import ApplicationModel
 
 class ApplicationOptionModel(Base):
     __tablename__ = "application_options"

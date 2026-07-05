@@ -3,16 +3,25 @@ from modules.vehicles.domain.entities.vehicle import Vehicle
 from modules.core.exceptions import (
     VehicleNotFound,
     OptionNotFound,
-    VehicleAlreadyExists
+    VehicleAlreadyExists,
+    WarrantyRequiredForSale
 )
+
 from modules.vehicles.api.schemas import (
     CreateVehicleRequest,
     VehicleResponse,
-    OptionDTO   
+    OptionDTO,
+    VehicleWarrantyResponse,
+    WarrantyPlanResponse
 )
 from modules.core.enums import (
-    VehicleOptionType   
+    VehicleOptionType,
+    VehicleType,
+    VehicleStatus
 )
+
+from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
+from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
 from core.config import settings
 from modules.storage.api.upload_routes import get_s3_client
 class CreateVehicle:
@@ -22,12 +31,31 @@ class CreateVehicle:
         self.assign_options_uc = assign_options_uc
 
     def execute(self, request: CreateVehicleRequest):
+
+        # =========================
+        # CHECK DUPLICATE
+        # =========================
         if request.license_plate:
             existing = self.repo.get_by_license_plate(request.license_plate)
 
-        if existing:
-            raise VehicleAlreadyExists()
+            if existing:
+                raise VehicleAlreadyExists()
 
+        # =========================
+        # BUSINESS RULES
+        # =========================
+
+        # SALE → warranty obligatoire
+        if request.type == VehicleType.SALE and not request.warranty_plan_id:
+            raise WarrantyRequiredForSale()
+
+        # RENT → warranty interdite
+        if request.type == VehicleType.RENT:
+            request.warranty_plan_id = None
+
+        # =========================
+        # DOMAIN VEHICLE
+        # =========================
         vehicle = Vehicle(
             id=str(uuid.uuid4()),
             brand=request.brand,
@@ -40,32 +68,58 @@ class CreateVehicle:
             engine_type=request.engine_type,
             equipments=request.equipments,
             condition=request.condition,
-            is_available=request.is_available,
-            images=request.images, # ✅ direct URLs
-            license_plate=request.license_plate
+            is_available=False,
+            images=request.images,
+            license_plate=request.license_plate,
+            status=VehicleStatus.AVAILABLE
         )
 
-        self.repo.save(vehicle)
+        # =========================
+        # WARRANTY (OPTIONAL)
+        # =========================
+        if request.warranty_plan_id:
 
+            vehicle.warranty = VehicleWarranty(
+                id=str(uuid.uuid4()),
+                vehicle_id=vehicle.id,
+                warranty_plan_id=request.warranty_plan_id,
+                is_active=False
+            )
+
+        # =========================
+        # SAVE
+        # =========================
+        vehicle = self.repo.save(vehicle)
+
+        # =========================
+        # OPTIONS
+        # =========================
         self.assign_options_uc.execute(
             vehicle_id=vehicle.id,
             request=request
         )
 
+        # =========================
+        # RESPONSE
+        # =========================
         return VehicleMapper.to_response(vehicle)
+    
+
 
 
 class VehicleMapper:
 
     @staticmethod
-    def to_response(vehicle):
+    def to_response(
+        vehicle: VehicleModel
+    ) -> VehicleResponse:
 
         s3 = get_s3_client()
 
         included = []
         optional = []
 
-        for vo in getattr(vehicle, "options", []) or []:
+        for vo in (vehicle.options or []):
 
             option_dto = OptionDTO(
                 id=vo.option.id,
@@ -80,7 +134,7 @@ class VehicleMapper:
                 optional.append(option_dto)
 
         # =========================
-        # S3 PRESIGNED URLs
+        # S3 PRESIGNED URLS
         # =========================
         images = [
             s3.generate_presigned_url(
@@ -94,23 +148,61 @@ class VehicleMapper:
             for key in (vehicle.images or [])
         ]
 
+        warranty = None
+
+        if vehicle.warranty:
+
+            warranty = VehicleWarrantyResponse(
+                id=vehicle.warranty.id,
+                warranty_plan=(
+                    WarrantyPlanResponse(
+                        id=vehicle.warranty.warranty_plan.id,
+                        name=vehicle.warranty.warranty_plan.name,
+                        price=vehicle.warranty.warranty_plan.price,
+                        duration_months=(
+                            vehicle.warranty
+                            .warranty_plan
+                            .duration_months
+                        )
+                    )
+                    if vehicle.warranty.warranty_plan
+                    else None
+                )
+            )
+
         return VehicleResponse(
             id=vehicle.id,
             brand=vehicle.brand,
             model=vehicle.model,
             price=vehicle.price,
-            type=vehicle.type,
+            type=vehicle.type.value,
             mileage=vehicle.mileage,
             year=vehicle.year,
+
             description=vehicle.description,
-            engine_type=vehicle.engine_type,
-            equipments=vehicle.equipments,
-            condition=vehicle.condition,
+
+            engine_type=(
+                vehicle.engine_type.value
+                if vehicle.engine_type
+                else None
+            ),
+
+            equipments=vehicle.equipments or [],
+
+            condition=vehicle.condition.value,
             is_available=vehicle.is_available,
+
+            license_plate=vehicle.license_plate,
+            status = vehicle.status,
+            published_at = vehicle.published_at,
+            final_check_at=vehicle.final_check_at,
+
             images=images,
+
             included_options=included,
             optional_options=optional,
-            license_plate=vehicle.license_plate
+
+            warranty=warranty
         )
     
 
@@ -159,3 +251,5 @@ class AssignOptionsToVehicleUseCase:
             )
 
         return {"message": "Options assignées au véhicule"}
+
+

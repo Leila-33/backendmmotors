@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from modules.notifications.domain.entities.notification import Notification
 from modules.core.enums import NotificationStatus, NotificationType
-
+from modules.core.exceptions import InvalidNotificationType
 
 
 class NotificationService:
@@ -37,7 +37,7 @@ class NotificationService:
             try:
                 notif_type = NotificationType(notif_type)
             except ValueError:
-                raise ValueError(f"Invalid notification type: {notif_type}")
+                raise InvalidNotificationType(notif_type)
 
         # =========================
         # CREATE NOTIFICATION
@@ -53,7 +53,7 @@ class NotificationService:
             status=NotificationStatus.UNREAD,
             created_at=datetime.now(timezone.utc)
         )
-
+        print(notification.id)
         # =========================
         # SAVE DB
         # =========================

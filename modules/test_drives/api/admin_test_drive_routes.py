@@ -2,9 +2,12 @@
 from fastapi import APIRouter, Depends
 
 from modules.test_drives.api.dependencies import (
-    get_test_drive_repository,
     get_test_drive_admin_usecase,
     get_test_drive_detail_usecase
+)
+
+from modules.core.infrastructure.dependencies import (
+        get_test_drive_repository
 )
 
 router = APIRouter(tags=["AdminTestDrive"])

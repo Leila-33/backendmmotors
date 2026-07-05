@@ -66,7 +66,7 @@ class UpdateDocumentUseCase:
         self.event_repository = event_repository
         self.notification_service = notification_service
 
-    def execute(
+    async def execute(
         self,
         dto: UpdateDocumentDTO,
         current_admin
@@ -155,7 +155,7 @@ class UpdateDocumentUseCase:
                 f"L’équipe Mmotors"
             )
 
-            self.notification_service.send(
+            await self.notification_service.send(
                 user_id=document.application.user_id,
                 email=document.application.user.email,
 

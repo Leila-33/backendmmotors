@@ -1,18 +1,52 @@
+from collections import defaultdict
 from fastapi import WebSocket
 
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: dict[str, WebSocket] = {}
 
+class ConnectionManager:
+
+    def __init__(self):
+        # user_id -> list of sockets
+        self.active_connections: dict[str, list[WebSocket]] = defaultdict(list)
+
+    # =====================
+    # CONNECT
+    # =====================
     async def connect(self, user_id: str, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections[user_id] = websocket
+        self.active_connections[user_id].append(websocket)
 
-    def disconnect(self, user_id: str):
-        self.active_connections.pop(user_id, None)
+    # =====================
+    # DISCONNECT
+    # =====================
+    def disconnect(self, user_id: str, websocket: WebSocket):
+        if user_id in self.active_connections:
+            if websocket in self.active_connections[user_id]:
+                self.active_connections[user_id].remove(websocket)
 
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    # =====================
+    # SEND TO USER (ALL DEVICES)
+    # =====================
     async def send(self, user_id: str, message: dict):
-        ws = self.active_connections.get(user_id)
+        sockets = self.active_connections.get(user_id, [])
 
-        if ws:
+        if not sockets:
+            print("❌ NO WS FOUND")
+            return
+
+        for ws in sockets:
             await ws.send_json(message)
+
+        print("🔥 MESSAGE SENT")
+
+    # =====================
+    # BROADCAST TO ALL USERS
+    # =====================
+    async def broadcast(self, message: dict):
+        for sockets in self.active_connections.values():
+            for ws in sockets:
+                await ws.send_json(message)
+
+manager = ConnectionManager()

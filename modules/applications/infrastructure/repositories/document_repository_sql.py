@@ -1,15 +1,9 @@
 from sqlalchemy.orm import Session
 
 from modules.applications.domain.repositories.document_repository import DocumentRepository
-from modules.applications.infrastructure.db.document_model import DocumentModel
+
 from modules.core.exceptions import DocumentNotFound
-
-from sqlalchemy.orm import Session
-
-from modules.applications.domain.repositories.document_repository import DocumentRepository
 from modules.applications.infrastructure.db.document_model import DocumentModel
-from modules.core.exceptions import DocumentNotFound
-
 
 class DocumentRepositorySQL(DocumentRepository):
 

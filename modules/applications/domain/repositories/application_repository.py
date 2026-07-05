@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from modules.applications.infrastructure.db.application_model import ApplicationModel
 from modules.applications.domain.entities.application_financing import ApplicationFinancing
 from modules.applications.domain.entities.application_trade_in import ApplicationTradeIn
 
@@ -12,15 +11,15 @@ class ApplicationRepository(ABC):
     # BASE APPLICATION
     # =========================
     @abstractmethod
-    def create_base(self, **kwargs) -> ApplicationModel:
+    def create_base(self, **kwargs) -> "ApplicationModel":
         pass
 
     @abstractmethod
-    def get_by_id(self, application_id: str) -> Optional[ApplicationModel]:
+    def get_by_id(self, application_id: str) -> Optional["ApplicationModel"]:
         pass
 
     @abstractmethod
-    def update(self, application: ApplicationModel) -> ApplicationModel:
+    def update(self, application: "ApplicationModel") -> "ApplicationModel":
         pass
 
     # =========================

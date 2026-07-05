@@ -1,15 +1,14 @@
-from sqlalchemy import Column, Integer, Date, DateTime, ForeignKey, Enum, String
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Enum, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from infrastructure.db.session import Base
 from modules.core.enums import ReservationStatus
-from modules.auth.infrastructure.db.user_model import UserModel
 
 class ReservationModel(Base):
     __tablename__ = "reservations"
-
-    id = Column(Integer, primary_key=True, index=True)
+    UniqueConstraint("application_id")
+    id = Column(String, primary_key=True, index=True)
 
     vehicle_id = Column(
         String,
@@ -18,10 +17,10 @@ class ReservationModel(Base):
         index=True
     )
 
-    user_id = Column(
+    application_id = Column(
         String,
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
+        ForeignKey("applications.id", ondelete="CASCADE"),
+        nullable=True,
         index=True
     )
 
@@ -31,7 +30,8 @@ class ReservationModel(Base):
     status = Column(
         Enum(ReservationStatus),
         nullable=False,
-        default=ReservationStatus.ACTIVE
+        default=ReservationStatus.ACTIVE,
+        index=True
     )
 
     created_at = Column(
@@ -42,6 +42,7 @@ class ReservationModel(Base):
 
     updated_at = Column(
         DateTime(timezone=True),
+        server_default=func.now(),
         onupdate=func.now()
     )
 
@@ -53,7 +54,7 @@ class ReservationModel(Base):
         back_populates="reservations"
     )
 
-    user = relationship(
-        "UserModel",
-        back_populates="reservations"
+    application = relationship(
+        "ApplicationModel",
+        back_populates="reservation"
     )

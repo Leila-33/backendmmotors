@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import func
 from modules.applications.infrastructure.db.application_model import ApplicationModel
+from modules.payments.infrastructure.db.payment_model import PaymentModel
 
 class GetAnalyticsUseCase:
 
@@ -55,14 +56,16 @@ class GetAnalyticsUseCase:
         # 3. REVENUE (EXAMPLE SIMULATED)
         # =========================
         revenue = (
-            self.session.query(
-                func.date_trunc("month", ApplicationModel.created_at).label("month"),
-                func.sum(ApplicationModel.monthly_income).label("amount")
-            )
-            .group_by(func.date_trunc("month", ApplicationModel.created_at))
-            .order_by(func.date_trunc("month", ApplicationModel.created_at))
-            .all()
+        self.session.query(
+            func.date_trunc("month", PaymentModel.created_at).label("month"),
+            func.sum(PaymentModel.amount).label("amount")
         )
+        .filter(PaymentModel.status == "paid")
+        .group_by(
+            func.date_trunc("month", PaymentModel.created_at)
+        )
+        .all()
+    )
 
         revenue = [
             {

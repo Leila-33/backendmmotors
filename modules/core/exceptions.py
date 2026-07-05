@@ -10,10 +10,6 @@ class ApplicationNotFound(DomainException):
         super().__init__("APPLICATION_NOT_FOUND", 404)
 
 
-class VehicleNotFound(DomainException):
-    def __init__(self):
-        super().__init__("VEHICLE_NOT_FOUND", 404)
-
 
 class VehicleNotAvailable(DomainException):
     def __init__(self):
@@ -81,9 +77,7 @@ class OptionNotFound(DomainException):
         super().__init__("OPTION_NOT_FOUND", 404)
 
 
-class EmailAlreadyExists(DomainException):
-    def __init__(self):
-        super().__init__("EMAIL_ALREADY_EXISTS", 409)
+
 
 
 class CguNotAccepted(DomainException):
@@ -128,8 +122,11 @@ class TokenRevoked(DomainException):
 
 
 class Forbidden(DomainException):
-    def __init__(self):
-        super().__init__("FORBIDDEN", 403)
+    def __init__(self, message: str = "Accès interdit"):
+        super().__init__(
+            message=message,
+            status_code=403
+        )
 
 
 class RefreshTokenMissing(DomainException):
@@ -148,7 +145,7 @@ class ReservationNotFound(DomainException):
 
 class UserNotFound(DomainException):
     def __init__(self):
-        super().__init__("USER_NOT_FOUND", 404)
+        super().__init__("Utilisateur introuvable", 404)
 
 
 class VehicleNotAvailable(DomainException):
@@ -266,4 +263,366 @@ class TestDriveStatusForbidden(DomainException):
         super().__init__(
             "Les clients ne peuvent que annuler un essai routier",
             403
+        )
+
+
+
+class WarrantyPlanAlreadyExists(DomainException):
+
+    def __init__(self, message="Plan déjà existant"):
+
+        super().__init__(
+            message,
+            409
+        )
+
+class WarrantyPlanNotFound(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "Plan de garantie introuvable",
+            404
+        )
+
+class VehicleWarrantyNotAssigned(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "Aucune garantie n'est assignée à ce véhicule",
+            400
+        )
+        
+class PaymentNotFound(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "Paiement introuvable",
+            404
+        )
+
+class WarrantyNotFound(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "Garantie introuvable",
+            404
+        )
+
+class InvalidNotificationType(DomainException):
+
+    def __init__(self, notif_type: str):
+
+        super().__init__(
+            f"Type de notification invalide : {notif_type}",
+            400
+        )
+
+class PaymentNotAllowed(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "Le dossier doit être approuvé avant paiement",
+            400
+        )
+
+
+
+class ApplicationNotFound(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "Dossier introuvable",
+            404
+        )
+
+
+class FinancingDataNotFound(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "Informations de financement introuvables",
+            400
+        )
+
+
+
+class FinancingContractNotFound(
+    DomainException
+):
+
+    def __init__(self):
+
+        super().__init__(
+            "Contrat de financement introuvable",
+            404
+        )
+
+class WarrantyNotAllowedForRental(DomainException):
+    def __init__(self):
+        super().__init__("Une garantie ne peut pas être ajoutée à un véhicule en location.")
+
+class WarrantyRequiredForSale(DomainException):
+    def __init__(self):
+        super().__init__("Une garantie est obligatoire pour un véhicule en vente.")
+
+class ApplicationAlreadyExists(DomainException):
+    def __init__(self):
+        super().__init__(
+            "Une demande de dossier existe déjà pour ce véhicule."
+        )
+
+
+class ReservationAlreadyCancelled(DomainException):
+    def __init__(self):
+        super().__init__("La réservation est déjà annulée.")
+
+class ApplicationAlreadyCancelled(DomainException):
+    def __init__(self):
+        super().__init__("Le dossier est déjà annulé.")
+
+class ReservationAlreadyStarted(DomainException):
+    def __init__(self):
+        super().__init__("Impossible d'annuler une réservation déjà commencée.")
+
+
+class CannotCancelApplication(DomainException):
+
+    def __init__(self):
+        super().__init__(
+            message="Cette application ne peut pas être annulée.",
+            status_code=400
+        )
+
+class CannotCancelReservation(DomainException):
+
+    def __init__(self):
+        super().__init__(
+            message="Cette réservation ne peut pas être annulée.",
+            status_code=400
+        )
+
+class CannotRestoreApplication(
+    DomainException
+):
+
+    def __init__(
+        self,
+        reason: str = None
+    ):
+        message = (
+            "Cette application ne peut pas être restaurée."
+        )
+
+        if reason:
+            message = f"{message} {reason}"
+
+        super().__init__(
+            message=message,
+            status_code=400
+        )
+
+class InspectionAlreadyRunning(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Une inspection est déjà en cours pour ce véhicule.",
+            status_code=409
+        )
+
+
+class ReconditioningAlreadyRunning(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Un reconditionnement est déjà en cours pour ce véhicule.",
+            status_code=409
+        )
+
+class InspectionAlreadyCompleted(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Ce véhicule a déjà été inspecté.",
+            status_code=409
+        )
+
+
+class VehicleNotEligibleForInspection(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Ce véhicule n'est pas éligible à une inspection.",
+            status_code=400
+        )
+
+
+class VehicleNotFound(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Véhicule introuvable.",
+            status_code=404
+        )
+
+class InspectionNotFound(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Inspection introuvable.",
+            status_code=404
+        )
+
+class ReconditioningNotFound(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Reconditionnement introuvable pour ce véhicule",
+            status_code=404
+        )
+
+class InspectionNotCompleted(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="L'inspection doit être terminée avant de lancer le reconditionnement.",
+            status_code=400
+        )
+
+class InvalidRepairConfiguration(DomainException):
+    def __init__(self, code: str):
+        super().__init__(
+            message=f"Le code de réparation '{code}' n'est pas configuré.",
+            status_code=500
+        )
+        
+class ReconditioningNotCompleted(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Le reconditionnement n'est pas terminé",
+            status_code=400
+        )
+
+class VehicleNotReadyForPublication(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Le véhicule n'est pas prêt à être publié",
+            status_code=400
+        )
+class VehicleAlreadyPublished(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Le véhicule est déjà publié",
+            status_code=400
+        )
+        
+class VehicleNotPublished(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Le véhicule doit être publié avant modification de disponibilité",
+            status_code=400
+        )
+class VehicleAvailabilityAlreadySet(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="La disponibilité est déjà dans cet état",
+            status_code=400
+        )
+
+class FinancingAmountNegative(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="L'apport et la valeur de reprise dépassent le prix du véhicule.",
+            status_code=400
+        )
+
+class SupportTicketNotFound(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Ticket introuvable.",
+            status_code=404
+        )
+
+class TicketAccessDenied(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Accès refusé à ce ticket.",
+            status_code=403
+        )
+
+class InvalidTicketStatus(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Statut de ticket invalide.",
+            status_code=400
+        )
+
+class NoAvailableAgent(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Aucun agent SAV disponible.",
+            status_code=503
+        )
+        
+
+
+class TicketClosedException(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Impossible d'envoyer un message sur un ticket fermé.",
+            status_code=400
+        )
+
+class EmptyMessageException(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Le message ne peut pas être vide.",
+            status_code=400
+        )
+
+class MessageTooLongException(DomainException):
+    def __init__(self, max_length: int = 2000):
+        super().__init__(
+            message=f"Le message dépasse la limite autorisée ({max_length} caractères).",
+            status_code=400
+        )
+
+class InvalidRole(DomainException):
+    def __init__(self, role: str):
+        super().__init__(
+            message=f"Rôle invalide : {role}",
+            status_code=400
+        )
+
+class AccountDeleted(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Ce compte a été supprimé.",
+            status_code=403
+        )
+
+class InvalidUserIds(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Aucun utilisateur sélectionné ou identifiants invalides.",
+            status_code=400
+        )
+
+class UserAlreadyArchived(DomainException):
+    def __init__(self, user_id: str):
+        super().__init__(
+            message=f"Utilisateur {user_id} déjà archivé.",
+            status_code=409
+        )
+
+class CannotArchiveAdmin(DomainException):
+    def __init__(self, user_id: str):
+        super().__init__(
+            message=f"Impossible d'archiver l'administrateur {user_id}.",
+            status_code=403
+        )
+
+class InvalidTicketState(DomainException):
+    def __init__(self):
+        super().__init__(
+            message="Seuls les tickets résolus ou fermés peuvent être archivés.",
+            status_code=400,
         )

@@ -42,7 +42,7 @@ class GetTestDriveDetailsUseCase:
             "events": [
                 {
                     "id": e.id,
-                    "type": e.type.value,
+                    "type": e.type,
                     "message": e.message,
                     "created_at": e.created_at
                 }

@@ -20,3 +20,9 @@ class ReservationRepository(ABC):
 
     @abstractmethod
     def exists_overlap(self, vehicle_id, start_date, end_date): pass
+   
+    @abstractmethod
+    def create_or_update(self, application_id, vehicle_id, start_date, end_date): pass
+
+    @abstractmethod
+    def delete_by_application_id(self, application_id: str): pass

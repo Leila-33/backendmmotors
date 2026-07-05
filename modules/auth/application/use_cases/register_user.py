@@ -2,6 +2,7 @@ import uuid
 from core.security.password import hash_password
 from modules.core.exceptions import EmailAlreadyExists
 from modules.auth.domain.entities.user import User
+from modules.core.enums import UserRole
 
 
 class RegisterUser:
@@ -22,19 +23,21 @@ class RegisterUser:
             last_name=data.last_name,
             email=data.email,
             password=hash_password(data.password),
-            role="client",
+            role=UserRole.CLIENT,
             is_verified=False,
             is_active=True,
-            accepted_cgu=True
+            accepted_cgu=True,
         )
 
-        self.user_repo.save(user)
+        user = self.user_repo.save(user)
 
         token = self.jwt.create_email_token(user.id)
 
         self.email_service.send_verification_email(
             email=user.email,
-            token=token
+            token=token,
         )
 
-        return {"message": "User created"}
+        return {
+            "message": "Utilisateur créé avec succès."
+        }

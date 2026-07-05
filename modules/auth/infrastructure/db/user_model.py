@@ -1,10 +1,10 @@
-from sqlalchemy import Column, String, Boolean, Enum
+from sqlalchemy import Column, String, Boolean, Enum, DateTime, func
 from infrastructure.db.session import Base
 from sqlalchemy.orm import relationship
-from modules.notifications.infrastructure.db.notification_model import NotificationModel
+
 
 from modules.core.enums import UserRole
-from modules.applications.infrastructure.db.event_model import EventModel
+
 
 class UserModel(Base):
     __tablename__ = "users"
@@ -20,9 +20,18 @@ class UserModel(Base):
     role = Column(Enum(UserRole), default=UserRole.CLIENT, nullable=False)
 
     is_verified = Column(Boolean, default=False, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
 
     accepted_cgu = Column(Boolean, default=False, nullable=False)
+
+    is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+
+    
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+    deleted_at = Column(DateTime, nullable=True)
 
     # =====================
     # RELATIONS
@@ -42,11 +51,6 @@ class UserModel(Base):
         "NotificationModel",
         back_populates="user"
     )
-
-    reservations = relationship(
-        "ReservationModel",
-        back_populates="user",
-        cascade="all, delete")
     
     test_drives = relationship(
     "TestDriveModel",
@@ -58,3 +62,31 @@ class UserModel(Base):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+
+    payments = relationship(
+    "PaymentModel",
+    back_populates="user",
+    cascade="all, delete-orphan"
+)
+    
+    messages = relationship(
+            "TicketMessageModel",
+            back_populates="sender"
+        )
+    
+    tickets = relationship(
+    "SupportTicketModel",
+    foreign_keys="[SupportTicketModel.user_id]",
+    back_populates="user"
+)
+    
+    assigned_tickets = relationship(
+    "SupportTicketModel",
+    foreign_keys="[SupportTicketModel.assigned_to]"
+)
+    
+    ticket_read_states = relationship(
+    "TicketReadStateModel",
+    back_populates="user",
+    cascade="all, delete-orphan",
+)

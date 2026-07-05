@@ -63,6 +63,8 @@ class Application:
     # =====================================================
     status: ApplicationStatus = ApplicationStatus.DRAFT
 
+    previous_status: Optional[ApplicationStatus] = None
+
     created_at: datetime = field(
         default_factory=datetime.utcnow
     )

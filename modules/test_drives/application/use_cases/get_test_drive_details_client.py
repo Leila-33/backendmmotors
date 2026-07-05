@@ -53,7 +53,7 @@ class GetTestDriveDetailClientUseCase:
 
             "timeline": [
                 {
-                    "type": e.type.value,
+                    "type": e.type,
                     "message": e.message,
                     "date": e.created_at,
                     "metadata": e.event_metadata,

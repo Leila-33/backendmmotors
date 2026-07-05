@@ -1,7 +1,8 @@
 from modules.core.exceptions import (
     InvalidCredentials,
     AccountDisabled,
-    EmailNotVerified
+    EmailNotVerified,
+    AccountDeleted
 )
 from core.security.password import verify_password
 
@@ -26,7 +27,10 @@ class LoginUser:
 
         if not user or not verify_password(data.password, user.password):
             raise InvalidCredentials()
-
+        
+        if user.is_deleted:
+            raise AccountDeleted()
+        
         if not user.is_active:
             raise AccountDisabled()
 
