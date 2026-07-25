@@ -1,7 +1,7 @@
 from modules.reconditionings.api.schemas import ReconditioningResult
 from modules.inspections.domain.entities.inspection import Inspection
 from modules.reconditionings.api.schemas import ReconditioningResult
-from modules.core.exceptions import InvalidRepairConfiguration
+from modules.reconditionings.domain.exceptions import InvalidRepairConfiguration
 
 def perform_reconditioning_analysis(
     inspection: Inspection,

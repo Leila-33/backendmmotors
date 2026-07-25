@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from modules.core.enums import OptionUsageType
+from modules.applications.domain.enums import OptionUsageType
 
 
 

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import jwt
 import uuid
-from modules.core.exceptions import TokenInvalid, TokenExpired
+from modules.auth.domain.exceptions import TokenInvalid, TokenExpired
 
 
 class JwtService:

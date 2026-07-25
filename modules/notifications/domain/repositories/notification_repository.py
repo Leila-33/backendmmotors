@@ -4,57 +4,104 @@ from typing import List, Optional
 
 
 
+from abc import ABC, abstractmethod
+from typing import Optional
+
+from modules.notifications.domain.entities.notification import (
+    Notification
+)
+
+
+
 class NotificationRepository(ABC):
 
-    @abstractmethod
-    def save(self, notification: Notification):
-        pass
+
+    # =========================
+    # SAVE
+    # =========================
 
     @abstractmethod
-    def get_by_user(self, user_id: str):
+    def save(
+        self,
+        notification: Notification
+    ) -> None:
         pass
+
+
+
+    # =========================
+    # GET BY USER
+    # =========================
+
     @abstractmethod
-    def delete_by_application(self, application_id: str):
+    def get_by_user(
+        self,
+        user_id: str
+    ) -> list[Notification]:
         pass
+
+
+
+    # =========================
+    # DELETE BY APPLICATION
+    # =========================
+
+    @abstractmethod
+    def delete_by_entity(
+        self,
+        entity_type: str,
+        entity_id: str
+    ) -> None:
+        pass
+
 
 
     # =========================
     # GET BY ID
     # =========================
+
     @abstractmethod
-    def get_by_id(self, notification_id: str) -> Optional[Notification]:
+    def get_by_id(
+        self,
+        notification_id: str
+    ) -> Optional[Notification]:
         pass
 
-    # =========================
-    # GET BY USER
-    # =========================
-    @abstractmethod
-    def get_by_user_id(self, user_id: str) -> List[Notification]:
-        pass
+
 
     # =========================
     # UPDATE
     # =========================
-    @abstractmethod
-    def update(self, notification: Notification) -> Notification:
-        pass
 
-    # =========================
-    # DELETE (OPTIONAL)
-    # =========================
     @abstractmethod
-    def delete(self, notification_id: str) -> None:
-        pass
-
-    # =========================
-    # COUNT UNREAD (UX BADGE)
-    # =========================
-    @abstractmethod
-    def count_unread(self, user_id: str) -> int:
+    def update(
+        self,
+        notification: Notification
+    ) -> None:
         pass
 
 
-   
+
+    # =========================
+    # DELETE
+    # =========================
+
     @abstractmethod
-    def commit(self) -> None:
+    def delete(
+        self,
+        notification_id: str
+    ) -> None:
+        pass
+
+
+
+    # =========================
+    # COUNT UNREAD (BADGE)
+    # =========================
+
+    @abstractmethod
+    def count_unread(
+        self,
+        user_id: str
+    ) -> int:
         pass

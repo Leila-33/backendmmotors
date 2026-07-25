@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from modules.applications.domain.entities.application_financing import ApplicationFinancing
 from modules.applications.domain.entities.application_trade_in import ApplicationTradeIn
-
+from modules.applications.infrastructure.db.application_model import ApplicationModel
 
 class ApplicationRepository(ABC):
 
@@ -88,4 +88,11 @@ class ApplicationRepository(ABC):
 
     @abstractmethod
     def soft_delete(self, application_id: str):
+        pass
+    
+    @abstractmethod
+    def find_by_quote_id(
+    self,
+    quote_id: str
+) -> ApplicationModel | None:
         pass

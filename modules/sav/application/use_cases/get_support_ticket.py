@@ -1,5 +1,5 @@
-from modules.core.exceptions import SupportTicketNotFound, TicketAccessDenied
-from modules.core.enums import UserRole
+from modules.sav.domain.exceptions import SupportTicketNotFound, TicketAccessDenied
+from modules.auth.domain.enums import UserRole
 from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 from datetime import datetime, timezone
 

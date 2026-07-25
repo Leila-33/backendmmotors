@@ -1,14 +1,13 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
-
-from modules.core.enums import WarrantyPlanType
+from modules.warranties.domain.enums import WarrantyPlanType
 
 
 # =====================================================
 # DTO
 # =====================================================
 
-class CreateWarrantyPlanDTO(BaseModel):
+class WarrantyPlanPayload(BaseModel):
 
     # =========================
     # INFOS
@@ -42,8 +41,6 @@ class CreateWarrantyPlanDTO(BaseModel):
     # =========================
     # FINANCIAL
     # =========================
-    deductible: float = 0.0
-
     price: float
 
     # =====================================================
@@ -90,17 +87,6 @@ class CreateWarrantyPlanDTO(BaseModel):
 
         return value
 
-    @field_validator("deductible")
-    @classmethod
-    def validate_deductible(cls, value):
-
-        if value < 0:
-            raise ValueError(
-                "La franchise ne peut pas être négative"
-            )
-
-        return value
-
     @field_validator("price")
     @classmethod
     def validate_price(cls, value):
@@ -112,20 +98,72 @@ class CreateWarrantyPlanDTO(BaseModel):
 
         return value
 
+# =====================================================
+# CREATE
+# =====================================================
+class CreateWarrantyPlanRequest(WarrantyPlanPayload):
+    pass
+
+
+class CreateWarrantyPlanResponse(BaseModel):
+
+    id: str
+
+    message: str
 
 # =====================================================
-# RESPONSE DTO
+# TOGGLE
 # =====================================================
 
-class CreateWarrantyPlanResponseDTO(BaseModel):
+class ToggleWarrantyPlanRequest(BaseModel):
+
+    active: bool
+
+
+class UpdateWarrantyPlanResponse(BaseModel):
+
+    id: str
+
+    message: str
+
+
+# =====================================================
+# UPDATE
+# =====================================================
+class UpdateWarrantyPlanRequest(WarrantyPlanPayload):
+    pass
+
+# =====================================================
+# WARRANTY PLAN RESPONSE
+# =====================================================
+class WarrantyPlanResponse(BaseModel):
 
     id: str
 
     name: str
 
+    description: Optional[str]
+
+    plan_type: str
+
+    duration_months: int
+
+    mileage_limit: Optional[int]
+
+    covers_engine: bool
+
+    covers_transmission: bool
+
+    covers_electronics: bool
+
+    covers_assistance: bool
+
+    covers_wear_parts: bool
+
     price: float
 
     active: bool
 
-class ToggleWarrantyDTO(BaseModel):
-    active: bool
+
+    class Config:
+        from_attributes = True

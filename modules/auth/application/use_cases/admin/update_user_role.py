@@ -1,5 +1,5 @@
-from modules.core.exceptions import Forbidden, UserNotFound
-from modules.core.enums import UserRole
+from modules.auth.domain.exceptions import Forbidden, UserNotFound
+from modules.auth.domain.enums import UserRole
 
 class UpdateUserRoleUseCase:
 

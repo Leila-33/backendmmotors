@@ -1,43 +1,90 @@
-import uuid
+from typing import List
+from sqlalchemy.orm import Session
+from modules.vehicles.domain.repositories.vehicle_option_repository import VehicleOptionRepository
 from modules.vehicles.infrastructure.db.vehicle_option_model import VehicleOptionModel
+from modules.vehicles.domain.entities.vehicle_option import VehicleOption
+from modules.vehicles.infrastructure.mappers.vehicle_option_mapper import (
+    VehicleOptionMapper
+)
 
 
-class VehicleOptionRepositorySQL:
+class VehicleOptionRepositorySQL(VehicleOptionRepository):
 
-    def __init__(self, db):
+    def __init__(
+        self,
+        db: Session
+    ):
         self.db = db
 
-    # =========================
-    # CREATE LINK
-    # =========================
-    def create(self, vehicle_id: str, option_id: str, type: str):
 
-        model = VehicleOptionModel(
-            id=str(uuid.uuid4()),
-            vehicle_id=vehicle_id,
-            option_id=option_id,
-            type=type
+    # =========================
+    # CREATE
+    # =========================
+
+    def create(
+        self,
+        vehicle_option: VehicleOption
+    ):
+
+        model = (
+            VehicleOptionMapper
+            .to_model(vehicle_option)
         )
 
         self.db.add(model)
-        self.db.commit()
-        return model
+
+        self.db.flush()
+
+        return (
+            VehicleOptionMapper
+            .to_domain(model)
+        )
+
 
     # =========================
     # GET BY VEHICLE
     # =========================
-    def get_by_vehicle(self, vehicle_id: str):
-        return (
-            self.db.query(VehicleOptionModel)
-            .filter_by(vehicle_id=vehicle_id)
+
+    def get_by_vehicle(
+        self,
+        vehicle_id: str
+    ) -> List[VehicleOption]:
+
+        models = (
+            self.db
+            .query(VehicleOptionModel)
+            .filter(
+                VehicleOptionModel.vehicle_id == vehicle_id
+            )
             .all()
         )
+
+
+        return [
+            VehicleOptionMapper.to_domain(model)
+            for model in models
+        ]
+
 
     # =========================
     # DELETE BY VEHICLE
     # =========================
-    def delete_by_vehicle(self, vehicle_id: str):
-        self.db.query(VehicleOptionModel)\
-            .filter_by(vehicle_id=vehicle_id)\
-            .delete()
-        self.db.commit()
+
+    def delete_by_vehicle(
+        self,
+        vehicle_id: str
+    ):
+
+        (
+            self.db
+            .query(VehicleOptionModel)
+            .filter(
+                VehicleOptionModel.vehicle_id == vehicle_id
+            )
+            .delete(
+                synchronize_session=False
+            )
+        )
+
+
+        self.db.flush()

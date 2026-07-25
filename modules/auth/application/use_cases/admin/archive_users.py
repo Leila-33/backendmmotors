@@ -1,9 +1,9 @@
-from modules.core.exceptions import (
+from modules.auth.domain.exceptions import (
     InvalidUserIds,
     UserAlreadyArchived,
     CannotArchiveAdmin
 )
-from modules.core.enums import UserRole
+from modules.auth.domain.enums import UserRole
 from modules.auth.api.schemas import ArchiveUsersResponse
 
 class ArchiveUsersUseCase:

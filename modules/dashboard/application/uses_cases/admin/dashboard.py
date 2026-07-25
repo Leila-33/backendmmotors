@@ -1,9 +1,7 @@
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import func
 
-from modules.core.enums import (
-    ApplicationStatus
-)
+from modules.applications.domain.enums import ApplicationStatus
+
 
 from modules.applications.infrastructure.db.application_model import (
     ApplicationModel

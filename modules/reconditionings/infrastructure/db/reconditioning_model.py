@@ -1,8 +1,8 @@
 from sqlalchemy import Column, String, Integer, Float, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
-from infrastructure.db.session import Base
-from modules.core.enums import ReconditioningStatus
+from core.database.session import Base
+from modules.reconditionings.domain.enums import ReconditioningStatus
 
 
 class ReconditioningModel(Base):

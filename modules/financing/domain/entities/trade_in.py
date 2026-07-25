@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 
-from modules.core.enums import (
-    TradeInVehicleCondition
-)
+from modules.applications.domain.enums import TradeInVehicleCondition
 
 
 @dataclass

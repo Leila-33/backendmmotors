@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from modules.core.enums import PaymentStatus
+from modules.payments.domain.enums import PaymentStatus
 
 
 @dataclass

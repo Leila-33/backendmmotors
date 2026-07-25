@@ -1,7 +1,7 @@
 from fastapi import WebSocket, WebSocketDisconnect
 
 from websocket.auth import get_user_from_ws_token
-from modules.core.enums import UserRole
+from modules.auth.domain.enums import UserRole
 from modules.sav.api.schemas import TicketMessageCreate
 from fastapi import WebSocket, WebSocketDisconnect
 

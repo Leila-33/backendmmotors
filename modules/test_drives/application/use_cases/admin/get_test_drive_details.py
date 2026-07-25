@@ -1,4 +1,4 @@
-from modules.core.exceptions import TestDriveNotFound
+from modules.test_drives.domain.exceptions import TestDriveNotFound
 
 class GetTestDriveDetailsUseCase:
 

@@ -1,12 +1,12 @@
-from modules.core.enums import SubscriptionStatus
+from modules.payments.domain.enums import SubscriptionStatus
 
 from uuid import uuid4
 
 
-from modules.core.exceptions import (
+from modules.financing.domain.exceptions import (
     FinancingContractNotFound
 )
-from modules.core.enums import EventType
+from modules.applications.domain.enums import EventType
 from modules.applications.domain.entities.event import Event
 
 STRIPE_TO_SUBSCRIPTION_STATUS = {

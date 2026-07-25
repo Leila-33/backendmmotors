@@ -10,7 +10,7 @@ from modules.sav.application.use_cases.ticket_chat_use_case import TicketChatUse
 from modules.sav.application.use_cases.agent.get_sav_dashboard import GetSavDashboardUseCase
 from modules.sav.application.use_cases.agent.get_sav_statistics import GetSavStatisticsUseCase
 from modules.sav.application.use_cases.agent.archive_support_ticket import ArchiveSupportTicketUseCase
-from core.dependencies import get_jwt_service
+from core.security.dependencies import get_jwt_service
 from fastapi import Depends
 
 from modules.sav.application.use_cases.admin.get_open_ticket_count import (
@@ -18,7 +18,7 @@ from modules.sav.application.use_cases.admin.get_open_ticket_count import (
 )
     
 
-from modules.core.infrastructure.dependencies import (
+from modules.dependencies.dependencies import (
     get_user_repository,
     get_ticket_repository,
     get_blacklist_repository,

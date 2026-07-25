@@ -1,8 +1,8 @@
 from modules.reservations.domain.entities.reservation import Reservation
-from modules.core.enums import ReservationStatus
-from modules.core.exceptions import VehicleNotAvailable
+from modules.reservations.domain.enums import ReservationStatus
+from modules.vehicles.domain.exceptions import VehicleNotAvailable
 from uuid import uuid4
-from modules.core.exceptions import ApplicationNotFound
+from modules.applications.domain.exceptions import ApplicationNotFound
 class CreateReservationUseCase:
 
     def __init__(self, repo):

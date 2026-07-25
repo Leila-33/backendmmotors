@@ -6,13 +6,12 @@ from modules.applications.domain.repositories.application_repository import (
     ApplicationRepository
 )
 
-from modules.core.exceptions import (
-    ApplicationNotFound
-)
+from modules.applications.domain.exceptions import ApplicationNotFound
+
 from modules.payments.domain.repositories.payment_repository import PaymentRepository
 
-from modules.storage.api.upload_routes import get_s3_client
-from core.config import settings
+from modules.storage.infrastrucure.s3_client import get_s3_client
+from core.config.settings import settings
 from modules.applications.api.schemas import SelectedDatesDTO
 
 class GetApplicationUseCase:
@@ -145,6 +144,7 @@ class GetApplicationUseCase:
             # =========================
             "id": application.id,
             "status": application.status,
+            "discount": application.discount,
 
             "created_at": application.created_at,
 

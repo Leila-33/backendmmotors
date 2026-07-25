@@ -1,7 +1,8 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from modules.core.enums import TicketPriority, TicketCategory, TicketStatus
-from typing import Optional
+from modules.sav.domain.enums import TicketPriority, TicketCategory, TicketStatus, TicketFilter
+from typing import Optional, Literal
+from pydantic import BaseModel, ConfigDict
 
 # create support ticket
 
@@ -56,7 +57,6 @@ class SupportTicketResponseDTO(BaseModel):
 
     messages: list[TicketMessageDTO]
 
-from modules.core.enums import TicketFilter
 
 # find support tickets
 class FindSupportTicketsQuery(BaseModel):
@@ -64,29 +64,45 @@ class FindSupportTicketsQuery(BaseModel):
     limit: int = 10
 
     search: str = ""
-    status: str = "ALL"
-    category: str = "ALL"
-    priority: str = "ALL"
+    status: TicketStatus | Literal["ALL"] = "ALL"
+    priority: TicketPriority | Literal["ALL"] = "ALL"
+    category: TicketCategory | Literal["ALL"] = "ALL"
 
     sort: str = "created_at_desc"
     filter: TicketFilter = TicketFilter.ALL
+    archive: bool = False
     
 class SupportTicketItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    # =====================
+    # CORE TICKET FIELDS
+    # =====================
     id: str
     subject: str
     category: str
     priority: str
     status: str
+
     user_id: str
+    user_name: str | None = None
+
     assigned_to: str | None = None
+
     created_at: datetime
     updated_at: datetime
+
+    # =====================
+    # LAST ACTIVITY (UI LAYER ONLY)
+    # =====================
+    last_activity_at: datetime | None = None
+    last_message_preview: str | None = None
+    last_actor: str | None = None
+
+    # =====================
+    # UI STATE
+    # =====================
     unread: bool = False
-
-
-
 
 class PaginatedSupportTicketsResponse(BaseModel):
     items: list[SupportTicketItemDTO]
@@ -126,15 +142,6 @@ class CountResponseDTO(BaseModel):
 
 
 
-
-
-
-
-
-
-from pydantic import BaseModel
-from datetime import datetime
-from typing import Optional, List
 
 # get support ticket
 class TicketMessageDTO(BaseModel):

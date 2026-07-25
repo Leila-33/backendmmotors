@@ -17,7 +17,3 @@ class FavoriteRepository(ABC):
     @abstractmethod
     def get_user_favorites(self, user_id: str):
         pass
-
-    @abstractmethod
-    def commit(self):
-        pass

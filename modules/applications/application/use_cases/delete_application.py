@@ -1,4 +1,5 @@
-from modules.core.exceptions import ApplicationNotFound, Forbidden
+from modules.applications.domain.exceptions import ApplicationNotFound
+from modules.auth.domain.exceptions import Forbidden
 
 class DeleteApplicationUseCase:
 

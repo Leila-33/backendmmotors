@@ -1,5 +1,5 @@
-from modules.core.exceptions import UserNotFound, Forbidden
-from modules.core.enums import UserRole
+from modules.auth.domain.exceptions import UserNotFound, Forbidden
+from modules.auth.domain.enums import UserRole
 
 class ToggleUserActiveUseCase:
 

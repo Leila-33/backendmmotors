@@ -1,61 +1,124 @@
-from sqlalchemy.orm import Session, selectinload
-
+from sqlalchemy.orm import Session, joinedload
 from modules.favorites.domain.repositories.favorite_repository import FavoriteRepository
 from modules.favorites.infrastructure.db.favorite_model import FavoriteModel
-
+from modules.favorites.infrastructure.mapper.favorite_mapper import FavoriteMapper
 
 class FavoriteRepositorySQL(FavoriteRepository):
 
-    def __init__(self, session: Session):
-        self.session = session
+
+    def __init__(
+        self,
+        db: Session,
+    ):
+
+        self.db = db
+
 
     # =========================
-    # ADD FAVORITE
+    # ADD
     # =========================
-    def add(self, favorite: FavoriteModel):
-        self.session.add(favorite)
+
+    def add(
+        self,
+        favorite,
+    ):
+
+        model = FavoriteMapper.to_model(
+            favorite
+        )
+
+        self.db.add(model)
+
+        self.db.flush()
+
+        return FavoriteMapper.to_domain(
+            model
+        )
+
 
     # =========================
-    # DELETE FAVORITE
+    # DELETE
     # =========================
-    def delete(self, user_id: str, vehicle_id: str):
-        self.session.query(FavoriteModel).filter(
-            FavoriteModel.user_id == user_id,
-            FavoriteModel.vehicle_id == vehicle_id
-        ).delete(synchronize_session=False)
 
-    # =========================
-    # EXISTS CHECK
-    # =========================
-    def exists(self, user_id: str, vehicle_id: str) -> bool:
-        return (
-            self.session.query(FavoriteModel)
+    def delete(
+        self,
+        user_id: str,
+        vehicle_id: str,
+    ):
+
+        (
+            self.db
+            .query(FavoriteModel)
             .filter(
                 FavoriteModel.user_id == user_id,
-                FavoriteModel.vehicle_id == vehicle_id
+                FavoriteModel.vehicle_id == vehicle_id,
+            )
+            .delete()
+        )
+
+
+    # =========================
+    # EXISTS
+    # =========================
+
+    def exists(
+        self,
+        user_id: str,
+        vehicle_id: str,
+    ) -> bool:
+
+        return (
+
+            self.db
+            .query(FavoriteModel)
+            .filter(
+                FavoriteModel.user_id == user_id,
+                FavoriteModel.vehicle_id == vehicle_id,
             )
             .first()
+
             is not None
+
         )
+
 
     # =========================
     # GET USER FAVORITES
     # =========================
-    def get_user_favorites(self, user_id: str):
 
-        return (
-            self.session.query(FavoriteModel)
+    def get_user_favorites(
+        self,
+        user_id: str,
+    ):
+
+        models = (
+
+            self.db
+            .query(FavoriteModel)
+
             .options(
-                selectinload(FavoriteModel.vehicle)
+                joinedload(
+                    FavoriteModel.vehicle
+                )
             )
+
             .filter(
                 FavoriteModel.user_id == user_id
             )
-            .all()
-    )
 
-    # =========================
-    # COMMIT
-    # =========================
-    def commit(self):
-        self.session.commit()
+            .order_by(
+                FavoriteModel.created_at.desc()
+            )
+
+            .all()
+
+        )
+
+
+        return [
+
+            FavoriteMapper.to_domain(model)
+
+            for model in models
+
+        ]

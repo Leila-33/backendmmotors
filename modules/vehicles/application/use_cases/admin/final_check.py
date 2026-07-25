@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
-
-from modules.core.exceptions import VehicleNotFound, ReconditioningNotFound, ReconditioningNotCompleted
-from modules.core.enums import ReconditioningStatus, VehicleStatus
+from modules.reconditionings.domain.exceptions import (
+    ReconditioningNotFound,
+    ReconditioningNotCompleted
+)
+from modules.vehicles.domain.exceptions import (
+    VehicleNotFound,
+    VehicleNotReadyForFinalCheck
+)
+from modules.reconditionings.domain.enums import ReconditioningStatus
+from modules.vehicles.domain.enums import VehicleStatus
+from modules.vehicles.api.schemas import FinalCheckResponse
 
 class FinalCheckUseCase:
 
@@ -9,50 +17,127 @@ class FinalCheckUseCase:
         self,
         vehicle_repository,
         reconditioning_repository,
+        unit_of_work,
     ):
         self.vehicle_repository = vehicle_repository
-        self.reconditioning_repository = reconditioning_repository
+        self.reconditioning_repository = (
+            reconditioning_repository
+        )
+        self.unit_of_work = unit_of_work
 
-    def execute(self, vehicle_id: str):
+
+
+    def execute(
+        self,
+        vehicle_id: str,
+    ):
+
 
         # =========================
-        # LOAD DATA
+        # LOAD VEHICLE
         # =========================
-        vehicle = self.vehicle_repository.get_by_id(vehicle_id)
+
+        vehicle = (
+            self.vehicle_repository
+            .get_by_id(vehicle_id)
+        )
+
 
         if not vehicle:
             raise VehicleNotFound()
 
-        reconditioning = self.reconditioning_repository.get_by_vehicle_id(vehicle_id)
+
+
+        # =========================
+        # LOAD RECONDITIONING
+        # =========================
+
+        reconditioning = (
+            self.reconditioning_repository
+            .get_by_vehicle_id(vehicle_id)
+        )
+
 
         if not reconditioning:
             raise ReconditioningNotFound()
+
+
+
         # =========================
         # BUSINESS RULES
         # =========================
-        if reconditioning.status != ReconditioningStatus.COMPLETED:
+
+        if (
+            reconditioning.status
+            != ReconditioningStatus.COMPLETED
+        ):
             raise ReconditioningNotCompleted()
 
 
-        # =========================
-        # FINAL APPROVAL
-        # =========================
-        reconditioning.status = ReconditioningStatus.APPROVED
-
-        vehicle.status = VehicleStatus.READY
-        vehicle.final_check_at = datetime.now(timezone.utc)
-        # =========================
-        # SAVE
-        # =========================
-        self.reconditioning_repository.update(reconditioning)
-        self.vehicle_repository.update(vehicle)
 
         # =========================
-        # RETURN RESULT
+        # CHECK VEHICLE STATE
         # =========================
-        return {
-            "vehicle_id": vehicle.id,
-            "vehicle_status": vehicle.status,
-            "reconditioning_status": reconditioning.status,
-            "final_check_at": vehicle.final_check_at,
-        }
+
+        if (
+            vehicle.status
+            != VehicleStatus.RECONDITIONED
+        ):
+            raise VehicleNotReadyForFinalCheck()
+
+
+
+        # =========================
+        # DOMAIN TRANSITION
+        # =========================
+
+        reconditioning.approve()
+
+        vehicle.mark_as_ready()
+
+
+
+        vehicle.final_check_at = (
+            datetime.now(timezone.utc)
+        )
+
+
+
+        # =========================
+        # PERSISTENCE
+        # =========================
+
+        self.reconditioning_repository.update(
+            reconditioning
+        )
+
+
+        self.vehicle_repository.update(
+            vehicle
+        )
+
+
+        self.unit_of_work.commit()
+
+
+
+        # =========================
+        # RESPONSE
+        # =========================
+
+        return FinalCheckResponse(
+
+            vehicle_id=vehicle.id,
+
+            vehicle_status=(
+                vehicle.status.value
+            ),
+
+            reconditioning_status=(
+                reconditioning.status.value
+            ),
+
+            final_check_at=(
+                vehicle.final_check_at
+            )
+        )

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from modules.core.enums import SubscriptionStatus
+from modules.payments.domain.enums import SubscriptionStatus
 
 from sqlalchemy import (
     Column,
@@ -13,7 +13,7 @@ from sqlalchemy import (
 
 from sqlalchemy.orm import relationship
 
-from infrastructure.db.session import Base
+from core.database.session import Base
 
 
 class FinancingContractModel(Base):

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer, Float, ForeignKey
 from sqlalchemy.orm import relationship
 
-from infrastructure.db.session import Base
+from core.database.session import Base
 
 
 class ApplicationTradeInModel(Base):

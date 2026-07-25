@@ -2,8 +2,8 @@ from modules.auth.domain.entities.user import User
 from modules.auth.domain.repositories.user_repository import UserRepository
 from modules.auth.infrastructure.db.user_model import UserModel
 from sqlalchemy.orm import Session
-from modules.core.enums import UserRole
-from modules.auth.infrastructure.mapper.user_mapper import UserMapper
+from modules.auth.domain.enums import UserRole
+from modules.auth.infrastructure.mappers.user_mapper import UserMapper
 from sqlalchemy import update, or_, desc, asc
 from datetime import datetime, timezone
 
@@ -151,6 +151,8 @@ class UserRepositorySQL(UserRepository):
             .order_by(UserModel.id.asc())
             .all()
         )
+    
+
     
     def find_by_ids(self, ids: list[str]):
         return (

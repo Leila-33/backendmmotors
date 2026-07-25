@@ -1,14 +1,12 @@
 from uuid import uuid4
-
 from modules.payments.domain.entities.payment import Payment
-from modules.core.enums import PaymentStatus
-from core.config import settings
-
-from modules.core.exceptions import ApplicationNotFound, PaymentNotAllowed
-from modules.core.enums import ApplicationStatus, EventType
+from core.config.settings import settings
+from modules.payments.domain.exceptions import PaymentNotAllowed
+from modules.applications.domain.exceptions import ApplicationNotFound
+from modules.payments.domain.enums import PaymentStatus
+from modules.applications.domain.enums import ApplicationStatus, EventType
 from modules.applications.domain.entities.event import Event
 
-from uuid import uuid4
 
 
 class CreateCheckoutSessionUseCase:

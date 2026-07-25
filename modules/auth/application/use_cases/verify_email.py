@@ -1,4 +1,4 @@
-from modules.core.exceptions import TokenInvalid
+from modules.auth.domain.exceptions import TokenInvalid
 
 
 class VerifyEmail:

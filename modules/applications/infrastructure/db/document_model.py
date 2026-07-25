@@ -1,8 +1,8 @@
 from sqlalchemy import Column, String, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 
-from modules.core.enums import DocumentType, DocumentStatus
-from infrastructure.db.session import Base
+from modules.applications.domain.enums import DocumentType, DocumentStatus
+from core.database.session import Base
 
 class DocumentModel(Base):
     __tablename__ = "documents"
@@ -40,9 +40,4 @@ class DocumentModel(Base):
     application = relationship(
         "ApplicationModel",
         back_populates="documents"
-    )
-    
-    notifications = relationship(
-        "NotificationModel",
-        back_populates="document"
     )

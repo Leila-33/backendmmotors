@@ -14,7 +14,7 @@ UpdateVehicleRequest,
 VehicleSearchFilters,
 VehicleListResponse,
 VehicleLifecycleDTO,
-SetAvailabilityDTO
+SetAvailabilityRequest
 )
 
 # =========================
@@ -23,7 +23,6 @@ SetAvailabilityDTO
 from modules.vehicles.api.dependencies import(
     get_create_vehicle_use_case,
     get_update_vehicle_use_case,
-    get_toggle_vehicle_type_uc,
     get_get_vehicles_admin_uc,
     get_delete_vehicle_use_case,
     get_vehicle_lifecycle_uc,
@@ -31,13 +30,12 @@ from modules.vehicles.api.dependencies import(
     get_publish_vehicle_uc,
     get_set_availability_uc
 ) 
-
+from modules.dependencies.dependencies import get_vehicle_response_mapper
 # =========================
 # USE CASES
 # =========================
 from modules.vehicles.application.use_cases.admin.create_vehicle import CreateVehicle
 from modules.vehicles.application.use_cases.admin.update_vehicle import UpdateVehicle
-from modules.vehicles.application.use_cases.admin.toggle_vehicle_type import ToggleVehicleType
 from modules.vehicles.application.use_cases.get_vehicles import GetVehiclesForAdminUseCase
 from modules.vehicles.application.use_cases.admin.delete_vehicle import DeleteVehicle
 from modules.vehicles.application.use_cases.admin.final_check import FinalCheckUseCase
@@ -45,6 +43,11 @@ from modules.vehicles.application.use_cases.admin.publish_vehicle import Publish
 from modules.vehicles.application.use_cases.admin.set_availibity import SetAvailabilityUseCase
 from modules.vehicles.application.use_cases.admin.get_vehicle_lifecycle import GetVehicleLifecycleUseCase
 
+
+# =========================
+# MAPPER
+# =========================
+from modules.vehicles.infrastructure.mappers.vehicle_mapper import VehicleMapper
 
 router = APIRouter(tags=["Admin Vehicles"])
 
@@ -56,9 +59,13 @@ router = APIRouter(tags=["Admin Vehicles"])
 async def create_vehicle(
     request: CreateVehicleRequest,
     use_case: CreateVehicle = Depends(get_create_vehicle_use_case),
-    current_admin=Depends(get_current_admin),
+    mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
+    current_admin=Depends(get_current_admin)
 ):
-    return use_case.execute(request)
+
+    vehicle = use_case.execute(request)
+
+    return mapper.to_response(vehicle)
 
 # =====================================================
 #  UPDATE VEHICLE
@@ -68,23 +75,15 @@ def update_vehicle(
     vehicle_id: str,
     data: UpdateVehicleRequest,
     use_case: UpdateVehicle = Depends(get_update_vehicle_use_case),
+    mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
     current_admin=Depends(get_current_admin)
 ):
-    return use_case.execute(
+    vehicle = use_case.execute(
         vehicle_id=vehicle_id,
         data=data
     )
+    return mapper.to_response(vehicle)
 
-# =====================================================
-#  TOGGLE TYPE (achat ↔ location)
-# =====================================================
-@router.patch("/{vehicle_id}/toggle-type", response_model=VehicleResponse)
-def toggle_vehicle_type(
-    vehicle_id: str,
-    use_case: ToggleVehicleType = Depends(get_toggle_vehicle_type_uc),
-    admin=Depends(get_current_admin)
-):
-    return use_case.execute(vehicle_id)
 
 # =========================
 # GET VEHICLES ADMIN
@@ -93,9 +92,20 @@ def toggle_vehicle_type(
 def get_vehicles_admin(
     filters: VehicleSearchFilters = Depends(),
     use_case: GetVehiclesForAdminUseCase = Depends(get_get_vehicles_admin_uc),
+    mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
     admin=Depends(get_current_admin)
 ):
-    return use_case.execute(filters)
+    result = use_case.execute(filters)
+
+    return {
+        "items": [
+            mapper.to_response(v)
+            for v in result["items"]
+        ],
+        "total": result["total"],
+        "page": result["page"],
+        "size": result["size"]
+    }
 
 # =========================
 # DELETE VEHICLE
@@ -150,11 +160,27 @@ def publish_vehicle(
     return uc.execute(vehicle_id)
 
 
-@router.patch("/{vehicle_id}/availability")
+
+# =========================
+# SET AVAILABILIY
+# =========================
+@router.patch(
+    "/{vehicle_id}/availability",
+    response_model=VehicleResponse
+)
 def set_availability(
     vehicle_id: str,
-    dto: SetAvailabilityDTO,
-    uc: SetAvailabilityUseCase = Depends(get_set_availability_uc),
-    current_admin=Depends(get_current_admin)
+    request: SetAvailabilityRequest,
+    use_case: SetAvailabilityUseCase = Depends(
+        get_set_availability_uc
+    ),
+    mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
+
 ):
-    return uc.execute(vehicle_id, dto.value)
+
+    vehicle = use_case.execute(
+        vehicle_id,
+        request.value
+    )
+
+    return mapper.to_response(vehicle)

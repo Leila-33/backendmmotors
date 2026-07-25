@@ -2,11 +2,12 @@ from datetime import (
     datetime,
     timezone
 )
-from modules.core.exceptions import FinancingContractNotFound
-from modules.core.enums import InstallmentStatus, SubscriptionStatus, EventType, ApplicationStatus
+from modules.financing.domain.exceptions import FinancingContractNotFound
+from modules.payments.domain.enums import InstallmentStatus, SubscriptionStatus
+from modules.applications.domain.enums import ApplicationStatus, EventType
 from modules.applications.domain.entities.event import Event
 from uuid import uuid4
-from modules.core.exceptions import ApplicationNotFound
+from modules.applications.domain.exceptions import ApplicationNotFound
 
 class HandleSubscriptionPaymentUseCase:
 

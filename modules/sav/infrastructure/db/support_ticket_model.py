@@ -1,8 +1,8 @@
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from infrastructure.db.session import Base
-from modules.core.enums import TicketStatus, TicketCategory, TicketPriority
+from core.database.session import Base
+from modules.sav.domain.enums import TicketStatus, TicketCategory, TicketPriority
 
 class SupportTicketModel(Base):
     __tablename__ = "support_tickets"
@@ -43,7 +43,8 @@ class SupportTicketModel(Base):
     )
     assignee = relationship(
     "UserModel",
-    foreign_keys=[assigned_to]
+    foreign_keys=[assigned_to],
+    back_populates="assigned_tickets"
 )
     application = relationship("ApplicationModel", back_populates="tickets")
 
@@ -59,3 +60,8 @@ class SupportTicketModel(Base):
         back_populates="ticket",
         cascade="all, delete-orphan",
     )
+
+    archived_at = Column(
+    DateTime(timezone=True),
+    nullable=True,
+)

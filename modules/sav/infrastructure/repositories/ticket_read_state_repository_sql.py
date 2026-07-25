@@ -1,8 +1,5 @@
 from datetime import datetime
-from sqlalchemy import func
-
 from sqlalchemy.orm import Session
-from modules.core.enums import UserRole
 from modules.sav.domain.entities.ticket_read_state import TicketReadState
 from modules.sav.domain.repositories.ticket_read_state_repository import (
     TicketReadStateRepository,

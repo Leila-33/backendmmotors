@@ -3,18 +3,18 @@ from datetime import datetime, timezone
 
 import logging
 
-from core.config import settings
-from modules.storage.api.upload_routes import get_s3_client
+from core.config.settings import settings
+from modules.storage.infrastrucure.s3_client import get_s3_client
 
 logger = logging.getLogger(__name__)
 
 from sqlalchemy import or_
 
 from sqlalchemy.orm import selectinload, Session 
+from modules.applications.domain.enums import ApplicationStatus, ViewMode
+from modules.reservations.domain.enums import ReservationStatus
 
-from modules.core.enums import ApplicationStatus, ViewMode, ReservationStatus
-
-from modules.core.exceptions import UserIdRequiredForClient
+from modules.auth.domain.exceptions import UserIdRequiredForClient
 
 
 from modules.applications.infrastructure.db.application_model import ApplicationModel
@@ -477,7 +477,27 @@ class ApplicationRepositorySQL:
                     ApplicationStatus.PROCESSING,
                     ApplicationStatus.SUBMITTED,
                 ]),
-                ApplicationModel.deleted_at.is_(None)  # 👈 soft delete safe
+                ApplicationModel.deleted_at.is_(None)
             )
             .first()
         )
+    
+    def find_by_quote_id(
+    self,
+    quote_id: str
+) -> ApplicationModel | None:
+
+        model = (
+            self.session
+            .query(ApplicationModel)
+            .filter(
+                ApplicationModel.quote_id == quote_id
+            )
+            .first()
+        )
+
+
+        if not model:
+            return None
+        
+        return model

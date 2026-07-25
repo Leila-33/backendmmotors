@@ -1,7 +1,7 @@
-from modules.core.enums import TicketStatus
-from modules.core.exceptions import SupportTicketNotFound, TicketAccessDenied, InvalidTicketState
+from modules.sav.domain.enums import TicketStatus
+from modules.sav.domain.exceptions import SupportTicketNotFound, TicketAccessDenied, InvalidTicketState
 from datetime import datetime, timezone
-from modules.core.enums import UserRole
+from modules.auth.domain.enums import UserRole
 
 class ArchiveSupportTicketUseCase:
 

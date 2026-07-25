@@ -11,9 +11,9 @@ from sqlalchemy.orm import relationship
 
 from datetime import datetime, timezone
 
-from infrastructure.db.session import Base
+from core.database.session import Base
 
-from modules.core.enums import InstallmentStatus
+from modules.payments.domain.enums import InstallmentStatus
 
 
 class InstallmentPaymentModel(Base):

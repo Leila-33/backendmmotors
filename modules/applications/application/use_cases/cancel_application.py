@@ -1,11 +1,9 @@
-from datetime import datetime, timezone
 from uuid import uuid4
-from modules.core.enums import ApplicationStatus, SubscriptionStatus, EventType
+from modules.applications.domain.enums import ApplicationStatus, EventType
+from modules.payments.domain.enums import SubscriptionStatus
 from modules.applications.domain.entities.event import Event
-from modules.core.exceptions import ApplicationNotFound
+from modules.applications.domain.exceptions import ApplicationNotFound
 from modules.applications.domain.policies.cancel_application_policy import CancelApplicationPolicy
-from datetime import datetime, timezone
-from uuid import uuid4
 
 
 class CancelApplicationUseCase:

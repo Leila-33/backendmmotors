@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from modules.core.enums import DocumentStatus, NotificationType
+from modules.applications.domain.enums import DocumentStatus, EventType
+from modules.notifications.domain.enums import NotificationType, NotificationEntityType
 
 from modules.applications.api.schemas import (
     UpdateDocumentDTO,
@@ -10,10 +11,7 @@ from modules.applications.api.schemas import (
 
 from modules.applications.domain.entities.event import Event
 
-from modules.applications.domain.repositories.event_repository import (
-    EventRepository
-)
-from modules.core.enums import EventType
+
 
 DOCUMENT_LABELS = {
     "identity": {
@@ -158,9 +156,8 @@ class UpdateDocumentUseCase:
             await self.notification_service.send(
                 user_id=document.application.user_id,
                 email=document.application.user.email,
-
-                application_id=document.application_id,
-
+                entity_type=NotificationEntityType.APPLICATION,
+                entity_id=document.application_id,
                 title=f"{label} refusé",
 
                 message=notif_message,

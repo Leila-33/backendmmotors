@@ -1,123 +1,177 @@
 from sqlalchemy.orm import Session
-from typing import List
-
-
+from modules.notifications.infrastructure.mapper.notification_mapper import NotificationMapper
 from modules.notifications.domain.entities.notification import Notification
 from modules.notifications.infrastructure.db.notification_model import NotificationModel
 from modules.notifications.domain.repositories.notification_repository import NotificationRepository
-from modules.core.enums import NotificationStatus
-from sqlalchemy import delete
+from modules.notifications.domain.enums import NotificationStatus
 
 
 
-class NotificationRepositorySQL(NotificationRepository):
+class NotificationRepositorySQL(
+    NotificationRepository
+):
 
-    def __init__(self, db: Session):
-
+    def __init__(
+        self,
+        db: Session,
+    ):
         self.db = db
+
 
     # =====================
     # SAVE
     # =====================
-    def save(self, notification: Notification):
 
-        model = NotificationModel(
-            id=notification.id,
-            user_id=notification.user_id,
-            application_id=notification.application_id,
-            test_drive_id=notification.test_drive_id,
-            title=notification.title,
-            message=notification.message,
-            type=notification.type.value,
-            status=notification.status.value,
-            created_at=notification.created_at
+    def save(
+        self,
+        notification: Notification,
+    ):
+
+        model = (
+            NotificationMapper
+            .to_model(notification)
         )
 
         self.db.add(model)
+
         self.db.flush()
+
+
+    # =====================
+    # GET BY ID
+    # =====================
+
+    def get_by_id(
+        self,
+        notification_id: str,
+    ) -> Notification | None:
+
+        model = (
+            self.db.query(NotificationModel)
+            .filter(
+                NotificationModel.id == notification_id
+            )
+            .first()
+        )
+
+        if model is None:
+            return None
+
+        return (
+            NotificationMapper
+            .to_domain(model)
+        )
+
 
     # =====================
     # GET BY USER
     # =====================
-    def get_by_user(self, user_id: str) -> List[Notification]:
 
-        results = (
+    def get_by_user(
+        self,
+        user_id: str,
+    ) -> list[Notification]:
+
+        models = (
             self.db.query(NotificationModel)
-            .filter(NotificationModel.user_id == user_id)
-            .order_by(NotificationModel.created_at.desc())
+            .filter(
+                NotificationModel.user_id == user_id
+            )
+            .order_by(
+                NotificationModel.created_at.desc()
+            )
             .all()
         )
 
         return [
-            Notification(
-                id=n.id,
-                user_id=n.user_id,
-                application_id=n.application_id,
-                title=n.title,
-                message=n.message,
-                type=n.type,
-                status=n.status,
-                is_read=n.is_read,
-                created_at=n.created_at
-            )
-            for n in results
+            NotificationMapper.to_domain(model)
+            for model in models
         ]
 
 
-    def delete_by_application(self, application_id: str):
+    # =====================
+    # UPDATE
+    # =====================
 
-            self.db.query(NotificationModel)\
-                .filter(NotificationModel.application_id == application_id)\
-                .delete()
+    def update(
+        self,
+        notification: Notification,
+    ):
 
-            self.db.commit()
-
-
-
-
-
-    def get_by_user_id(self, user_id: str):
-
-        return (
+        model = (
             self.db.query(NotificationModel)
-            .filter(NotificationModel.user_id == user_id)
-            .order_by(NotificationModel.created_at.desc())
-            .all()
-        )
-
-    def get_by_id(self, notification_id: str):
-
-        return (
-            self.db.query(NotificationModel)
-            .filter(NotificationModel.id == notification_id)
+            .filter(
+                NotificationModel.id == notification.id
+            )
             .first()
         )
 
-    def update(self, notification):
+        if model is None:
+            return
 
-        self.db.add(notification)
-        self.db.commit()
-        self.db.refresh(notification)
+        NotificationMapper.update_model(
+            model,
+            notification,
+        )
 
-    def count_unread(self, user_id: str):
+        self.db.flush()
+
+
+    # =====================
+    # COUNT UNREAD
+    # =====================
+
+    def count_unread(
+        self,
+        user_id: str,
+    ) -> int:
 
         return (
             self.db.query(NotificationModel)
             .filter(
                 NotificationModel.user_id == user_id,
-                NotificationModel.status == NotificationStatus.UNREAD
+                NotificationModel.status == NotificationStatus.UNREAD,
             )
             .count()
         )
 
-    def delete(self, notification_id: str) -> None:
+
+    # =====================
+    # DELETE
+    # =====================
+
+    def delete(
+        self,
+        notification_id: str,
+    ):
+
+        (
+            self.db.query(NotificationModel)
+            .filter(
+                NotificationModel.id == notification_id
+            )
+            .delete()
+        )
+
+
+    # =====================
+    # DELETE BY APPLICATION
+    # =====================
+
+    def delete_by_entity(
+    self,
+    entity_type: str,
+    entity_id: str,
+) -> None:
+
 
         self.db.query(NotificationModel)\
-            .filter(NotificationModel.id == notification_id)\
-            .delete()
-
-        self.db.commit()
+            .filter(
+                NotificationModel.entity_type == entity_type,
+                NotificationModel.entity_id == entity_id,
+            )\
+            .delete(
+                synchronize_session=False
+            )
 
     
-    def commit(self):
-        self.db.commit()

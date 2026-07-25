@@ -1,11 +1,8 @@
-from infrastructure.db.session import Base
-
-
+from core.database.session import Base
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Enum
 from sqlalchemy.orm import relationship
-from datetime import datetime
-from modules.core.enums import TestDriveStatus
-
+from datetime import datetime, timezone
+from modules.test_drives.domain.enums import TestDriveStatus
 
 
 class TestDriveModel(Base):
@@ -43,7 +40,7 @@ class TestDriveModel(Base):
 
     created_at = Column(
         DateTime(timezone=True),
-        default=datetime.utcnow
+        default=datetime.now(timezone.utc)
     )
 
     # =========================
@@ -55,10 +52,6 @@ class TestDriveModel(Base):
     )
     vehicle = relationship("VehicleModel", back_populates="test_drives")
 
-    notifications = relationship(
-    "NotificationModel",
-    back_populates="test_drive"
-)
     events = relationship(
     "EventModel",
     back_populates="test_drive"

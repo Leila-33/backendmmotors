@@ -1,4 +1,4 @@
-import infrastructure.db.import_models
+import core.database.import_models
 from sqlalchemy.orm import configure_mappers
 
 configure_mappers()
@@ -6,100 +6,222 @@ from modules.reconditionings.infrastructure.repositories.reconditioning_reposito
     ReconditioningRepositorySQL
 )
 from modules.inspections.infrastructure.repositories.inspection_repository_sql import InspectionRepositorySQL
-
 from modules.reconditionings.application.services.perform_reconditioning_analysis import (
     perform_reconditioning_analysis
 )
-from modules.notifications.application.services.websocket_manager import manager
-
-from modules.core.enums import ReconditioningStatus
-from modules.core.exceptions import ReconditioningNotFound, InspectionNotFound
+from modules.inspections.domain.exceptions import InspectionNotFound
+from modules.reconditionings.domain.exceptions import ReconditioningNotFound
 import json
-from datetime import datetime, timezone
 from modules.vehicles.infrastructure.queue.redis_connection import redis_conn
-from infrastructure.db.session import SessionLocal
+from core.database.session import SessionLocal
+from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import VehicleRepositorySQL
+from core.database.unit_of_work import UnitOfWork
 
-def run_reconditioning(reconditioning_id: str, admin_id: str):
-    session = SessionLocal()
+
+
+def run_reconditioning(
+    reconditioning_id: str,
+    admin_id: str,
+):
+
+    db = SessionLocal()
+
+    unit_of_work = UnitOfWork(db)
 
     try:
-        repo = ReconditioningRepositorySQL(session)
-        inspection_repo = InspectionRepositorySQL(session)
+
+        reconditioning_repository = (
+            ReconditioningRepositorySQL(db)
+        )
+
+        inspection_repository = (
+            InspectionRepositorySQL(db)
+        )
+
+        vehicle_repository = (
+            VehicleRepositorySQL(db)
+        )
+
 
         # =========================
-        # 1. LOAD RECONDITIONING
+        # 1. GET RECONDITIONING
         # =========================
-        reconditioning = repo.get_by_id(reconditioning_id)
+
+        reconditioning = (
+            reconditioning_repository
+            .get_by_id(reconditioning_id)
+        )
+
 
         if reconditioning is None:
             raise ReconditioningNotFound()
-        
-        inspection = inspection_repo.get_by_vehicle_id(reconditioning.vehicle_id)
+
+
+
+        # =========================
+        # 2. GET INSPECTION
+        # =========================
+
+        inspection = (
+            inspection_repository
+            .get_by_vehicle_id(
+                reconditioning.vehicle_id
+            )
+        )
+
 
         if inspection is None:
             raise InspectionNotFound()
-        
+
+
+
         # =========================
-        # 2. MARK AS RUNNING
+        # 3. START
         # =========================
-        reconditioning.status = ReconditioningStatus.IN_PROGRESS
-        repo.update(reconditioning)
-        payload = {
-        "event": "reconditioning_updated",
-        "vehicle_id": reconditioning.vehicle_id,
-        "user_id": admin_id,
-        "reconditioning": {
-            "status": reconditioning.status.value
-        }
-    }
+
+        reconditioning.start()
+
+
+        reconditioning_repository.update(
+            reconditioning
+        )
+
+
+        unit_of_work.commit()
+
+
+
         redis_conn.publish(
-                "reconditioning_updates",
-                json.dumps(payload)
-            )
-        # =========================
-        # 3. ANALYSIS (BUSINESS LOGIC)
-        # =========================
-        result = perform_reconditioning_analysis(inspection)
+            "reconditioning_updates",
+            json.dumps({
 
-        # =========================
-        # 4. APPLY RESULTS
-        # =========================
-        reconditioning.cost = result.cost
-        reconditioning.duration_days = result.duration_days
-
-        reconditioning.tasks = result.tasks
-
-        # =========================
-        # 5. COMPLETE
-        # =========================
-        reconditioning.status = ReconditioningStatus.COMPLETED
-        reconditioning.completed_at = datetime.now(timezone.utc)
-        repo.update(reconditioning)
-        payload = {
                 "event": "reconditioning_updated",
+
                 "vehicle_id": reconditioning.vehicle_id,
+
                 "user_id": admin_id,
+
                 "reconditioning": {
-                    "status": reconditioning.status.value,
-                    "cost": reconditioning.cost ,
-                    "duration_days": reconditioning.duration_days,
-                    "tasks": reconditioning.tasks,
+                    "status": reconditioning.status.value
                 }
-            }
+
+            })
+        )
+
+
+
+        # =========================
+        # 4. ANALYSIS
+        # =========================
+
+        result = (
+            perform_reconditioning_analysis(
+                inspection
+            )
+        )
+
+
+
+        # =========================
+        # 5. APPLY RESULT
+        # =========================
+
+        reconditioning.apply_result(
+            cost=result.cost,
+            duration_days=result.duration_days,
+            tasks=result.tasks,
+        )
+
+
+
+        # =========================
+        # 6. COMPLETE
+        # =========================
+
+        reconditioning.complete()
+
+
+        reconditioning_repository.update(
+            reconditioning
+        )
+
+
+        vehicle = (
+            vehicle_repository
+            .get_by_id(
+                reconditioning.vehicle_id
+            )
+        )
+
+
+        if vehicle:
+
+            vehicle.mark_as_reconditioned()
+
+            vehicle_repository.update(
+                vehicle
+            )
+
+
+
+        unit_of_work.commit()
+
+
+
+        # =========================
+        # 7. REALTIME UPDATE
+        # =========================
 
         redis_conn.publish(
-                "reconditioning_updates",
-                json.dumps(payload)
-            )
+            "reconditioning_updates",
+            json.dumps({
+
+                "event": "reconditioning_updated",
+
+                "vehicle_id": reconditioning.vehicle_id,
+
+                "user_id": admin_id,
+
+                "reconditioning": {
+
+                    "status": (
+                        reconditioning.status.value
+                    ),
+
+                    "cost": (
+                        reconditioning.cost
+                    ),
+
+                    "duration_days": (
+                        reconditioning.duration_days
+                    ),
+
+                    "tasks": (
+                        reconditioning.tasks
+                    )
+
+                }
+
+            })
+        )
+
+
 
         return {
             "status": "COMPLETED",
-            "reconditioning_id": reconditioning_id
+            "reconditioning_id": reconditioning.id
         }
+
+
+
     except Exception:
-        session.rollback()
+
+        unit_of_work.rollback()
+
         raise
 
-    finally:
-        session.close()
 
+
+    finally:
+
+        db.close()

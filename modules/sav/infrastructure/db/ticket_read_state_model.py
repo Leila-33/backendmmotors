@@ -1,4 +1,4 @@
-from infrastructure.db.session import Base
+from core.database.session import Base
 from sqlalchemy import Column, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 

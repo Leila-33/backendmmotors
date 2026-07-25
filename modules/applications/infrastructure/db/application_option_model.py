@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.orm import relationship
-from infrastructure.db.session import Base
+from core.database.session import Base
 
 class ApplicationOptionModel(Base):
     __tablename__ = "application_options"

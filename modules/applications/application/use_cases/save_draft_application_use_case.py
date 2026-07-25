@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from modules.core.enums import ApplicationStatus, ReservationStatus
+from modules.applications.domain.enums import ApplicationStatus, EventType
+from modules.reservations.domain.enums import ReservationStatus
 from modules.applications.api.schemas import SaveDraftApplicationDTO
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.applications.domain.repositories.event_repository import EventRepository
@@ -13,7 +14,6 @@ from modules.financing.api.schemas import TradeInEstimateRequest
 from modules.financing.domain.services.trade_in_service import TradeInService
 from modules.auth.infrastructure.db.user_model import UserModel
 from modules.applications.domain.entities.application_financing import ApplicationFinancing
-from modules.core.enums import EventType
 from modules.applications.domain.entities.event import Event
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 
@@ -53,8 +53,15 @@ class SaveDraftApplicationUseCase:
                 status=ApplicationStatus.DRAFT,
                 created_at=datetime.now(timezone.utc)
             )
-            event_type = EventType.APPLICATION_CREATED
-            message = "Brouillon du dossier créé"
+            event = Event(
+            id=str(uuid4()),
+            application_id=application.id,
+            type=EventType.APPLICATION_CREATED,
+            message="Brouillon du dossier créé",
+            user_id=current_user.id,
+            created_at=datetime.now(timezone.utc)
+        )
+            self.event_repository.save(event)
 
         # =========================
         # 2. TRADE-IN ESTIMATION (OPTIONAL)
@@ -160,16 +167,8 @@ class SaveDraftApplicationUseCase:
                 status=ReservationStatus.DRAFT
             )
 
-        event = Event(
-            id=str(uuid4()),
-            application_id=application.id,
-            type=event_type,
-            message=message,
-            user_id=current_user.id,
-            created_at=datetime.now(timezone.utc)
-        )
+        
 
-        self.event_repository.save(event)
 
 
         self.application_repository.update(application)

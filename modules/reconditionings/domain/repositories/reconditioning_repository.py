@@ -20,7 +20,3 @@ class ReconditioningRepository(ABC):
     @abstractmethod
     def update(self, reconditioning: Reconditioning) -> None:
         pass
-
-    @abstractmethod
-    def list_by_status(self, status) -> List[Reconditioning]:
-        pass

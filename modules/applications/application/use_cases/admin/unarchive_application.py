@@ -2,8 +2,8 @@ from uuid import uuid4
 from datetime import datetime, timezone
 
 from modules.applications.domain.entities.event import Event
-from modules.core.enums import EventType
-from modules.core.exceptions import ApplicationNotFound
+from modules.applications.domain.enums import EventType
+from modules.applications.domain.exceptions import ApplicationNotFound
 
 class UnarchiveApplicationUseCase:
 

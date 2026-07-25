@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from modules.core.enums import WarrantyPlanType
+from modules.warranties.domain.enums import WarrantyPlanType
 
 
 @dataclass
@@ -21,8 +21,6 @@ class WarrantyPlan:
     covers_electronics: bool = False
     covers_assistance: bool = False
     covers_wear_parts: bool = False
-
-    deductible: float = 0.0
     price: float = 0.0
 
     active: bool = True

@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from modules.core.enums import TestDriveStatus
-
+from modules.test_drives.domain.enums import TestDriveStatus
 
 @dataclass
 class TestDrive:

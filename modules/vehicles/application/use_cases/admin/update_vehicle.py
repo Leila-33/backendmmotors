@@ -1,27 +1,40 @@
+import uuid
 from modules.vehicles.domain.repositories.vehicle_repository import VehicleRepository
 from modules.vehicles.api.schemas import UpdateVehicleRequest
-from modules.vehicles.application.use_cases.admin.create_vehicle import AssignOptionsToVehicleUseCase, VehicleMapper
-from modules.core.exceptions import (
-    VehicleNotFound,
-    VehicleAlreadyExists,
+from modules.vehicles.domain.exceptions import VehicleAlreadyExists, VehicleNotFound
+from modules.vehicles.domain.enums import VehicleType
+from modules.vehicles.application.use_cases.admin.create_vehicle import AssignOptionsToVehicleUseCase
+from modules.warranties.domain.exceptions import (
     WarrantyNotAllowedForRental,
     WarrantyRequiredForSale
 )
-from modules.warranties.infrastructure.db.vehicle_warranty_model import VehicleWarrantyModel
-from modules.core.enums import VehicleType
-import uuid
+from core.database.unit_of_work import UnitOfWork
+from modules.storage.infrastrucure.s3_service import S3Service
+from modules.warranties.domain.repositories.vehicle_warranty_respository import VehicleWarrantyRepository
+from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
+from uuid import uuid4
 
 class UpdateVehicle:
 
     def __init__(
         self,
         repo: VehicleRepository,
-        assign_options_uc: AssignOptionsToVehicleUseCase
+        vehicle_warranty_repository: VehicleWarrantyRepository,
+        assign_options_uc: AssignOptionsToVehicleUseCase,
+        unit_of_work: UnitOfWork,
+        s3_service: S3Service,
     ):
         self.repo = repo
+        self.vehicle_warranty_repository = vehicle_warranty_repository
         self.assign_options_uc = assign_options_uc
+        self.unit_of_work = unit_of_work
+        self.s3_service = s3_service
 
-    def execute(self, vehicle_id: str, data: UpdateVehicleRequest):
+    def execute(
+        self,
+        vehicle_id: str,
+        data: UpdateVehicleRequest
+    ):
 
         # =========================
         # 1. GET VEHICLE
@@ -32,7 +45,7 @@ class UpdateVehicle:
             raise VehicleNotFound()
 
         # =========================
-        # 2. CHECK LICENSE PLATE
+        # 2. LICENSE PLATE
         # =========================
         if data.license_plate:
 
@@ -44,52 +57,87 @@ class UpdateVehicle:
                 raise VehicleAlreadyExists()
 
         # =========================
-        # 3. WARRANTY RULES (IMPORTANT)
+        # 3. WARRANTY
         # =========================
         payload = data.model_dump(exclude_unset=True)
 
         if "warranty_plan_id" in payload:
 
-            new_warranty = data.warranty_plan_id
+                warranty_plan_id = payload["warranty_plan_id"]
+                vehicle_type = payload.get("type", vehicle.type)
 
-            # =========================
-            # BUSINESS RULES (FINAL STATE)
-            # =========================
-            if data.type == VehicleType.SALE and new_warranty is None:
-                raise WarrantyRequiredForSale()
+                if (
+                    vehicle_type == VehicleType.SALE
+                    and warranty_plan_id is None
+                ):
+                    raise WarrantyRequiredForSale()
 
-            if data.type == VehicleType.RENT and new_warranty is not None:
-                raise WarrantyNotAllowedForRental()
+                if (
+                    vehicle_type == VehicleType.RENT
+                    and warranty_plan_id is not None
+                ):
+                    raise WarrantyNotAllowedForRental()
 
-            # =========================
-            # APPLY CHANGE
-            # =========================
-            if new_warranty is None:
-                vehicle.warranty = None
-            else:
-                if vehicle.warranty:
-                    vehicle.warranty.warranty_plan_id = new_warranty
-                else:
-                    vehicle.warranty = VehicleWarrantyModel(
-                        id=str(uuid.uuid4()),
+                warranty = (
+                    self.vehicle_warranty_repository
+                    .get_by_vehicle_id(vehicle.id)
+                )
+
+
+                # =========================
+                # DELETE WARRANTY
+                # =========================
+                if warranty_plan_id is None:
+
+                    if warranty:
+                        self.vehicle_warranty_repository.delete(
+                            warranty.id
+                        )
+
+
+                # =========================
+                # CREATE WARRANTY
+                # =========================
+                elif warranty is None:
+
+                    warranty = VehicleWarranty(
+                        id=str(uuid4()),
                         vehicle_id=vehicle.id,
-                        warranty_plan_id=new_warranty,
+                        warranty_plan_id=warranty_plan_id,
                         is_active=False
                     )
+
+                    self.vehicle_warranty_repository.save(
+                        warranty
+                    )
+
+
+                # =========================
+                # UPDATE WARRANTY
+                # =========================
+                else:
+
+                    warranty.warranty_plan_id = warranty_plan_id
+
+                    self.vehicle_warranty_repository.update(
+                        warranty
+                    )
         # =========================
-        # 4. IMAGES (KEEP ORDER)
+        # 4. IMAGES
         # =========================
         if data.images is not None:
 
             old_images = vehicle.images or []
-            new_images = data.images or []
+            new_images = data.images
 
-            images_to_delete = set(old_images) - set(new_images)
-
-            for key in images_to_delete:
-                self.repo.delete_image_from_s3(key)
+            images_to_delete = list(
+                set(old_images) - set(new_images)
+            )
 
             vehicle.images = new_images
+
+        else:
+            images_to_delete = []
 
         # =========================
         # 5. UPDATE FIELDS
@@ -97,34 +145,55 @@ class UpdateVehicle:
         update_data = data.model_dump(exclude_unset=True)
 
         allowed_fields = {
-            "brand", "model", "price", "type",
-            "mileage", "year", "description",
-            "engine_type", "equipments",
-            "condition", "is_available", "license_plate"
+            "brand",
+            "model",
+            "price",
+            "type",
+            "mileage",
+            "year",
+            "description",
+            "engine_type",
+            "equipments",
+            "condition",
+            "is_available",
+            "license_plate",
         }
 
         for key, value in update_data.items():
+
             if key in allowed_fields:
                 setattr(vehicle, key, value)
 
         # =========================
-        # 6. SAVE
+        # 6. SAVE VEHICLE
         # =========================
         self.repo.update(vehicle)
 
         # =========================
-        # 7. OPTIONS
+        # 7. UPDATE OPTIONS
         # =========================
         if (
-            data.included_options is not None or
-            data.optional_options is not None
+            data.included_options is not None
+            or data.optional_options is not None
         ):
             self.assign_options_uc.execute(
                 vehicle_id=vehicle.id,
-                request=data
+                request=data,
             )
 
         # =========================
-        # 8. RESPONSE
+        # 8. COMMIT
         # =========================
-        return VehicleMapper.to_response(vehicle)
+        self.unit_of_work.commit()
+
+        # =========================
+        # 9. DELETE REMOVED IMAGES
+        # =========================
+        # Après le commit uniquement
+        for key in images_to_delete:
+            self.s3_service.delete_file(key)
+
+        # =========================
+        # 10. RESPONSE
+        # =========================
+        return vehicle

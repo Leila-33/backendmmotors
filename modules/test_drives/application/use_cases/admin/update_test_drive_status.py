@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 
-from modules.core.exceptions import TestDriveNotFound
-from modules.core.enums import TestDriveStatus, NotificationType
+from modules.test_drives.domain.exceptions import TestDriveNotFound, TestDriveStatusForbidden
 from modules.applications.domain.entities.event import Event
-from modules.core.enums import EventType
+from modules.applications.domain.enums import EventType
+from modules.test_drives.domain.enums import TestDriveStatus
+from modules.notifications.domain.enums import NotificationType, NotificationEntityType
 from uuid import uuid4
-from modules.core.exceptions import Forbidden, TestDriveStatusForbidden
+from modules.auth.domain.exceptions import Forbidden
+
 class UpdateTestDriveStatusUseCase:
 
     def __init__(
@@ -103,7 +105,8 @@ class UpdateTestDriveStatusUseCase:
             await self.notification_service.send(
                 user_id=test_drive.user_id,
                 email=test_drive.user.email,
-                test_drive_id=test_drive.id,
+                entity_type=NotificationEntityType.TEST_DRIVE,
+                entity_id=test_drive.id,
                 title=notif["title"],
                 message=notif["message"],
                 notif_type=notif["type"]

@@ -32,9 +32,16 @@ class OptionRepository(ABC):
         pass
 
     @abstractmethod
-    def delete(self, option_id: str) -> None:
-        """
-        Supprimer une option
-        👉 en pratique : soft delete (is_active = False)
-        """
+    def exists_by_name(
+        self,
+        name: str,
+    ) -> bool:
+        pass
+
+    @abstractmethod
+    def exists_by_name_except_id(
+        self,
+        name: str,
+        option_id: str,
+    ) -> bool:
         pass

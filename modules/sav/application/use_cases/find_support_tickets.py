@@ -1,7 +1,8 @@
 from math import ceil
 
-from modules.sav.api.schemas import SupportTicketItemDTO, PaginatedSupportTicketsResponse
-from modules.core.enums import TicketFilter, TicketStatus, TicketPriority
+from modules.sav.api.schemas import PaginatedSupportTicketsResponse
+from modules.sav.domain.enums import TicketFilter, TicketStatus, TicketPriority
+from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 
 from math import ceil
 
@@ -15,19 +16,13 @@ class FindSupportTicketsUseCase:
         status = query.status
         priority = query.priority
 
-        # =====================
-        # Sidebar filters
-        # =====================
         if query.filter == TicketFilter.OPEN:
             status = TicketStatus.OPEN
 
         elif query.filter == TicketFilter.URGENT:
             priority = TicketPriority.HIGH
 
-        # =====================
-        # FETCH TICKETS
-        # =====================
-        tickets, total = self.repo.find_all(
+        rows, total = self.repo.find_all(
             page=query.page,
             limit=query.limit,
             search=query.search,
@@ -35,27 +30,14 @@ class FindSupportTicketsUseCase:
             category=query.category,
             priority=priority,
             sort=query.sort,
+            archive=query.archive,
             user=user,
         )
 
-        # =====================
-        # UNREAD IDS (IMPORTANT)
-        # =====================
-        unread_ticket_ids = set(
-            self.repo.get_unread_ticket_ids(user)
-        )
-
-        # =====================
-        # DTO MAPPING
-        # =====================
-        items = []
-
-        for ticket in tickets:
-            dto = SupportTicketItemDTO.model_validate(ticket)
-
-            dto.unread = ticket.id in unread_ticket_ids
-
-            items.append(dto)
+        items = [
+            SupportTicketMapper.from_row(row)
+            for row in rows
+        ]
 
         return PaginatedSupportTicketsResponse(
             items=items,

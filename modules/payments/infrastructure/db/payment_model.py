@@ -11,9 +11,9 @@ from sqlalchemy import (
 
 from sqlalchemy.orm import relationship
 
-from infrastructure.db.session import Base
+from core.database.session import Base
 
-from modules.core.enums import PaymentStatus
+from modules.payments.domain.enums import PaymentStatus
 
 
 

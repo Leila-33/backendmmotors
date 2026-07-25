@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
-from modules.core.enums import ReservationStatus, ApplicationStatus, EventType
-from modules.core.exceptions import (
+from modules.applications.domain.enums import EventType
+from modules.reservations.domain.enums import ReservationStatus
+from modules.reservations.domain.exceptions import (
     ReservationNotFound,
     ReservationAlreadyCancelled,
     ReservationAlreadyStarted,
@@ -8,7 +9,7 @@ from modules.core.exceptions import (
 ) 
 from uuid import uuid4
 from modules.applications.domain.entities.event import Event
-
+from modules.auth.domain.enums import UserRole
 
 class CancelReservationUseCase:
 
@@ -29,7 +30,7 @@ class CancelReservationUseCase:
         # =========================
         # BUSINESS RULE
         # =========================
-        if role != "admin":
+        if role != UserRole.ADMIN:
             if reservation.status != ReservationStatus.ACTIVE:
                 raise CannotCancelReservation()
 

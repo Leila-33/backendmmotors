@@ -1,4 +1,5 @@
-from modules.core.enums import ApplicationStatus, VehicleOptionType
+from modules.applications.domain.enums import ApplicationStatus
+from modules.vehicles.domain.enums import VehicleOptionType
 from modules.applications.api.schemas import UpdateApplicationFullRequest
 from datetime import datetime, timezone
 
@@ -6,11 +7,10 @@ from modules.applications.api.schemas import (
     UpdateApplicationResponse
     )
 
-from modules.core.exceptions import (
-    NoActiveDraft,
-    ApplicationNotModifiable,
-    OptionNotAllowed
-)
+from modules.options.domain.exceptions import OptionNotAllowed
+
+from modules.applications.domain.exceptions import ApplicationNotModifiable, NoActiveDraft
+
 
 from datetime import datetime, timezone
 

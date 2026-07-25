@@ -1,6 +1,6 @@
 from fastapi import Depends
 
-from modules.core.infrastructure.dependencies import (
+from modules.dependencies.dependencies import (
     get_test_drive_repository,
     get_event_repository,
 )

@@ -1,11 +1,9 @@
-import enum
 from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy import Enum as SQLEnum
-from infrastructure.db.session import Base
+from core.database.session import Base
 from sqlalchemy import UniqueConstraint
-
-from modules.core.enums import VehicleOptionType
+from modules.vehicles.domain.enums import VehicleOptionType
 
 
 

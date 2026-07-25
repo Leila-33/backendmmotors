@@ -22,8 +22,6 @@ class UserRepository(ABC):
     def update(self, user: User) -> None:
         pass
 
-# repositories/interfaces/user_repository.py
-
     @abstractmethod
     def find_all(
         self,
@@ -41,4 +39,12 @@ class UserRepository(ABC):
 
     @abstractmethod
     def get_active_agents(self):
+        pass
+    
+    @abstractmethod
+    def archive_many(self, ids: list[str]):
+        pass
+
+    @abstractmethod
+    def find_by_ids(self, ids: list[str]):
         pass

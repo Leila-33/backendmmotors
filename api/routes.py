@@ -9,7 +9,7 @@ from modules.inspections.api.admin_inspection_routes import router as admin_insp
 from modules.warranties.api.admin_warranty_routes import router as admin_warranty_router
 from modules.applications.api.application_routes import router as application_router
 from modules.applications.api.admin_application_routes import router as admin_application_router
-from modules.options.api.option_routes import router as option_router
+from modules.options.api.admin_option_routes import router as admin_option_router
 from modules.storage.api.upload_routes import router as upload_router
 from modules.reservations.api.reservation_routes import router as reservation_router
 from modules.financing.api.trade_in_routes import router as trade_in_router
@@ -24,6 +24,10 @@ from modules.payments.api.payment_routes import router as payments_router
 from modules.sav.api.support_ticket_routes import router as support_ticket_router
 from modules.sav.api.support_ticket_ws_routes import router as support_ticket_ws_router
 from modules.sav.api.agent_support_ticket_routes import router as agent_support_ticket_router
+from modules.leads.api.lead_routes import router as lead_router
+from modules.leads.api.agent_lead_routes import router as agent_lead_router
+from modules.quotes.api.agent_quote_routes import router as agent_quote_router
+from modules.quotes.api.quote_routes import router as quote_router
 
 api_router = APIRouter()
 
@@ -34,7 +38,7 @@ api_router.include_router(admin_vehicle_router, prefix="/admin/vehicles")
 api_router.include_router(admin_reconditioning_router, prefix="/admin/reconditionings")
 api_router.include_router(admin_inspection_router, prefix="/admin/inspections")
 api_router.include_router(application_router, prefix="/applications")
-api_router.include_router(option_router, prefix="/options")
+api_router.include_router(admin_option_router, prefix="/admin/options")
 api_router.include_router(admin_application_router, prefix="/admin/applications")
 api_router.include_router(upload_router, prefix="/uploads")
 api_router.include_router(reservation_router, prefix="/reservations")
@@ -51,3 +55,7 @@ api_router.include_router(payments_router, prefix="/payments")
 api_router.include_router(support_ticket_router, prefix="/support-tickets")
 api_router.include_router(support_ticket_ws_router, prefix="/ws/support-tickets")
 api_router.include_router(agent_support_ticket_router, prefix="/agent/support-tickets")
+api_router.include_router(agent_lead_router, prefix="/agent/leads")
+api_router.include_router(lead_router, prefix="/leads")
+api_router.include_router(agent_quote_router, prefix="/agent/quotes")
+api_router.include_router(quote_router, prefix="/quotes")

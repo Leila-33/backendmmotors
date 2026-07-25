@@ -5,13 +5,13 @@ from modules.financing.domain.entities.financing_contract import (
     FinancingContract
 )
 
-from modules.core.exceptions import (
-    ApplicationNotFound,
+from modules.financing.domain.exceptions import (
     FinancingDataNotFound
 )
+from modules.applications.domain.exceptions import ApplicationNotFound
 
 from modules.applications.domain.entities.event import Event
-from modules.core.enums import EventType
+from modules.applications.domain.enums import EventType
 
 class CreateFinancingContractUseCase:
 

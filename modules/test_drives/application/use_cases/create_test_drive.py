@@ -1,9 +1,8 @@
 from uuid import uuid4
 from datetime import datetime, timezone
-
 from modules.test_drives.domain.entities.test_drive import TestDrive
-from modules.core.enums import TestDriveStatus
-from modules.core.exceptions import TestDriveSlotUnavailable, TestDrivePastDate
+from modules.test_drives.domain.enums import TestDriveStatus
+from modules.test_drives.domain.exceptions import TestDriveSlotUnavailable, TestDrivePastDate
 
 class CreateTestDriveUseCase:
 

@@ -1,9 +1,10 @@
 from sqlalchemy import Column, String, Integer, DateTime, Enum, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
+from sqlalchemy.dialects.postgresql import JSONB
 
-from infrastructure.db.session import Base
-from modules.core.enums import InspectionStatus
+from core.database.session import Base
+from modules.inspections.domain.enums import InspectionStatus
 
 
 class InspectionModel(Base):
@@ -23,9 +24,17 @@ class InspectionModel(Base):
     tires_score = Column(Integer, default=0)
     electronics_score = Column(Integer, default=0)
     safety_score = Column(Integer, default=0)
+    overall_score = Column(Integer, default=0)
 
-    failures = Column(Text, nullable=True)  # JSON string
-    recommended_repairs = Column(Text, nullable=True)
+    failures = Column(
+    JSONB,
+    nullable=True
+)
+
+    recommended_repairs = Column(
+        JSONB,
+        nullable=True
+    )
 
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)

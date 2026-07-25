@@ -2,7 +2,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from datetime import datetime, timezone
 
-from modules.core.exceptions import VehicleWarrantyNotAssigned, WarrantyPlanNotFound
+from modules.warranties.domain.exceptions import VehicleWarrantyNotAssigned, WarrantyPlanNotFound
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 

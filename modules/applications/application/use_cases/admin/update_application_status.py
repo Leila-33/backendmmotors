@@ -1,11 +1,11 @@
 from modules.applications.api.schemas import UpdateApplicationStatusDTO, UpdateApplicationStatusResponseDTO
-from modules.core.exceptions import ApplicationNotFound
-from modules.core.enums import NotificationType, EventType
+from modules.applications.domain.exceptions import ApplicationNotFound
 from uuid import uuid4
 from datetime import datetime, timezone
 from modules.applications.domain.entities.event import Event
 from modules.applications.domain.repositories.event_repository import EventRepository
-from modules.core.enums import ApplicationStatus
+from modules.applications.domain.enums import ApplicationStatus, EventType
+from modules.notifications.domain.enums import NotificationEntityType, NotificationType
 
 
 class UpdateApplicationStatusUseCase:
@@ -50,7 +50,8 @@ class UpdateApplicationStatusUseCase:
         await self.notification_service.send(
             user_id=application.user_id,
             email=application.email,
-            application_id=application.id,
+            entity_type=NotificationEntityType.APPLICATION,
+            entity_id=application.id,
             title=notif["title"],
             message=notif["message"],
             notif_type=notif["type"]

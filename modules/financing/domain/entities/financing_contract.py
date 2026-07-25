@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime
 
-from modules.core.enums import SubscriptionStatus
+from modules.payments.domain.enums import SubscriptionStatus
 
 @dataclass
 class FinancingContract:

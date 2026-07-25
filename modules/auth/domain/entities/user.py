@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-from modules.core.enums import UserRole
-from datetime import datetime
+from modules.auth.domain.enums import UserRole
+from datetime import datetime, timezone
 from typing import Optional
 
 @dataclass
@@ -16,4 +16,18 @@ class User:
     accepted_cgu: bool = False
     is_deleted: bool = False
     deleted_at: Optional[datetime] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(
+    default_factory=lambda: datetime.now(timezone.utc)
+)
+    def activate(
+        self,
+        hashed_password: str
+    ):
+
+        self.password = hashed_password
+
+        self.is_verified = True
+
+        self.is_active = True
+
+        self.accepted_cgu = True

@@ -1,7 +1,8 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 import re
-from modules.core.enums import UserRole
+from modules.auth.domain.enums import UserRole
 from datetime import datetime
+from typing import List
 
 # =========================
 # REGISTER
@@ -118,10 +119,6 @@ class PaginatedUsersResponse(BaseModel):
 
 # dto/get_users_response.py
 
-from typing import List
-
-from datetime import datetime
-
 
 
 
@@ -161,3 +158,45 @@ class ArchiveUsersResponse(BaseModel):
     archived_count: int
     user_ids: List[str]
     message: str
+
+
+# check activation token
+class CheckActivationTokenResponse(BaseModel):
+
+    first_name: str
+
+    email: str
+
+    already_verified: bool
+
+    expired: bool
+
+
+# activate account
+
+class ActivateAccountRequest(BaseModel):
+
+    token: str
+
+    password: str
+
+    accepted_cgu: bool
+
+
+class ActivateAccountResponse(BaseModel):
+
+    message: str
+
+    access_token: str
+
+    refresh_token: str
+
+    redirect: str
+
+class ActivateAccountHttpResponse(BaseModel):
+
+    message: str
+
+    access_token: str
+
+    redirect: str

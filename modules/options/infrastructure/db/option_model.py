@@ -1,21 +1,30 @@
 from sqlalchemy import Column, String, Boolean, Float, Enum
 from sqlalchemy.orm import relationship
-from infrastructure.db.session import Base
-from modules.core.enums import OptionType, BillingType
+from core.database.session import Base
+from modules.options.domain.enums import (
+    OptionType,
+    BillingType
+)
 
 from sqlalchemy import (
     Column,
     String,
     Float,
     Boolean,
-    Enum
+    Enum,
+    UniqueConstraint
 )
 
 
 
 
 class OptionModel(Base):
-
+    __table_args__ = (
+        UniqueConstraint(
+            "name",
+            name="uq_option_name"
+        ),
+    )
     __tablename__ = "options"
 
     id = Column(String, primary_key=True)
@@ -35,7 +44,7 @@ class OptionModel(Base):
     # =========================
     price = Column(
         Float,
-        nullable=True
+        nullable=False
     )
 
     # =========================
@@ -44,7 +53,7 @@ class OptionModel(Base):
     billing_type = Column(
         Enum(BillingType),
         nullable=False,
-        default=BillingType.fixed
+        default=BillingType.FIXED
     )
 
     is_active = Column(

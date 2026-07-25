@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List
+from modules.test_drives.domain.enums import TestDriveStatus
+from typing import Optional, List
 
 class CreateTestDriveDTO(BaseModel):
 
@@ -32,7 +33,49 @@ class TestDriveAdminDTO(BaseModel):
     created_at: datetime
 
 
-from modules.core.enums import TestDriveStatus
-
 class UpdateTestDriveStatusDTO(BaseModel):
     status: TestDriveStatus
+
+
+
+
+
+class TestDriveUserResponse(BaseModel):
+    id: str
+    first_name: str
+    last_name: str
+    email: str
+
+
+class TestDriveVehicleResponse(BaseModel):
+    id: str
+    brand: str
+    model: str
+    year: int
+    images: list[str]
+
+
+class TestDriveEventResponse(BaseModel):
+    id: str
+    type: str
+    message: str
+    created_at: datetime
+
+
+class TestDriveFullResponse(BaseModel):
+
+    id: str
+
+    user: Optional[TestDriveUserResponse]
+
+    vehicle: Optional[TestDriveVehicleResponse]
+
+    appointment_date: datetime
+
+    status: TestDriveStatus
+
+    comment: Optional[str]
+
+    events: List[TestDriveEventResponse]
+
+    created_at: datetime

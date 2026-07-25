@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from modules.core.exceptions import InvalidAvailabilityDate
+from modules.test_drives.domain.exceptions import InvalidAvailabilityDate
 
 class GetAvailabilityUseCase:
 

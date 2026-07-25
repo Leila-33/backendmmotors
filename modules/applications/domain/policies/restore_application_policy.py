@@ -1,7 +1,7 @@
 from datetime import date
-from modules.core.exceptions import CannotRestoreApplication
-from modules.core.enums import ApplicationStatus
-from modules.core.enums import VehicleType
+from modules.applications.domain.exceptions import CannotRestoreApplication
+from modules.applications.domain.enums import ApplicationStatus
+from modules.vehicles.domain.enums import VehicleType
 
 class RestoreApplicationPolicy:
 

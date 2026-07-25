@@ -1,4 +1,4 @@
-from modules.core.exceptions import (
+from modules.sav.domain.exceptions import (
     SupportTicketNotFound,
     TicketClosedException,
     EmptyMessageException,
@@ -7,7 +7,7 @@ from modules.core.exceptions import (
 from uuid import uuid4
 from modules.sav.domain.entities.ticket_message import TicketMessage
 
-from modules.core.enums import TicketStatus
+from modules.sav.domain.enums import TicketStatus
 
 class CreateTicketMessageUseCase:
 

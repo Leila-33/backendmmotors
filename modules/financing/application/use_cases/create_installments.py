@@ -1,9 +1,8 @@
 from uuid import uuid4
-from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from modules.financing.domain.entities.installment import InstallmentPayment
-from modules.core.exceptions import FinancingContractNotFound
-from modules.core.enums import InstallmentStatus
+from modules.financing.domain.exceptions import FinancingContractNotFound
+from modules.payments.domain.enums import InstallmentStatus
 
 class CreateInstallmentsUseCase:
 

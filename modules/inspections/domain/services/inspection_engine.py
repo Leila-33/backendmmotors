@@ -8,7 +8,7 @@ class InspectionEngine:
         En production, tu peux brancher :
         - IA
         - règles métier
-        - scoring réel
+        - scoring réels
         """
 
         failures = []

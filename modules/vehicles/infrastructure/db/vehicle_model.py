@@ -2,8 +2,8 @@ from sqlalchemy import Column, String, Float, Integer, Boolean, Text, DateTime, 
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 
-from infrastructure.db.session import Base
-from modules.core.enums import (
+from core.database.session import Base
+from modules.vehicles.domain.enums import (
     VehicleType,
     EngineType,
     VehicleCondition,
@@ -143,3 +143,9 @@ class VehicleModel(Base):
         back_populates="vehicle",
         cascade="all, delete-orphan"
     )
+
+    leads = relationship(
+    "LeadModel",
+    back_populates="vehicle",
+    cascade="all, delete-orphan",
+)

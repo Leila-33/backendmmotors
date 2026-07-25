@@ -1,7 +1,10 @@
-from modules.core.enums import PaymentStatus, ApplicationStatus, VehicleStatus, VehicleType, EventType
-from modules.core.exceptions import PaymentNotFound, ApplicationNotFound
+from modules.applications.domain.enums import ApplicationStatus, EventType
+from modules.vehicles.domain.enums import VehicleStatus, VehicleType
+from modules.payments.domain.enums import PaymentStatus
+from modules.payments.domain.exceptions import PaymentNotFound
 from modules.applications.domain.entities.event import Event
 from uuid import uuid4
+from modules.applications.domain.exceptions import ApplicationNotFound
 
 class HandlePaymentSuccessUseCase:
 

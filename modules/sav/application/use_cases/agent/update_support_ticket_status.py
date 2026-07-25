@@ -1,7 +1,10 @@
-from modules.core.exceptions import SupportTicketNotFound, TicketAccessDenied, InvalidTicketStatus
-from modules.core.enums import TicketStatus, UserRole
+from modules.sav.domain.exceptions import SupportTicketNotFound, TicketAccessDenied
+from modules.sav.domain.enums import TicketStatus
+from modules.auth.domain.enums import UserRole
+
 from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 from modules.sav.application.ticket_chat_manager import TicketChatManager
+
 class UpdateSupportTicketStatusUseCase:
 
     def __init__(self, repo, chat_manager: TicketChatManager):

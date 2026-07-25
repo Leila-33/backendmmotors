@@ -1,7 +1,7 @@
-from modules.core.exceptions import UserNotFound, Forbidden
+from modules.auth.domain.exceptions import UserNotFound, Forbidden
 from modules.auth.domain.repositories.user_repository import UserRepository
 from datetime import datetime, timezone
-from modules.core.enums import UserRole
+from modules.auth.domain.enums import UserRole
 
 class DeleteUserUseCase:
 

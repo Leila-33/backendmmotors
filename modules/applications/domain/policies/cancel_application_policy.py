@@ -1,5 +1,6 @@
-from modules.core.enums import ApplicationStatus, SubscriptionStatus
-from modules.core.exceptions import ApplicationAlreadyCancelled, CannotCancelApplication
+from modules.applications.domain.enums import ApplicationStatus
+from modules.payments.domain.enums import SubscriptionStatus
+from modules.applications.domain.exceptions import ApplicationAlreadyCancelled, CannotCancelApplication
 
 class CancelApplicationPolicy:
 

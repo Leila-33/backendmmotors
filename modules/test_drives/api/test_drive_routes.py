@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from core.security.dependencies import get_current_user
 
 from modules.auth.infrastructure.db.user_model import UserModel
-from modules.core.enums import TestDriveStatus
+from modules.test_drives.domain.enums import TestDriveStatus
 
 from modules.test_drives.api.schemas import CreateTestDriveDTO
 from modules.test_drives.application.use_cases.create_test_drive import CreateTestDriveUseCase

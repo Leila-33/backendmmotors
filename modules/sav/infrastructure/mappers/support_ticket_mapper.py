@@ -1,7 +1,7 @@
 from modules.sav.domain.entities.support_ticket import SupportTicket
 from modules.sav.infrastructure.db.support_ticket_model import SupportTicketModel
 from modules.sav.infrastructure.mappers.ticket_message_mapper import TicketMessageMapper
-from modules.sav.api.schemas import SupportTicketResponseDTO, TicketMessageDTO
+from modules.sav.api.schemas import SupportTicketResponseDTO, TicketMessageDTO, SupportTicketItemDTO
 
 class SupportTicketMapper:
 
@@ -81,3 +81,56 @@ class SupportTicketMapper:
         model.assigned_to = ticket.assigned_to
 
         return model
+    
+
+
+    @staticmethod
+    def from_row(row):
+
+        (
+            ticket,
+            user_name,
+            last_activity_at,
+            last_message,
+            sender_id,
+            last_read_at
+        ) = row
+
+        dto = SupportTicketItemDTO.model_validate(ticket)
+
+        # =====================
+        # USER NAME (CLIENT)
+        # =====================
+        dto.user_name = user_name
+
+        # =====================
+        # LAST ACTIVITY
+        # =====================
+        dto.last_activity_at = last_activity_at
+
+        # =====================
+        # MESSAGE PREVIEW
+        # =====================
+        dto.last_message_preview = (
+            (last_message[:80] + "…") if last_message else None
+        )
+
+        # =====================
+        # LAST ACTOR (UX LOGIC)
+        # =====================
+        dto.last_actor = (
+            "Client" if sender_id == ticket.user_id else "Support"
+        )
+
+        # =====================
+        # UNREAD LOGIC
+        # =====================
+        dto.unread = (
+            last_read_at is None
+            or (
+                last_activity_at is not None
+                and last_read_at < last_activity_at
+            )
+        )
+
+        return dto

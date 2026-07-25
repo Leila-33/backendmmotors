@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     Float,
     DateTime,
+    Date,
     ForeignKey,
     Boolean,
     Enum as SqlEnum
@@ -17,11 +18,10 @@ from sqlalchemy import (
 
 from sqlalchemy.orm import relationship
 
-from infrastructure.db.session import Base
+from core.database.session import Base
 
-from modules.core.enums import (
-    ApplicationStatus
-)
+from modules.applications.domain.enums import ApplicationStatus
+
 class ApplicationModel(Base):
 
     __tablename__ = "applications"
@@ -42,6 +42,16 @@ class ApplicationModel(Base):
         ForeignKey("vehicles.id"),
         nullable=False
     )
+    quote_id = Column(
+        String,
+        ForeignKey(
+            "quotes.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True,
+        unique=True,
+        index=True
+    )
 
     # =====================================================
     # SNAPSHOT USER
@@ -58,7 +68,7 @@ class ApplicationModel(Base):
 
     address = Column(String, nullable=True)
 
-    birth_date = Column(DateTime, nullable=True)
+    birth_date = Column(Date, nullable=True)
 
     # =====================================================
     # FINANCIAL INFO
@@ -102,6 +112,12 @@ class ApplicationModel(Base):
         DateTime(timezone=True),
         nullable=True
     )
+
+    discount = Column(
+    Float,
+    nullable=True,
+    default=0
+)
     # =====================================================
     # ARCHIVE
     # =====================================================
@@ -141,13 +157,6 @@ class ApplicationModel(Base):
     # EVENTS
     events = relationship(
         "EventModel",
-        back_populates="application",
-        cascade="all, delete-orphan"
-    )
-
-    # NOTIFICATIONS
-    notifications = relationship(
-        "NotificationModel",
         back_populates="application",
         cascade="all, delete-orphan"
     )
@@ -192,3 +201,9 @@ class ApplicationModel(Base):
     uselist=False
 )
     tickets = relationship("SupportTicketModel", back_populates="application")
+
+    quote = relationship(
+        "QuoteModel",
+        back_populates="application",
+        uselist=False
+    )

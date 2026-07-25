@@ -1,8 +1,6 @@
-from modules.vehicles.application.use_cases.admin.create_vehicle import VehicleMapper
-from modules.core.exceptions import (
-    VehicleNotFound
-)
-class GetVehicleDetail:
+from modules.vehicles.domain.exceptions import VehicleNotFound
+
+class GetVehicleDetailUseCase:
 
     def __init__(self, vehicle_repository):
         self.vehicle_repository = vehicle_repository
@@ -20,4 +18,4 @@ class GetVehicleDetail:
         # =========================
         # 2. RESPONSE
         # =========================
-        return VehicleMapper.to_response(vehicle)
+        return vehicle

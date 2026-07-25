@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+from modules.applications.domain.enums import TradeInVehicleCondition
 
 @dataclass
 class ApplicationTradeIn:
@@ -12,6 +12,6 @@ class ApplicationTradeIn:
 
     mileage: int
 
-    condition: str  # ex: excellent / good / average / poor
+    condition: TradeInVehicleCondition
 
     estimated_value: int

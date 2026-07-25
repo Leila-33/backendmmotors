@@ -1,6 +1,6 @@
 from pydantic import BaseModel, HttpUrl, field_validator, model_validator, Field
 from typing import List, Optional
-from modules.core.enums import DocumentType, DocumentStatus, ViewMode
+from modules.applications.domain.enums import DocumentType, DocumentStatus, ViewMode
 from datetime import datetime
 
 # =========================
@@ -26,9 +26,8 @@ from pydantic import (
 from typing import Optional
 from datetime import date
 
-from modules.core.enums import (
-    TradeInVehicleCondition
-)
+from modules.applications.domain.enums import TradeInVehicleCondition
+
 
 
 # =========================================================
@@ -810,7 +809,7 @@ class UpdateDocumentResponseDTO(BaseModel):
 # approve_application reject_application
 # =========================
 
-from modules.core.enums import ApplicationStatus
+from modules.applications.domain.enums import ApplicationStatus
 
 
 class UpdateApplicationStatusDTO(BaseModel):
@@ -847,3 +846,16 @@ class ApplicationRestoreCancelledResponse(BaseModel):
     id: str
     status: str
     message: str
+
+
+class TradeInSnapshot(BaseModel):
+
+    brand: str
+
+    model: str
+
+    year: int
+
+    mileage: int
+
+    condition: str

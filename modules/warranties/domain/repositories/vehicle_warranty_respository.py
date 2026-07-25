@@ -7,7 +7,7 @@ from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
 class VehicleWarrantyRepository(ABC):
 
     @abstractmethod
-    def create(self, warranty: VehicleWarranty) -> VehicleWarranty:
+    def save(self, warranty: VehicleWarranty) -> VehicleWarranty:
         pass
 
     @abstractmethod
@@ -19,9 +19,9 @@ class VehicleWarrantyRepository(ABC):
         pass
 
     @abstractmethod
-    def list_all(self) -> List[VehicleWarranty]:
+    def update(self, warranty: VehicleWarranty) -> VehicleWarranty:
         pass
 
     @abstractmethod
-    def update(self, warranty: VehicleWarranty) -> VehicleWarranty:
+    def delete(self, warranty_id: str):
         pass

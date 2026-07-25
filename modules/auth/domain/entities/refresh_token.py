@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from modules.core.enums import UserRole
+from modules.auth.domain.enums import UserRole
 
 
 @dataclass

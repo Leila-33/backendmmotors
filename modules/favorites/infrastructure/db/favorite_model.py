@@ -9,7 +9,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
-from infrastructure.db.session import Base
+from core.database.session import Base
 
 
 class FavoriteModel(Base):

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from modules.core.enums import DocumentStatus, DocumentType
+from modules.applications.domain.enums import DocumentStatus, DocumentType
 from typing import Optional
 
 @dataclass

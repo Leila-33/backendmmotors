@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from datetime import datetime
 
-from modules.core.enums import TradeInVehicleCondition
+from modules.applications.domain.enums import TradeInVehicleCondition
 
 
 class TradeInEstimateRequest(BaseModel):

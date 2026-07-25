@@ -1,34 +1,71 @@
 from uuid import uuid4
 from sqlalchemy.orm import Session
-from infrastructure.db.session import SessionLocal
+from core.database.session import SessionLocal
+import core.database.import_models
 from modules.options.infrastructure.db.option_model import OptionModel
+from modules.options.domain.enums import OptionType, BillingType
+
 
 SYSTEM_OPTIONS = [
-    ("Assurance tous risques", "assurance_tous_risques"),
-    ("Assistance dépannage", "assistance_depannage"),
-    ("Entretien et SAV", "entretien_sav"),
-    ("Contrôle technique", "controle_technique"),
+    "Assurance tous risques",
+    "Assistance dépannage",
+    "Entretien et SAV",
+    "Contrôle technique",
 ]
 
 
 def seed():
+
     db: Session = SessionLocal()
 
-    for label, opt_type in SYSTEM_OPTIONS:
-        exists = db.query(OptionModel).filter_by(type=opt_type).first()
+    try:
 
-        if not exists:
-            option = OptionModel(
-                id=str(uuid4()),
-                name=label,
-                type=opt_type,
-                price=0.0,          # ✅ AJOUT IMPORTANT
-                is_active=True
+        for name in SYSTEM_OPTIONS:
+
+            exists = (
+                db.query(OptionModel)
+                .filter(
+                    OptionModel.name == name
+                )
+                .first()
             )
-            db.add(option)
 
-    db.commit()
-    db.close()
+
+            if not exists:
+
+                option = OptionModel(
+
+                    id=str(uuid4()),
+
+                    name=name,
+
+                    # Service inclus abonnement
+                    type=OptionType.INCLUDED,
+
+                    # Inclus donc gratuit
+                    price=0.0,
+
+                    billing_type=BillingType.FIXED,
+
+                    is_active=True
+                )
+
+                db.add(option)
+
+
+        db.commit()
+
+
+    except Exception:
+
+        db.rollback()
+        raise
+
+
+    finally:
+
+        db.close()
+
 
 
 if __name__ == "__main__":

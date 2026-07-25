@@ -8,7 +8,7 @@ from modules.financing.domain.entities.installment import (
     InstallmentPayment
 )
 
-from modules.core.enums import InstallmentStatus
+from modules.payments.domain.enums import InstallmentStatus
 
 class InstallmentRepositorySQL:
 

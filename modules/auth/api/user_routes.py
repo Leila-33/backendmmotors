@@ -11,6 +11,9 @@ from modules.auth.api.schemas import (
     VerifyEmailRequest,
     LogoutRequest,
     UserResponse,
+    CheckActivationTokenResponse,
+    ActivateAccountRequest,
+    ActivateAccountHttpResponse
 )
 
 from modules.auth.api.dependencies import (
@@ -18,7 +21,9 @@ from modules.auth.api.dependencies import (
     get_login_uc,
     get_refresh_uc,
     get_logout_uc,
-    get_verify_email_uc
+    get_verify_email_uc,
+    get_check_activation_token_usecase,
+    get_activate_account_usecase
     )
 
 from modules.auth.application.use_cases.register_user import RegisterUser
@@ -26,11 +31,11 @@ from modules.auth.application.use_cases.login_user import LoginUser
 from modules.auth.application.use_cases.refresh_token import RefreshTokenUseCase
 from modules.auth.application.use_cases.logout_user import LogoutUser
 from modules.auth.application.use_cases.verify_email import VerifyEmail
-
-
+from modules.auth.application.use_cases.check_activation_token import CheckActivationTokenUseCase
+from modules.auth.application.use_cases.activate_account import ActivateAccountUseCase
 from core.security.dependencies import get_current_user
 
-from modules.core.exceptions import RefreshTokenMissing, Unauthorized
+from modules.auth.domain.exceptions import RefreshTokenMissing, Unauthorized
 
 router = APIRouter(tags=["auth"])
 
@@ -138,3 +143,53 @@ def me(
     user=Depends(get_current_user)
 ):
     return user
+
+
+# =========================
+# CHECK ACTIVATION TOKEN
+# =========================
+@router.get("/activation/check", response_model=CheckActivationTokenResponse)
+def check_activation_token(
+    token: str,
+    use_case: CheckActivationTokenUseCase = Depends(
+        get_check_activation_token_usecase
+    ),
+):
+    return use_case.execute(token)
+
+
+
+# =========================
+# ACTIVATE ACCOUNT
+# =========================
+from fastapi import Response
+
+
+@router.post(
+    "/activate-account",
+    response_model=ActivateAccountHttpResponse,
+)
+def activate_account(
+    response: Response,
+    request: ActivateAccountRequest,
+    use_case: ActivateAccountUseCase = Depends(
+        get_activate_account_usecase
+    ),
+):
+
+    result = use_case.execute(request)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=result.refresh_token,
+        httponly=True,
+        secure=False,  # True en production HTTPS
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7
+    )
+
+    return {
+        "message": result.message,
+        "access_token": result.access_token,
+        "redirect": result.redirect,
+    }

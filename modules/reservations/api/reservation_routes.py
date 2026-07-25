@@ -8,12 +8,13 @@ from modules.reservations.api.schemas import (
 )
 from modules.reservations.application.use_cases.create_reservation import CreateReservationUseCase
 from modules.reservations.application.use_cases.cancel_reservation import CancelReservationUseCase
-from modules.core.infrastructure.dependencies import (
-    get_create_reservation_usecase,
-    get_cancel_reservation_usecase,
+from modules.dependencies.dependencies import (
     get_reservation_repository
     )
-
+from modules.reservations.api.dependencies import (
+    get_create_uc,
+    get_cancel_uc
+)
 
 from core.security.dependencies import get_current_user
 
@@ -31,7 +32,7 @@ router = APIRouter(tags=["Reservations"])
 def create_reservation(
     dto: CreateReservationDTO,
     current_user=Depends(get_current_user),
-    usecase: CreateReservationUseCase = Depends( get_create_reservation_usecase)
+    usecase: CreateReservationUseCase = Depends(get_create_uc)
 ):
 
     reservation = usecase.execute(
@@ -53,7 +54,7 @@ def create_reservation(
 def cancel_reservation(
     dto: CancelReservationDTO,
     current_user=Depends(get_current_user),
-    usecase: CancelReservationUseCase = Depends(get_cancel_reservation_usecase)
+    usecase: CancelReservationUseCase = Depends(get_cancel_uc)
 ):
 
     reservation = usecase.execute(

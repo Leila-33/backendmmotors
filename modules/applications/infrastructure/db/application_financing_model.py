@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Float, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 
-from infrastructure.db.session import Base
+from core.database.session import Base
 
 
 class ApplicationFinancingModel(Base):

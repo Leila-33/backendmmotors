@@ -1,8 +1,8 @@
 import uuid
 from core.security.password import hash_password
-from modules.core.exceptions import EmailAlreadyExists
 from modules.auth.domain.entities.user import User
-from modules.core.enums import UserRole
+from modules.auth.domain.enums import UserRole
+from modules.auth.domain.exceptions import EmailAlreadyExists
 
 
 class RegisterUser:

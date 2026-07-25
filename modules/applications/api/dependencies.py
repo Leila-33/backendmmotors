@@ -31,7 +31,7 @@ from modules.reservations.domain.repositories.reservation_repository import Rese
 # =========================
 # CORE DEPENDENCIES
 # =========================
-from modules.core.infrastructure.dependencies import (
+from modules.dependencies.dependencies import (
     get_application_repository,
     get_event_repository,
     get_document_repository,
@@ -48,7 +48,7 @@ from modules.core.infrastructure.dependencies import (
 # EXTERNAL SERVICES
 # =========================
 from modules.notifications.api.dependencies import get_notification_service
-from modules.core.infrastructure.dependencies import (
+from modules.dependencies.dependencies import (
     get_s3_service,
     get_notification_repository
 )

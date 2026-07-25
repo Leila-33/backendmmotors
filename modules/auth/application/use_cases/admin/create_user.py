@@ -1,8 +1,7 @@
-from modules.core.exceptions import EmailAlreadyExists
-from modules.core.enums import UserRole
+from modules.auth.domain.exceptions import EmailAlreadyExists
+from modules.auth.domain.enums import UserRole
 from modules.auth.domain.entities.user import User
 from uuid import uuid4
-from datetime import datetime
 from core.security.password import hash_password
 
 class CreateUserUseCase:

@@ -1,7 +1,6 @@
-from pydantic import BaseModel, Field, model_validator
-from datetime import date, datetime
-from typing import Optional
-from modules.core.enums import ReservationStatus
+from pydantic import BaseModel, model_validator
+from datetime import date
+from modules.reservations.domain.enums import ReservationStatus
 
 
 

@@ -1,15 +1,28 @@
 from datetime import datetime, timezone
 
-from modules.core.exceptions import VehicleNotFound, VehicleAlreadyPublished, VehicleNotReadyForPublication
-from modules.core.enums import VehicleStatus
+from modules.vehicles.domain.exceptions import VehicleNotFound, VehicleAlreadyPublished, VehicleNotReadyForPublication
+from modules.vehicles.domain.enums import VehicleStatus
+
+from datetime import datetime, timezone
+
 class PublishVehicleUseCase:
 
-    def __init__(self, vehicle_repository):
+    def __init__(
+        self,
+        vehicle_repository,
+        unit_of_work,
+    ):
         self.vehicle_repository = vehicle_repository
+        self.unit_of_work = unit_of_work
 
-    def execute(self, vehicle_id: int):
+    def execute(
+        self,
+        vehicle_id: str,
+    ):
 
-        vehicle = self.vehicle_repository.get_by_id(vehicle_id)
+        vehicle = self.vehicle_repository.get_by_id(
+            vehicle_id
+        )
 
         if not vehicle:
             raise VehicleNotFound()
@@ -24,15 +37,17 @@ class PublishVehicleUseCase:
             raise VehicleNotReadyForPublication()
 
         # =========================
-        # PUBLISH
+        # DOMAIN
         # =========================
-        vehicle.status = VehicleStatus.PUBLISHED
-        vehicle.is_available = True
-        vehicle.published_at = datetime.now(timezone.utc)
-
-        self.vehicle_repository.update(vehicle)
+        vehicle.publish()
 
         # =========================
-        # RETURN FULL VEHICLE (IMPORTANT)
+        # SAVE
         # =========================
+        self.vehicle_repository.update(
+            vehicle
+        )
+
+        self.unit_of_work.commit()
+
         return vehicle

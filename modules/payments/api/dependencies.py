@@ -1,11 +1,11 @@
 from fastapi import Depends
 
-from infrastructure.db.dependencies import get_db
+from core.database.dependencies import get_db
 
 # =========================
 # CORE DEPENDENCIES
 # =========================
-from modules.core.infrastructure.dependencies import (
+from modules.dependencies.dependencies import (
     get_payment_repository,
     get_stripe_service,
     get_application_repository,

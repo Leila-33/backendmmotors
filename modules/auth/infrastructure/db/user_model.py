@@ -1,9 +1,7 @@
 from sqlalchemy import Column, String, Boolean, Enum, DateTime, func
-from infrastructure.db.session import Base
+from core.database.session import Base
 from sqlalchemy.orm import relationship
-
-
-from modules.core.enums import UserRole
+from modules.auth.domain.enums import UserRole
 
 
 class UserModel(Base):
@@ -82,11 +80,30 @@ class UserModel(Base):
     
     assigned_tickets = relationship(
     "SupportTicketModel",
-    foreign_keys="[SupportTicketModel.assigned_to]"
+    foreign_keys="SupportTicketModel.assigned_to",
+    back_populates="assignee"
 )
     
     ticket_read_states = relationship(
     "TicketReadStateModel",
+    back_populates="user",
+    cascade="all, delete-orphan",
+)
+
+    assigned_leads = relationship(
+        "LeadModel",
+        foreign_keys="LeadModel.assigned_to",
+        back_populates="assigned_agent",
+    )
+
+    leads = relationship(
+        "LeadModel",
+        foreign_keys="LeadModel.user_id",
+        back_populates="customer"
+    )
+    
+    activation_tokens = relationship(
+    "UserActivationTokenModel",
     back_populates="user",
     cascade="all, delete-orphan",
 )

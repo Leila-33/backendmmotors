@@ -1,13 +1,13 @@
-
-
-from modules.core.exceptions import (
-   ApplicationNotFound,
+from modules.financing.domain.exceptions import (
    FinancingAmountNegative
 )
+from modules.applications.domain.exceptions import ApplicationNotFound, ApplicationAlreadyExists
+
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from modules.core.enums import ApplicationStatus, EventType, ReservationStatus
+from modules.applications.domain.enums import ApplicationStatus, EventType
+from modules.reservations.domain.enums import ReservationStatus
 from modules.applications.api.schemas import SubmitApplicationDTO
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.applications.domain.repositories.event_repository import EventRepository
@@ -20,7 +20,7 @@ from modules.financing.domain.services.trade_in_service import TradeInService
 from modules.auth.infrastructure.db.user_model import UserModel
 from modules.applications.domain.entities.application_financing import ApplicationFinancing
 from modules.applications.domain.entities.event import Event
-from modules.core.exceptions import ApplicationAlreadyExists, VehicleNotAvailable
+from modules.vehicles.domain.exceptions import  VehicleNotAvailable
 from modules.applications.api.schemas import SubmitApplicationResponse
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 

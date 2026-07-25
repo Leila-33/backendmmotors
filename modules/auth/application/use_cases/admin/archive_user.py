@@ -1,6 +1,6 @@
 from datetime import datetime
-from modules.core.exceptions import Forbidden, UserNotFound, CannotArchiveAdmin
-from modules.core.enums import UserRole
+from modules.auth.domain.exceptions import UserNotFound, CannotArchiveAdmin
+from modules.auth.domain.enums import UserRole
 from datetime import timezone
 
 class ArchiveUserUseCase:

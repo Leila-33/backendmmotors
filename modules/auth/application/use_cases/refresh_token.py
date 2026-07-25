@@ -1,4 +1,4 @@
-from modules.core.exceptions import TokenInvalid, TokenExpired
+from modules.auth.domain.exceptions import TokenInvalid, TokenExpired
 
 from jwt import ExpiredSignatureError, InvalidTokenError
 from datetime import datetime, timezone, timedelta

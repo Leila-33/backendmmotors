@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
-from modules.core.enums import EventType
+from modules.applications.domain.enums import EventType
 
 @dataclass
 class Event:

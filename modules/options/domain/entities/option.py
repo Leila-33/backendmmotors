@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from typing import Optional
 
-from modules.core.enums import OptionType, BillingType
+from modules.options.domain.enums import (
+    OptionType,
+    BillingType
+)
 
 @dataclass
 class Option:
@@ -12,8 +14,8 @@ class Option:
 
     type: OptionType
 
-    price: Optional[float] = None
+    price: float
 
-    billing_type: BillingType = BillingType.fixed
+    billing_type: BillingType = BillingType.FIXED
 
     is_active: bool = True

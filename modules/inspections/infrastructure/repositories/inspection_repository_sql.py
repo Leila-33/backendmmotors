@@ -1,62 +1,136 @@
 from sqlalchemy.orm import Session
-
+from typing import Optional
 from modules.inspections.infrastructure.db.inspection_model import InspectionModel
 from modules.inspections.infrastructure.mapper.inspection_mapper import InspectionMapper
 from modules.inspections.domain.entities.inspection import Inspection
+from modules.inspections.domain.repositories.inspection_repository import InspectionRepository
 
 
-class InspectionRepositorySQL:
+class InspectionRepositorySQL(InspectionRepository):
 
-    def __init__(self, session: Session):
-        self.session = session
+
+    def __init__(
+        self,
+        db: Session
+    ):
+        self.db = db
+
+
 
     # =========================
     # SAVE
     # =========================
-    def save(self, inspection: Inspection) -> None:
-        model = InspectionMapper.to_model(inspection)
-        self.session.add(model)
+
+    def save(
+        self,
+        inspection: Inspection
+    ) -> None:
+
+
+        model = InspectionMapper.to_model(
+            inspection
+        )
+
+
+        self.db.add(
+            model
+        )
+
+        self.db.flush()
+
+
 
     # =========================
     # UPDATE
     # =========================
-    def update(self, inspection: Inspection) -> None:
+
+    def update(
+        self,
+        inspection: Inspection
+    ) -> None:
+
+
         model = (
-            self.session.query(InspectionModel)
-            .filter_by(id=inspection.id)
+            self.db.query(
+                InspectionModel
+            )
+            .filter(
+                InspectionModel.id == inspection.id
+            )
             .first()
         )
+
 
         if not model:
             return
 
-        updated = InspectionMapper.to_model(inspection)
 
-        for key, value in updated.__dict__.items():
-            if key != "_sa_instance_state":
-                setattr(model, key, value)
+        InspectionMapper.update_model(
+            model,
+            inspection
+        )
+
+
+        self.db.flush()
+
+
 
     # =========================
     # GET BY ID
     # =========================
-    def get_by_id(self, inspection_id: str) -> Inspection | None:
+
+    def get_by_id(
+        self,
+        inspection_id: str
+    ) -> Optional[Inspection]:
+
+
         model = (
-            self.session.query(InspectionModel)
-            .filter_by(id=inspection_id)
+            self.db.query(
+                InspectionModel
+            )
+            .filter(
+                InspectionModel.id == inspection_id
+            )
             .first()
         )
 
-        return InspectionMapper.to_domain(model) if model else None
+
+        if not model:
+            return None
+
+
+        return InspectionMapper.to_domain(
+            model
+        )
+
+
 
     # =========================
     # GET BY VEHICLE
     # =========================
-    def get_by_vehicle_id(self, vehicle_id: str) -> Inspection | None:
+
+    def get_by_vehicle_id(
+        self,
+        vehicle_id: str
+    ) -> Optional[Inspection]:
+
+
         model = (
-            self.session.query(InspectionModel)
-            .filter_by(vehicle_id=vehicle_id)
-            .order_by(InspectionModel.created_at.desc())
+            self.db.query(
+                InspectionModel
+            )
+            .filter(
+                InspectionModel.vehicle_id == vehicle_id
+            )
             .first()
         )
 
-        return InspectionMapper.to_domain(model) if model else None
+
+        if not model:
+            return None
+
+
+        return InspectionMapper.to_domain(
+            model
+        )

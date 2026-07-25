@@ -1,9 +1,9 @@
 
-from infrastructure.db.session import Base
+from core.database.session import Base
 from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Enum
 from sqlalchemy.orm import relationship
-from datetime import datetime
-from modules.core.enums import EventType
+from datetime import datetime, timezone
+from modules.applications.domain.enums import EventType
 
 from datetime import datetime
 
@@ -72,7 +72,7 @@ class EventModel(Base):
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow
+        default=datetime.now(timezone.utc)
     )
 
     # =====================

@@ -1,11 +1,9 @@
-from enum import Enum
 from typing import Literal, Optional, List
 from modules.applications.api.schemas import OptionDTO
 from datetime import datetime
 from pydantic import BaseModel, field_validator, model_validator, Field
-from modules.core.enums import VehicleType, VehicleCondition, EngineType, VehicleStatus
-
-
+from modules.vehicles.domain.enums import VehicleType, VehicleCondition, EngineType, VehicleStatus
+from modules.warranties.api.schemas import WarrantyPlanResponse
 
 # =========================
 # REQUEST MODELS
@@ -116,17 +114,8 @@ class CreateVehicleRequest(BaseModel):
 
         return self
     
-class WarrantyPlanResponse(BaseModel):
-    id: str
-    name: str
-    price: float
-    duration_months: int
 
-class VehicleWarrantyResponse(BaseModel):
-    id: str
-    warranty_plan: WarrantyPlanResponse | None = None
-    
-
+# get vehicle detail
 
 class VehicleResponse(BaseModel):
     id: str
@@ -158,7 +147,7 @@ class VehicleResponse(BaseModel):
 
     included_options: list[OptionDTO] = Field(default_factory=list)
     optional_options: list[OptionDTO] = Field(default_factory=list)
-    warranty: VehicleWarrantyResponse | None = None
+    warranty_plan: WarrantyPlanResponse | None = None
 # =========================
 # update_vehicle
 # =========================
@@ -338,23 +327,56 @@ class VehicleListResponse(BaseModel):
 
 
 
-
-from modules.inspections.api.schemas import InspectionDTO
-from modules.reconditionings.api.schemas import ReconditioningDTO
-
+# =========================
+# get_vehicle_lifecycle
+# =========================
+from modules.inspections.api.schemas import InspectionResponse
+from modules.reconditionings.api.schemas import ReconditioningResponse
 
 class VehicleLifecycleDTO(BaseModel):
-    inspection: Optional[InspectionDTO] = None
-    reconditioning: Optional[ReconditioningDTO] = None
+    inspection: Optional[InspectionResponse] = None
+    reconditioning: Optional[ReconditioningResponse] = None
 
 
 
-class FinalCheckResponseDTO(BaseModel):
+# =========================
+# final_check
+# =========================
+class FinalCheckResponse(BaseModel):
+
     vehicle_id: str
+
     vehicle_status: str
+
     reconditioning_status: str
-    final_check_at: Optional[datetime] = None
+
+    final_check_at: datetime
 
 
-class SetAvailabilityDTO(BaseModel):
+
+# =========================
+# get_interest_status
+# =========================
+class VehicleInterestStatusResponse(BaseModel):
+
+    already_interested: bool
+
+    quote_id: str | None = None
+
+    quote_status: str | None = None
+
+    application_id: str | None = None
+
+# =========================
+# get_vehicle_availability
+# =========================
+class UnavailableDateResponse(BaseModel):
+    start: datetime
+    end: datetime
+
+
+# =========================
+# set_availabiliy
+# =========================
+class SetAvailabilityRequest(BaseModel):
     value: bool

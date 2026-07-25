@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
-from modules.core.enums import ApplicationStatus, ReservationStatus, EventType
+from modules.applications.domain.enums import ApplicationStatus, EventType
+from modules.reservations.domain.enums import ReservationStatus
 from modules.applications.domain.entities.event import Event
 
 class CompleteExpiredRentalsUseCase:

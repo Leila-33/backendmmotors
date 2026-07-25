@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from modules.auth.domain.entities.user import User
 from modules.sav.api.schemas import (
     SupportTicketCreate,
-    UpdateTicketStatusDTO,
     FindSupportTicketsQuery,
     PaginatedSupportTicketsResponse,
     SupportTicketResponseDTO,
     UnreadTicketCountResponse
 )
+from modules.auth.domain.entities.user import User
 from modules.sav.application.use_cases.create_support_ticket import CreateSupportTicketUseCase
 from modules.sav.application.use_cases.get_support_ticket import GetSupportTicketUseCase
 from modules.sav.application.use_cases.find_support_tickets import FindSupportTicketsUseCase
@@ -17,7 +17,7 @@ from modules.sav.api.dependencies import (
     get_get_support_ticket_usecase
 )
 from core.security.dependencies import get_current_user
-from modules.core.infrastructure.dependencies import get_ticket_repository
+from modules.dependencies.dependencies import get_ticket_repository
 from modules.sav.domain.repositories.support_ticket_repository import SupportTicketRepository
 
 router = APIRouter(tags=["Support Tickets"])
@@ -80,14 +80,6 @@ def get_my_tickets(
         user=current_user,
     )
 
-
-
-
-
-
-from modules.core.infrastructure.dependencies import get_ticket_read_state_repository
-from modules.sav.domain.repositories.ticket_read_state_repository import TicketReadStateRepository
-from modules.auth.domain.entities.user import User
 
 
 

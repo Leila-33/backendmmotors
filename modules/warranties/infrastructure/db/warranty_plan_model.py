@@ -1,8 +1,8 @@
 from sqlalchemy import Column, String, Integer, Boolean, Float, Text, Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from infrastructure.db.session import Base
-from modules.core.enums import WarrantyPlanType
+from core.database.session import Base
+from modules.warranties.domain.enums import WarrantyPlanType
 
 
 class WarrantyPlanModel(Base):
@@ -38,7 +38,6 @@ class WarrantyPlanModel(Base):
     covers_wear_parts = Column(Boolean, default=False)
 
     # conditions financières
-    deductible = Column(Float, default=0.0)
     price = Column(Float, nullable=False)
 
     # statut

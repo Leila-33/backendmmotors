@@ -8,7 +8,7 @@ from modules.financing.domain.repositories.financing_contract_repository import 
 )
 
 from modules.financing.infrastructure.db.financing_contract_model import FinancingContractModel
-from modules.core.exceptions import FinancingContractNotFound
+from modules.financing.domain.exceptions import FinancingContractNotFound
 from datetime import datetime, timezone
 
 class FinancingContractRepositorySQL(FinancingContractRepository):

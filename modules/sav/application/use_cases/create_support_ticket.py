@@ -1,7 +1,7 @@
 from uuid import uuid4
 from modules.sav.domain.entities.support_ticket import SupportTicket
 from modules.sav.domain.entities.ticket_message import TicketMessage
-from modules.core.enums import TicketStatus
+from modules.sav.domain.enums import TicketStatus
 from modules.sav.api.schemas import TicketMessageCreate
 class CreateSupportTicketUseCase:
 

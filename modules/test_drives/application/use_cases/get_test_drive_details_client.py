@@ -1,6 +1,8 @@
-from modules.core.exceptions import TestDriveNotFound, Unauthorized
-class GetTestDriveDetailClientUseCase:
+from modules.test_drives.domain.exceptions import TestDriveNotFound
+from modules.auth.domain.exceptions import Unauthorized
 
+
+class GetTestDriveDetailClientUseCase:
     def __init__(
         self,
         repository,

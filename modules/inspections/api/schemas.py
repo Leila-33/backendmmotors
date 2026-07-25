@@ -1,23 +1,50 @@
 from pydantic import BaseModel
-from typing import Optional, List
 from datetime import datetime
+from pydantic import Field
 
+# get inspection
+class InspectionResponse(BaseModel):
 
-class InspectionDTO(BaseModel):
     id: str
+
     vehicle_id: str
 
     status: str
 
+
     engine_score: int
+
     brakes_score: int
+
     tires_score: int
+
     electronics_score: int
+
     safety_score: int
+
+
     overall_score: int
 
-    failures: Optional[List[str]] = []
-    recommended_repairs: Optional[List[str]] = []
+    failures: list[str] = Field(default_factory=list)
 
-    created_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    recommended_repairs: list[str] = Field(default_factory=list)
+
+
+    started_at: datetime | None = None
+
+    completed_at: datetime | None = None
+
+    created_at: datetime | None = None
+
+
+# start inspection
+
+class StartInspectionResponse(BaseModel):
+
+    inspection_id: str
+
+    vehicle_id: str
+
+    status: str
+
+    message: str

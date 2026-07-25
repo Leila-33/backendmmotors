@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
-
-from modules.core.enums import ReservationStatus
+from modules.reservations.domain.enums import ReservationStatus
 
 
 @dataclass

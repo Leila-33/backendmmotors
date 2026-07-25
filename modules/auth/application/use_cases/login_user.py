@@ -1,4 +1,4 @@
-from modules.core.exceptions import (
+from modules.auth.domain.exceptions import (
     InvalidCredentials,
     AccountDisabled,
     EmailNotVerified,

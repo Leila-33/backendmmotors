@@ -2,7 +2,8 @@ from sqlalchemy.orm import Session
 
 from modules.reservations.infrastructure.db.reservation_model import ReservationModel
 from modules.reservations.domain.entities.reservation import Reservation
-from modules.core.enums import ReservationStatus, ApplicationStatus
+from modules.applications.domain.enums import ApplicationStatus
+from modules.reservations.domain.enums import ReservationStatus
 from modules.applications.infrastructure.db.application_model import ApplicationModel
 from uuid import uuid4
 from datetime import date

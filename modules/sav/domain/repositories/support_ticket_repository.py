@@ -5,7 +5,7 @@ from modules.auth.domain.entities.user import User
 from modules.sav.infrastructure.db.support_ticket_model import SupportTicketModel
 from abc import ABC, abstractmethod
 from typing import List, Optional
-
+from modules.sav.api.schemas import SupportTicketItemDTO
 
 class SupportTicketRepository(ABC):
 
@@ -40,7 +40,7 @@ class SupportTicketRepository(ABC):
         priority: str,
         sort: str,
         user: User,
-    ) -> tuple[list[SupportTicketModel], int]:
+    ) -> tuple[list[SupportTicketItemDTO], int]:
         pass
 
     # =====================
@@ -66,10 +66,6 @@ class SupportTicketRepository(ABC):
     # =====================
     # UNREAD SYSTEM
     # =====================
-
-    @abstractmethod
-    def get_unread_ticket_ids(self, user: User) -> list[str]:
-        pass
 
     @abstractmethod
     def count_unread(self, user: User) -> int:

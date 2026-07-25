@@ -1,7 +1,6 @@
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum, func
-from infrastructure.db.session import Base
-
-from modules.core.enums import UserRole
+from core.database.session import Base
+from modules.auth.domain.enums import UserRole
 
 
 class RefreshTokenModel(Base):

@@ -12,12 +12,3 @@ class InspectionResult:
 
     failures: List[str] = field(default_factory=list)
     recommended_repairs: List[str] = field(default_factory=list)
-
-    @property
-    def overall_score(self) -> int:
-        return (
-            self.engine_score
-            + self.brakes_score
-            + self.tires_score
-            + self.electronics_score
-        ) // 4
