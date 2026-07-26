@@ -1,17 +1,35 @@
 from fastapi import Depends
 
+# =========================
+# DEPENDENCIES
+# =========================
 from modules.dependencies.dependencies import (
     get_test_drive_repository,
     get_event_repository,
+    get_vehicle_repository
 )
-
+# =========================
+# SERVICE
+# =========================
 from modules.notifications.api.dependencies import (
     get_notification_service,
 )
 
+# =========================
+# CORE
+# =========================
+from core.database.unit_of_work import UnitOfWork
+from core.database.dependencies import (
+    get_unit_of_work
+)
+
+# =========================
+# REPOSITORIES
+# =========================
 from modules.test_drives.domain.repositories.test_drive_repository import (
     TestDriveRepository,
 )
+from modules.vehicles.domain.repositories.vehicle_repository import VehicleRepository
 
 # =========================
 # CLIENT USE CASES
@@ -35,10 +53,15 @@ from modules.test_drives.application.use_cases.get_test_drive_details_client imp
 
 
 def get_create_test_drive_usecase(
-    repository=Depends(get_test_drive_repository),
-):
+    test_drive_repository=Depends(get_test_drive_repository),
+    vehicle_repository=Depends(get_vehicle_repository),
+        unit_of_work=Depends(
+        get_unit_of_work
+    ),):
     return CreateTestDriveUseCase(
-        repository=repository
+        test_drive_repository=test_drive_repository,
+        vehicle_repository=vehicle_repository,
+        unit_of_work=unit_of_work
     )
 
 
@@ -46,9 +69,11 @@ def get_availability_usecase(
     repository: TestDriveRepository = Depends(
         get_test_drive_repository
     ),
+    vehicle_repository: VehicleRepository = Depends(get_vehicle_repository) 
 ):
     return GetAvailabilityUseCase(
-        repository=repository
+        repository=repository,
+        vehicle_repository=vehicle_repository
     )
 
 
@@ -86,8 +111,9 @@ from modules.test_drives.application.use_cases.admin.update_test_drive_status im
     UpdateTestDriveStatusUseCase,
 )
 
+from modules.test_drives.application.use_cases.admin.get_pending_count_test_drive import GetPendingTestDriveCountUseCase
 
-def get_test_drive_admin_usecase(
+def get_test_drives_admin_usecase(
     repository=Depends(get_test_drive_repository),
 ):
     return GetTestDrivesAdminUseCase(
@@ -107,9 +133,21 @@ def get_update_test_drive_status_usecase(
     repository=Depends(get_test_drive_repository),
     notification_service=Depends(get_notification_service),
     event_repository=Depends(get_event_repository),
+    unit_of_work=Depends(
+        get_unit_of_work
+    )
 ):
     return UpdateTestDriveStatusUseCase(
         repository=repository,
         notification_service=notification_service,
         event_repository=event_repository,
+        unit_of_work=unit_of_work
+    )
+
+def get_pending_test_drive_count_usecase(
+    repo=Depends(get_test_drive_repository)
+):
+
+    return GetPendingTestDriveCountUseCase(
+        repository=repo
     )

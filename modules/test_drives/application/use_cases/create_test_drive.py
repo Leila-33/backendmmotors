@@ -4,31 +4,84 @@ from modules.test_drives.domain.entities.test_drive import TestDrive
 from modules.test_drives.domain.enums import TestDriveStatus
 from modules.test_drives.domain.exceptions import TestDriveSlotUnavailable, TestDrivePastDate
 
+from uuid import uuid4
+from datetime import datetime, timezone
+
+from modules.test_drives.domain.entities.test_drive import (
+    TestDrive,
+)
+from modules.test_drives.domain.enums import TestDriveStatus
+from modules.vehicles.domain.enums import VehicleStatus
+from modules.test_drives.domain.exceptions import (
+    TestDriveSlotUnavailable,
+    TestDrivePastDate
+)
+from modules.vehicles.domain.exceptions import (
+    VehicleNotFound,
+    VehicleNotAvailableForTestDrive,
+)
+
+
 class CreateTestDriveUseCase:
 
-    def __init__(self, repository):
-        self.repository = repository
+    def __init__(
+        self,
+        test_drive_repository,
+        vehicle_repository,
+        unit_of_work,
+    ):
+        self.test_drive_repository = (
+            test_drive_repository
+        )
+        self.vehicle_repository = (
+            vehicle_repository
+        )
+        self.unit_of_work = (
+            unit_of_work
+        )
 
-    def execute(self, dto, current_user):
+    def execute(
+        self,
+        dto,
+        current_user,
+    ):
 
         # =========================
-        # 1. PAST DATE CHECK
+        # VEHICLE
         # =========================
-        if dto.appointment_date < datetime.now(timezone.utc):
+        vehicle = (
+            self.vehicle_repository
+            .get_by_id(dto.vehicle_id)
+        )
+
+        if vehicle is None:
+            raise VehicleNotFound()
+
+        if vehicle.status != VehicleStatus.PUBLISHED:
+            raise VehicleNotAvailableForTestDrive()
+
+        # =========================
+        # PAST DATE
+        # =========================
+        if dto.appointment_date <= datetime.now(timezone.utc):
             raise TestDrivePastDate()
 
         # =========================
-        # 2. SLOT CONFLICT CHECK
+        # SLOT CONFLICT
         # =========================
-        existing = self.repository.find_conflicting_slot(
-            dto.vehicle_id,
-            dto.appointment_date
+        existing = (
+            self.test_drive_repository
+            .find_conflicting_slot(
+                dto.vehicle_id,
+                dto.appointment_date,
+            )
         )
+
         if existing:
             raise TestDriveSlotUnavailable()
 
         # =========================
-        # 3. CREATE
+        # CREATE
         # =========================
         test_drive = TestDrive(
             id=str(uuid4()),
@@ -37,10 +90,13 @@ class CreateTestDriveUseCase:
             appointment_date=dto.appointment_date,
             status=TestDriveStatus.PENDING,
             comment=dto.comment,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
         )
 
-        self.repository.create(test_drive)
-        self.repository.commit()
+        self.test_drive_repository.create(
+            test_drive
+        )
+
+        self.unit_of_work.commit()
 
         return test_drive

@@ -1,27 +1,19 @@
-from modules.test_drives.domain.repositories.test_drive_repository import (
-    TestDriveRepository,
-)
-
-from modules.test_drives.infrastructure.db.test_drive_model import (
-    TestDriveModel,
-)
 from datetime import datetime, timedelta, timezone
-
 from sqlalchemy.orm import joinedload
-
-from datetime import datetime, timedelta, timezone
-
-from sqlalchemy.orm import joinedload
-
+from sqlalchemy import func
 from modules.test_drives.domain.repositories.test_drive_repository import (
     TestDriveRepository
 )
-from modules.test_drives.infrastructure.models.test_drive_model import (
+from modules.test_drives.infrastructure.db.test_drive_model import (
     TestDriveModel
 )
-from modules.test_drives.infrastructure.mapper.test_drive_mapper import (
+from modules.test_drives.infrastructure.mappers.test_drive_mapper import (
     TestDriveMapper
 )
+from core.pagination.paginated_result import PaginatedResult
+from modules.auth.infrastructure.db.user_model import UserModel
+from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
+from modules.test_drives.domain.enums import TestDriveStatus
 
 
 class TestDriveRepositorySQL(TestDriveRepository):
@@ -165,9 +157,10 @@ class TestDriveRepositorySQL(TestDriveRepository):
     def count_pending(self):
 
         return (
-            self.session.query(TestDriveModel)
+            self.session
+            .query(TestDriveModel)
             .filter(
-                TestDriveModel.status == "pending"
+                TestDriveModel.status == TestDriveStatus.PENDING
             )
             .count()
         )
@@ -176,20 +169,64 @@ class TestDriveRepositorySQL(TestDriveRepository):
     # =========================
     # GET ALL
     # =========================
-    def get_all(self):
+    def get_all_admin(
+        self,
+        status: str | None = None,
+        search: str | None = None,
+        page: int = 1,
+        limit: int = 20
+    ):
 
-        models = (
+        query = (
             self.session.query(TestDriveModel)
-            .order_by(
-                TestDriveModel.created_at.desc()
+            .options(
+                joinedload(TestDriveModel.user),
+                joinedload(TestDriveModel.vehicle),
             )
+        )
+
+        if status:
+            query = query.filter(
+                TestDriveModel.status == status
+            )
+
+        if search:
+            query = query.filter(
+                (
+                    UserModel.first_name.ilike(f"%{search}%")
+                )
+                |
+                (
+                    UserModel.last_name.ilike(f"%{search}%")
+                )
+                |
+                (
+                    VehicleModel.brand.ilike(f"%{search}%")
+                )
+                |
+                (
+                    VehicleModel.model.ilike(f"%{search}%")
+                )
+            )
+
+        total = query.with_entities(
+            func.count(TestDriveModel.id)
+        ).scalar()
+
+        items = (
+            query
+            .order_by(TestDriveModel.appointment_date.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
             .all()
         )
 
-        return [
-            TestDriveMapper.to_domain(m)
-            for m in models
-        ]
+        return PaginatedResult(
+            items=items,
+            total=total,
+            page=page,
+            limit=limit
+        )
 
 
     # =========================
@@ -279,16 +316,16 @@ class TestDriveRepositorySQL(TestDriveRepository):
         user_id: str
     ):
 
-        models = (
+        return (
             self.session.query(TestDriveModel)
+            .options(
+                joinedload(TestDriveModel.vehicle)
+            )
             .filter(
                 TestDriveModel.user_id == user_id
             )
-            .join(TestDriveModel.vehicle)
+            .order_by(
+                TestDriveModel.created_at.desc()
+            )
             .all()
         )
-
-        return [
-            TestDriveMapper.to_domain(m)
-            for m in models
-        ]

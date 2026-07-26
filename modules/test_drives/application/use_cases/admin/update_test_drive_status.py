@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-
 from modules.test_drives.domain.exceptions import TestDriveNotFound, TestDriveStatusForbidden
 from modules.applications.domain.entities.event import Event
 from modules.applications.domain.enums import EventType
@@ -8,36 +7,50 @@ from modules.notifications.domain.enums import NotificationType, NotificationEnt
 from uuid import uuid4
 from modules.auth.domain.exceptions import Forbidden
 
+
+
+
 class UpdateTestDriveStatusUseCase:
 
     def __init__(
         self,
         repository,
         event_repository,
+        unit_of_work,
         notification_service=None
     ):
         self.repository = repository
         self.event_repository = event_repository
+        self.uow = unit_of_work
         self.notification_service = notification_service
 
-    # =========================
-    # EXECUTE
-    # =========================
-    async def execute(
-    self,
-    test_drive_id: str,
-    status: TestDriveStatus,
-    actor_id: str,
-    actor_role: str
-):
 
-        test_drive = self.repository.get_by_id(test_drive_id)
+    async def execute(
+        self,
+        test_drive_id: str,
+        status: TestDriveStatus,
+        actor_id: str,
+        actor_role: str
+    ):
+
+
+        # =========================
+        # LOAD
+        # =========================
+
+        test_drive = (
+            self.repository
+            .get_full_by_id(test_drive_id)
+        )
+
 
         if not test_drive:
             raise TestDriveNotFound()
 
+
+
         # =========================
-        # SECURITY RULES
+        # SECURITY
         # =========================
 
         if actor_role == "client":
@@ -45,97 +58,170 @@ class UpdateTestDriveStatusUseCase:
             if test_drive.user_id != actor_id:
                 raise Forbidden()
 
+
             if status != TestDriveStatus.CANCELLED:
                 raise TestDriveStatusForbidden()
 
+
+
         old_status = test_drive.status
 
-        # =========================
-        # UPDATE STATUS
-        # =========================
-        test_drive.status = status
 
-        self.repository.update(test_drive)
 
-        # =========================
-        # EVENT
-        # =========================
-        event = Event(
-            id=str(uuid4()),
+        try:
 
-            test_drive_id=test_drive.id,
+            # =========================
+            # UPDATE STATUS
+            # =========================
 
-            type=self._map_status_to_event(status),
+            test_drive.status = status
 
-            message=(
-                f"Statut de l’essai routier changé vers "
-                f"{status.value}"
-            ),
+            self.repository.update(test_drive)
 
-            user_id=test_drive.user_id,
 
-            event_metadata={
-                "old_status": (
-                    old_status.value if old_status else None
+
+            # =========================
+            # EVENT
+            # =========================
+
+            event = Event(
+
+                id=str(uuid4()),
+
+                test_drive_id=test_drive.id,
+
+                type=self._map_status_to_event(status),
+
+                message=(
+                    "Statut de l’essai routier changé vers "
+                f"{self._translate_status(status)}"
                 ),
-                "new_status": status.value
-            },
 
-            created_at=datetime.now(timezone.utc)
-        )
-
-        self.event_repository.save(event)
-
-        # =========================
-        # COMMIT DB BEFORE WS
-        # =========================
-        self.repository.commit()
-        self.event_repository.commit()
-
-        # =========================
-        # NOTIFICATION
-        # =========================
-        if self.notification_service and test_drive.user:
-
-            notif = self._build_notification(
-                status,
-                test_drive
-            )
-
-            await self.notification_service.send(
                 user_id=test_drive.user_id,
-                email=test_drive.user.email,
-                entity_type=NotificationEntityType.TEST_DRIVE,
-                entity_id=test_drive.id,
-                title=notif["title"],
-                message=notif["message"],
-                notif_type=notif["type"]
+
+                event_metadata={
+
+                    "old_status":
+                        old_status.value
+                        if old_status
+                        else None,
+
+                    "new_status":
+                        status.value
+                },
+
+
+                created_at=datetime.now(timezone.utc)
             )
+
+
+            self.event_repository.save(event)
+
+
+            if (
+                self.notification_service
+                and test_drive.user
+            ):
+
+
+                notif = self._build_notification(
+                    status,
+                    test_drive
+                )
+
+
+                await self.notification_service.send(
+
+                    user_id=test_drive.user_id,
+
+                    email=test_drive.user.email,
+
+                    entity_type=
+                        NotificationEntityType.TEST_DRIVE,
+
+                    entity_id=test_drive.id,
+
+                    title=notif["title"],
+
+                    message=notif["message"],
+
+                    notif_type=notif["type"]
+                )
+
+            # =========================
+            # COMMIT TRANSACTION
+            # =========================
+
+            self.uow.commit()
+
+
+
+        except Exception:
+
+            self.uow.rollback()
+
+            raise
 
         return test_drive
+
+
+
 
     # =========================
     # EVENT MAPPING
     # =========================
-    def _map_status_to_event(self, status):
+
+    def _map_status_to_event(
+        self,
+        status: TestDriveStatus
+    ):
 
         mapping = {
+
             TestDriveStatus.CONFIRMED:
                 EventType.TEST_DRIVE_CONFIRMED,
+
 
             TestDriveStatus.REJECTED:
                 EventType.TEST_DRIVE_REJECTED,
 
+
             TestDriveStatus.CANCELLED:
                 EventType.TEST_DRIVE_CANCELLED,
+
 
             TestDriveStatus.COMPLETED:
                 EventType.TEST_DRIVE_COMPLETED,
         }
 
+
         return mapping.get(status)
 
-    
+    def _translate_status(self, status: TestDriveStatus):
+
+        translations = {
+
+            TestDriveStatus.PENDING:
+                "En attente",
+
+            TestDriveStatus.CONFIRMED:
+                "Confirmé",
+
+            TestDriveStatus.REJECTED:
+                "Refusé",
+
+            TestDriveStatus.CANCELLED:
+                "Annulé",
+
+            TestDriveStatus.COMPLETED:
+                "Terminé",
+
+        }
+
+        return translations.get(
+            status,
+            status.value
+        )
 
     def _build_notification(self, status, test_drive):
 

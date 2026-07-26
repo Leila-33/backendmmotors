@@ -1,6 +1,6 @@
 from modules.test_drives.domain.entities.test_drive import TestDrive
-from modules.test_drives.infrastructure.models.test_drive_model import TestDriveModel
-from modules.test_drives.schemas.test_drive_response import TestDriveResponse
+from modules.test_drives.infrastructure.db.test_drive_model import TestDriveModel
+from modules.test_drives.api.schemas import TestDriveResponse
 
 
 class TestDriveMapper:

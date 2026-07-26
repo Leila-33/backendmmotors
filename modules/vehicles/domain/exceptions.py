@@ -136,3 +136,15 @@ class VehicleCannotBePublished(DomainException):
             ),
             status_code=400,
         )
+
+class VehicleNotAvailableForTestDrive(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            message=(
+                "Ce véhicule n'est pas disponible "
+                "pour un essai routier."
+            ),
+            status_code=400,
+        )
