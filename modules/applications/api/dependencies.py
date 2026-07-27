@@ -11,7 +11,9 @@ from modules.applications.application.use_cases.get_application_by_vehicle impor
 from modules.applications.application.use_cases.submit_application import SubmitApplicationUseCase
 from modules.applications.application.use_cases.delete_application import DeleteApplicationUseCase
 
+# =========================
 # ADMIN USE CASES
+# =========================
 from modules.applications.application.use_cases.admin.update_document import UpdateDocumentUseCase
 from modules.applications.application.use_cases.admin.update_application_status import UpdateApplicationStatusUseCase
 from modules.applications.application.use_cases.admin.archive_application import ArchiveApplicationUseCase

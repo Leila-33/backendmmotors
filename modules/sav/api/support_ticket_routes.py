@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from modules.auth.domain.entities.user import User
 from modules.sav.api.schemas import (
-    SupportTicketCreate,
+    CreateSupportTicketRequest,
     FindSupportTicketsQuery,
     PaginatedSupportTicketsResponse,
-    SupportTicketResponseDTO,
-    UnreadTicketCountResponse
+    SupportTicketResponse,
+    UnreadTicketCountResponse,
 )
 from modules.auth.domain.entities.user import User
 from modules.sav.application.use_cases.create_support_ticket import CreateSupportTicketUseCase
@@ -14,31 +14,35 @@ from modules.sav.application.use_cases.find_support_tickets import FindSupportTi
 from modules.sav.api.dependencies import (
     get_create_support_ticket_usecase,
     get_find_support_tickets_usecase,
-    get_get_support_ticket_usecase
+    get_get_support_ticket_usecase,
 )
 from core.security.dependencies import get_current_user
 from modules.dependencies.dependencies import get_ticket_repository
 from modules.sav.domain.repositories.support_ticket_repository import SupportTicketRepository
+from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 
 router = APIRouter(tags=["Support Tickets"])
 
 
-# Support tickets
-
 @router.post(
     "",
-    response_model=SupportTicketResponseDTO
+    response_model=SupportTicketResponse,
+    status_code=status.HTTP_201_CREATED
 )
 def create_ticket(
-    payload: SupportTicketCreate,
-    user: User = Depends(get_current_user),
-    uc: CreateSupportTicketUseCase = Depends(get_create_support_ticket_usecase),
+    payload: CreateSupportTicketRequest,
+    current_user=Depends(get_current_user),
+    use_case=Depends(get_create_support_ticket_usecase)
 ):
-    return uc.execute(
-        user_id=user.id,
-        user_role=user.role,
+
+    ticket = use_case.execute(
+        user_id=current_user.id,
+        user_role=current_user.role,
         payload=payload
     )
+
+    return SupportTicketMapper.to_response(ticket)
+
 
 @router.get(
     "/unread-count",
@@ -54,14 +58,20 @@ def get_unread_ticket_count(
 
 @router.get(
     "/{ticket_id}",
-    response_model=SupportTicketResponseDTO,
+    response_model=SupportTicketResponse
 )
-async def get_support_ticket(
+async def get_ticket(
     ticket_id: str,
-    user=Depends(get_current_user),
-    uc: GetSupportTicketUseCase = Depends(get_get_support_ticket_usecase),
+    current_user=Depends(get_current_user),
+    use_case=Depends(get_get_support_ticket_usecase)
 ):
-    return await uc.execute(ticket_id, user)
+
+    ticket = await use_case.execute(
+        ticket_id,
+        current_user
+    )
+
+    return SupportTicketMapper.to_response(ticket)
 
 
 @router.get(

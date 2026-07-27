@@ -10,13 +10,11 @@ from modules.sav.application.use_cases.ticket_chat_use_case import TicketChatUse
 from modules.sav.application.use_cases.agent.get_sav_dashboard import GetSavDashboardUseCase
 from modules.sav.application.use_cases.agent.get_sav_statistics import GetSavStatisticsUseCase
 from modules.sav.application.use_cases.agent.archive_support_ticket import ArchiveSupportTicketUseCase
-from core.security.dependencies import get_jwt_service
-from fastapi import Depends
 
-from modules.sav.application.use_cases.admin.get_open_ticket_count import (
-    GetOpenTicketCountUseCase,
+from core.security.dependencies import get_jwt_service
+from core.database.dependencies import (
+    get_unit_of_work,
 )
-    
 
 from modules.dependencies.dependencies import (
     get_user_repository,
@@ -28,6 +26,9 @@ from modules.dependencies.dependencies import (
     get_websocket_manager
 )
 
+# =========================
+# CLIENT
+# =========================
 def get_assignment_service(
     user_repo = Depends(get_user_repository),
     ticket_repo = Depends(get_ticket_repository)
@@ -40,34 +41,28 @@ def get_assignment_service(
 def get_create_support_ticket_usecase(
     ticket_repo = Depends(get_ticket_repository),
     message_repo = Depends(get_ticket_message_repository),
-    assignment_service = Depends(get_assignment_service)
+    assignment_service = Depends(get_assignment_service),
+    unit_of_work = Depends(get_unit_of_work)
 ):
     return CreateSupportTicketUseCase(
         repo=ticket_repo,
         message_repo=message_repo,
-        assignment_service=assignment_service
+        assignment_service=assignment_service,
+        unit_of_work = unit_of_work
     )
 
 def get_get_support_ticket_usecase(
     repo=Depends(get_ticket_repository),
     read_state_repo=Depends(get_ticket_read_state_repository),
     websocket_manager = Depends(get_websocket_manager),
+    unit_of_work = Depends(get_unit_of_work)
 ):
     return GetSupportTicketUseCase(
         repo=repo,
         read_state_repo=read_state_repo,
         connection_manager=websocket_manager,
+        unit_of_work = unit_of_work
         )
-
-def get_update_support_ticket_status_usecase(
-    repo=Depends(get_ticket_repository),
-    chat_manager=Depends(get_ticket_chat_manager)
-):
-    return UpdateSupportTicketStatusUseCase(
-        repo=repo,
-        chat_manager=chat_manager
-        )
-
 
 def get_find_support_tickets_usecase(
     repo=Depends(get_ticket_repository)
@@ -75,26 +70,19 @@ def get_find_support_tickets_usecase(
     return FindSupportTicketsUseCase(repo)
 
 
-
-
-
 def get_create_ticket_message_usecase(
     ticket_repo = Depends(get_ticket_repository),
     message_repo = Depends(get_ticket_message_repository),
-    read_state_repo = Depends(get_ticket_read_state_repository)
+    read_state_repo = Depends(get_ticket_read_state_repository),
+    unit_of_work = Depends(get_unit_of_work)
 ) -> CreateTicketMessageUseCase:
 
     return CreateTicketMessageUseCase(
         ticket_repo=ticket_repo,
         message_repo=message_repo,
-        read_state_repo=read_state_repo
+        read_state_repo=read_state_repo,
+        unit_of_work = unit_of_work
     )
-
-
-
-
-
-
 
 def get_ticket_chat_usecase(
     create_message_uc: CreateTicketMessageUseCase = Depends(get_create_ticket_message_usecase),
@@ -119,12 +107,19 @@ def get_ticket_chat_usecase(
     )
 
 
-
-def get_open_ticket_count_usecase(
+# =========================
+# AGENT
+# =========================
+def get_update_support_ticket_status_usecase(
     repo=Depends(get_ticket_repository),
+    chat_manager=Depends(get_ticket_chat_manager),
+    unit_of_work = Depends(get_unit_of_work)
 ):
-    return GetOpenTicketCountUseCase(repo)
-
+    return UpdateSupportTicketStatusUseCase(
+        repo=repo,
+        chat_manager=chat_manager,
+        unit_of_work = unit_of_work
+        )
 
 def get_get_sav_dashboard_usecase(
     repo=Depends(get_ticket_repository),
@@ -138,6 +133,11 @@ def get_get_sav_statistics_usecase(
 
 def get_archive_support_ticket_usecase(
     repo=Depends(get_ticket_repository),
+    unit_of_work = Depends(get_unit_of_work)
+
 ):
-    return ArchiveSupportTicketUseCase(repo)
+    return ArchiveSupportTicketUseCase(
+        support_ticket_repository=repo,
+        unit_of_work=unit_of_work
+    )
 

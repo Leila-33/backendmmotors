@@ -6,7 +6,7 @@ from modules.applications.domain.entities.application import Application
 from uuid import uuid4
 from datetime import datetime, timezone
 from modules.applications.domain.entities.event import Event
-from modules.applications.infrastructure.mapper.application_mapper import ApplicationMapper
+from modules.applications.infrastructure.mappers.application_mapper import ApplicationMapper
 from modules.applications.domain.entities.application_financing import ApplicationFinancing
 from modules.applications.api.schemas import TradeInSnapshot
 from modules.leads.domain.exceptions import LeadNotFound

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from modules.applications.domain.enums import EventType
 
@@ -22,7 +22,7 @@ class Event:
     # TIMESTAMP
     # =========================
 
-    created_at: Optional[datetime] = None
+    created_at=datetime.now(timezone.utc)
 
     
     # =========================

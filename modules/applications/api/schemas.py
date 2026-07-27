@@ -859,3 +859,20 @@ class TradeInSnapshot(BaseModel):
     mileage: int
 
     condition: str
+
+
+from modules.applications.domain.entities.event import EventType
+from typing import Any
+
+
+class EventResponse(BaseModel):
+
+    id: str
+
+    type: EventType
+
+    message: str
+
+    event_metadata: dict[str, Any] | None = None
+
+    created_at: datetime

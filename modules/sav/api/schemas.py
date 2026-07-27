@@ -1,12 +1,14 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from modules.sav.domain.enums import TicketPriority, TicketCategory, TicketStatus, TicketFilter
-from typing import Optional, Literal
+from typing import Literal
 from pydantic import BaseModel, ConfigDict
+from modules.auth.domain.enums import UserRole
+
+# CLIENT
 
 # create support ticket
-
-class SupportTicketCreate(BaseModel):
+class CreateSupportTicketRequest(BaseModel):
     subject: str
     category: TicketCategory
     priority: TicketPriority
@@ -15,35 +17,20 @@ class SupportTicketCreate(BaseModel):
 
     message: str
 
-class SupportTicketResponseDTO(BaseModel):
-    id: str
-
-    user_id: str
-    application_id: Optional[str] = None
-
-    subject: str
-    category: TicketCategory
-    priority: TicketPriority
-    status: TicketStatus
-
-    assigned_to: Optional[str] = None
-
-    created_at: datetime
-    updated_at: datetime
-
 # get support ticket
 class TicketMessageDTO(BaseModel):
     id: str
     sender_id: str
-    sender_role: str
+    sender_role: UserRole
     message: str
     created_at: datetime
 
 
-class SupportTicketResponseDTO(BaseModel):
+class SupportTicketResponse(BaseModel):
     id: str
     user_id: str
     application_id: str | None
+    description: str
 
     subject: str
     category: TicketCategory
@@ -53,8 +40,8 @@ class SupportTicketResponseDTO(BaseModel):
     assigned_to: str | None
 
     created_at: datetime
-    updated_at: datetime
-
+    updated_at: datetime | None = None
+    archived_at: datetime | None = None
     messages: list[TicketMessageDTO]
 
 
@@ -72,40 +59,66 @@ class FindSupportTicketsQuery(BaseModel):
     filter: TicketFilter = TicketFilter.ALL
     archive: bool = False
     
-class SupportTicketItemDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+
+class SupportTicketListItemResponse(BaseModel):
+
+    id: str
 
     # =====================
-    # CORE TICKET FIELDS
+    # TICKET INFO
     # =====================
-    id: str
+
     subject: str
-    category: str
-    priority: str
-    status: str
+
+    category: TicketCategory
+
+    status: TicketStatus
+
+    priority: TicketPriority
+
+
+    # =====================
+    # CLIENT
+    # =====================
 
     user_id: str
+
     user_name: str | None = None
 
-    assigned_to: str | None = None
-
-    created_at: datetime
-    updated_at: datetime
 
     # =====================
-    # LAST ACTIVITY (UI LAYER ONLY)
+    # LAST ACTIVITY
     # =====================
-    last_activity_at: datetime | None = None
+
     last_message_preview: str | None = None
+
     last_actor: str | None = None
 
+    last_activity_at: datetime | None = None
+
+
     # =====================
-    # UI STATE
+    # READ STATE
     # =====================
+
     unread: bool = False
 
+
+    # =====================
+    # DATES
+    # =====================
+
+    created_at: datetime
+
+    updated_at: datetime | None = None
+    archived_at: datetime | None = None
+
+
+    class Config:
+        from_attributes = True
+
 class PaginatedSupportTicketsResponse(BaseModel):
-    items: list[SupportTicketItemDTO]
+    items: list[SupportTicketListItemResponse]
 
     page: int
     limit: int
@@ -113,6 +126,7 @@ class PaginatedSupportTicketsResponse(BaseModel):
     pages: int
 
 
+# AGENT
 # update status
 class UpdateTicketStatusDTO(BaseModel):
     status: TicketStatus
@@ -139,45 +153,12 @@ class TicketMessageResponse(BaseModel):
 class CountResponseDTO(BaseModel):
     count: int
 
-
-
-
-
-# get support ticket
-class TicketMessageDTO(BaseModel):
-    id: str
-    sender_id: str
-    sender_role: str
-    message: str
-    created_at: datetime
-
-
-class SupportTicketResponseDTO(BaseModel):
-    id: str
-    user_id: str
-    application_id: str | None
-
-    subject: str
-    category: TicketCategory
-    status: TicketStatus
-    priority: TicketPriority
-
-    assigned_to: str | None
-
-    created_at: datetime
-    updated_at: datetime
-
-    messages: list[TicketMessageDTO]
-
-
 # unread-count
 class UnreadTicketCountResponse(BaseModel):
     count: int
 
 
 # sav dashboard
-
-
 class SavDashboardTicketDTO(BaseModel):
     id: str
     subject: str

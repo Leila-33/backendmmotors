@@ -1,7 +1,13 @@
 from modules.sav.domain.entities.support_ticket import SupportTicket
 from modules.sav.infrastructure.db.support_ticket_model import SupportTicketModel
 from modules.sav.infrastructure.mappers.ticket_message_mapper import TicketMessageMapper
-from modules.sav.api.schemas import SupportTicketResponseDTO, TicketMessageDTO, SupportTicketItemDTO
+from modules.sav.api.schemas import (
+    SupportTicketResponse,
+    TicketMessageDTO,
+    SupportTicketListItemResponse
+)
+from modules.auth.domain.enums import UserRole
+from datetime import datetime
 
 class SupportTicketMapper:
 
@@ -20,10 +26,11 @@ class SupportTicketMapper:
             assigned_to=model.assigned_to,
             created_at=model.created_at,
             updated_at=model.updated_at,
+            archived_at=model.archived_at,
             messages=[
-                TicketMessageMapper.to_domain(m)
-                for m in model.messages
-            ]
+                TicketMessageMapper.to_domain(message)
+                for message in model.messages
+            ],
         )
 
     @staticmethod
@@ -39,12 +46,13 @@ class SupportTicketMapper:
             status=entity.status,
             priority=entity.priority,
             assigned_to=entity.assigned_to,
+            archived_at=entity.archived_at,
         )
-    
-    @staticmethod
-    def to_response(ticket: SupportTicket) -> SupportTicketResponseDTO:
 
-        return SupportTicketResponseDTO(
+    @staticmethod
+    def to_response(ticket: SupportTicket) -> SupportTicketResponse:
+
+        return SupportTicketResponse(
             id=ticket.id,
             user_id=ticket.user_id,
             application_id=ticket.application_id,
@@ -56,20 +64,28 @@ class SupportTicketMapper:
             assigned_to=ticket.assigned_to,
             created_at=ticket.created_at,
             updated_at=ticket.updated_at,
+            archived_at=ticket.archived_at,
             messages=[
                 TicketMessageDTO(
-                    id=m.id,
-                    sender_id=m.sender_id,
-                    sender_role=m.sender_role,
-                    message=m.message,
-                    created_at=m.created_at,
+                    id=message.id,
+                    sender_id=message.sender_id,
+                    sender_role=(
+                        UserRole(message.sender_role)
+                        if isinstance(message.sender_role, str)
+                        else message.sender_role
+                    ),
+                    message=message.message,
+                    created_at=message.created_at,
                 )
-                for m in ticket.messages
+                for message in ticket.messages
             ],
         )
-    
+
     @staticmethod
-    def update_model(model: SupportTicketModel, ticket: SupportTicket):
+    def update_model(
+        model: SupportTicketModel,
+        ticket: SupportTicket,
+    ):
 
         model.user_id = ticket.user_id
         model.application_id = ticket.application_id
@@ -79,58 +95,51 @@ class SupportTicketMapper:
         model.status = ticket.status
         model.priority = ticket.priority
         model.assigned_to = ticket.assigned_to
+        model.archived_at = ticket.archived_at
 
         return model
-    
-
 
     @staticmethod
     def from_row(row):
 
-        (
-            ticket,
-            user_name,
-            last_activity_at,
-            last_message,
-            sender_id,
-            last_read_at
-        ) = row
+        ticket = row[0]
 
-        dto = SupportTicketItemDTO.model_validate(ticket)
+        last_activity_at = row.last_activity_at
+        last_read_at = row.last_read_at
 
-        # =====================
-        # USER NAME (CLIENT)
-        # =====================
-        dto.user_name = user_name
+        if isinstance(last_activity_at, str):
+            last_activity_at = datetime.fromisoformat(last_activity_at)
 
-        # =====================
-        # LAST ACTIVITY
-        # =====================
-        dto.last_activity_at = last_activity_at
+        if isinstance(last_read_at, str):
+            last_read_at = datetime.fromisoformat(last_read_at)
 
-        # =====================
-        # MESSAGE PREVIEW
-        # =====================
-        dto.last_message_preview = (
-            (last_message[:80] + "…") if last_message else None
+        unread = False
+
+        if last_activity_at:
+
+            if last_read_at is None:
+                unread = True
+            else:
+                unread = last_read_at < last_activity_at
+
+        return SupportTicketListItemResponse(
+
+            id=ticket.id,
+            subject=ticket.subject,
+            category=ticket.category,
+            status=ticket.status,
+            priority=ticket.priority,
+
+            user_id=ticket.user_id,
+            user_name=row.user_name,
+
+            last_message_preview=row.last_message_preview,
+            last_actor=row.last_actor,
+            last_activity_at=last_activity_at,
+
+            unread=unread,
+
+            created_at=ticket.created_at,
+            updated_at=ticket.updated_at,
+            archived_at=ticket.archived_at,
         )
-
-        # =====================
-        # LAST ACTOR (UX LOGIC)
-        # =====================
-        dto.last_actor = (
-            "Client" if sender_id == ticket.user_id else "Support"
-        )
-
-        # =====================
-        # UNREAD LOGIC
-        # =====================
-        dto.unread = (
-            last_read_at is None
-            or (
-                last_activity_at is not None
-                and last_read_at < last_activity_at
-            )
-        )
-
-        return dto

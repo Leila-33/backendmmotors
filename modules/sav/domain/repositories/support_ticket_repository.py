@@ -5,7 +5,7 @@ from modules.auth.domain.entities.user import User
 from modules.sav.infrastructure.db.support_ticket_model import SupportTicketModel
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from modules.sav.api.schemas import SupportTicketItemDTO
+from modules.sav.api.schemas import SupportTicketListItemResponse
 
 class SupportTicketRepository(ABC):
 
@@ -40,7 +40,7 @@ class SupportTicketRepository(ABC):
         priority: str,
         sort: str,
         user: User,
-    ) -> tuple[list[SupportTicketItemDTO], int]:
+    ) -> tuple[list[SupportTicketListItemResponse], int]:
         pass
 
     # =====================

@@ -1,84 +1,113 @@
-from sqlalchemy.orm import Session
-
 from modules.applications.infrastructure.db.event_model import EventModel
 from modules.applications.domain.entities.event import Event
+from typing import List
+
+from modules.applications.domain.repositories.event_repository import (
+    EventRepository
+)
+
+from sqlalchemy.orm import Session
+from modules.applications.infrastructure.mappers.event_mapper import (
+    EventMapper
+)
 
 
-class EventRepositorySQL:
+class EventRepositorySQL(EventRepository):
 
-    def __init__(self, session: Session):
-
+    def __init__(
+        self,
+        session: Session,
+    ):
         self.session = session
 
     # =========================
-    # SAVE EVENT
+    # SAVE
     # =========================
-    def save(self, event: Event):
 
-        self.session.add(
-            EventModel(
-                id=event.id,
-                application_id=event.application_id,
-                test_drive_id=event.test_drive_id,
-                type=event.type.name,
-                message=event.message,
-                user_id=event.user_id,
-                metadata=event.event_metadata,
-                created_at=event.created_at
-            )
+    def save(
+        self,
+        event: Event
+    ) -> Event:
+
+        model = EventMapper.to_model(
+            event
         )
 
-        self.session.flush()
+        self.session.add(model)
+
+        return event
+
+
 
     # =========================
-    # COMMIT
+    # APPLICATION EVENTS
     # =========================
-    def commit(self):
 
-        self.session.commit()
+    def get_by_application_id(
+        self,
+        application_id: str
+    ) -> List[Event]:
 
-    # =========================
-    # GET BY APPLICATION
-    # =========================
-    def get_by_application_id(self, application_id: str):
-
-        results = (
+        models = (
             self.session.query(EventModel)
-            .filter(EventModel.application_id == application_id)
-            .order_by(EventModel.created_at.asc())
+            .filter(
+                EventModel.application_id == application_id
+            )
+            .order_by(
+                EventModel.created_at.desc()
+            )
             .all()
         )
 
         return [
-            Event(
-                id=e.id,
-                application_id=e.application_id,
-                type=e.type,
-                message=e.message,
-                user_id=e.user_id,
-                event_metadata=e.metadata,
-                created_at=e.created_at
-            )
-            for e in results
+            EventMapper.to_domain(model)
+            for model in models
         ]
 
+
+
     # =========================
-    # DELETE BY APPLICATION
+    # TEST DRIVE EVENTS
     # =========================
-    def delete_by_application(self, application_id: str):
 
-        self.session.query(EventModel)\
-            .filter(EventModel.application_id == application_id)\
-            .delete()
+    def get_by_test_drive_id(
+        self,
+        test_drive_id: str
+    ) -> List[Event]:
 
-        self.session.flush()
-
-
-    def get_by_test_drive_id(self, test_drive_id: str):
-
-        return (
+        models = (
             self.session.query(EventModel)
-            .filter(EventModel.test_drive_id == test_drive_id)
-            .order_by(EventModel.created_at.asc())
+            .filter(
+                EventModel.test_drive_id == test_drive_id
+            )
+            .order_by(
+                EventModel.created_at.desc()
+            )
             .all()
+        )
+
+        return [
+            EventMapper.to_domain(model)
+            for model in models
+        ]
+
+
+
+    # =========================
+    # DELETE APPLICATION EVENTS
+    # =========================
+
+    def delete_by_application(
+        self,
+        application_id: str
+    ):
+
+        (
+            self.session.query(EventModel)
+            .filter(
+                EventModel.application_id == application_id
+            )
+            .delete(
+                synchronize_session=False
+            )
         )

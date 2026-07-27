@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from modules.sav.api.schemas import (
     SavDashboardResponse,
     SavStatisticsResponse,
-    SupportTicketResponseDTO,
+    SupportTicketResponse,
     UpdateTicketStatusDTO
 )
 
@@ -18,6 +18,7 @@ from modules.sav.application.use_cases.agent.get_sav_statistics import GetSavSta
 from modules.sav.application.use_cases.agent.update_support_ticket_status import UpdateSupportTicketStatusUseCase
 from modules.sav.application.use_cases.agent.archive_support_ticket import ArchiveSupportTicketUseCase
 from core.security.dependencies import get_current_sav_agent
+from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 
 router = APIRouter(tags=["Agent Support Tickets"])
 
@@ -46,7 +47,7 @@ def get_sav_statistics(
 
 @router.patch(
     "/{ticket_id}/status",
-    response_model=SupportTicketResponseDTO,
+    response_model=SupportTicketResponse,
 )
 async def update_ticket_status(
     ticket_id: str,
@@ -56,7 +57,15 @@ async def update_ticket_status(
         get_update_support_ticket_status_usecase
     ),
 ):
-    return await uc.execute(ticket_id, payload.status, user)
+
+    ticket = await uc.execute(
+        ticket_id=ticket_id,
+        status=payload.status,
+        user=user
+    )
+
+    return SupportTicketMapper.to_response(ticket)
+
 
 @router.patch("/{ticket_id}/archive")
 def archive_ticket(

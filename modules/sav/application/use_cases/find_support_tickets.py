@@ -17,10 +17,15 @@ class FindSupportTicketsUseCase:
         priority = query.priority
 
         if query.filter == TicketFilter.OPEN:
-            status = TicketStatus.OPEN
+
+            status = [
+                TicketStatus.OPEN,
+                TicketStatus.IN_PROGRESS,
+                TicketStatus.WAITING_CUSTOMER
+            ]
 
         elif query.filter == TicketFilter.URGENT:
-            priority = TicketPriority.HIGH
+            priority = TicketPriority.URGENT
 
         rows, total = self.repo.find_all(
             page=query.page,
