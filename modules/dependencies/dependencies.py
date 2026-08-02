@@ -31,7 +31,10 @@ from modules.applications.infrastructure.repositories.application_financing_repo
 from modules.applications.infrastructure.repositories.application_option_repository_sql import (
     ApplicationOptionRepositorySQL,
 )
-
+from modules.applications.domain.repositories.document_repository import DocumentRepository
+from modules.applications.application.services.document_sync_service import DocumentSyncService
+from modules.storage.infrastrucure.s3_service import S3Service
+from modules.storage.api.dependencies import get_s3_service
 
 def get_application_repository(
     db: Session = Depends(get_db),
@@ -50,6 +53,19 @@ def get_document_repository(
 ):
     return DocumentRepositorySQL(db)
 
+def get_document_sync_service(
+    document_repository: DocumentRepository = Depends(
+        get_document_repository
+    ),
+    s3_service: S3Service = Depends(
+        get_s3_service
+    ),
+) -> DocumentSyncService:
+
+    return DocumentSyncService(
+        document_repository=document_repository,
+        s3_service=s3_service,
+    )
 
 def get_trade_in_repository(
     db: Session = Depends(get_db),
@@ -302,7 +318,6 @@ from modules.vehicles.infrastructure.repositories.vehicle_option_repository_sql 
     VehicleOptionRepositorySQL,
 )
 from modules.vehicles.infrastructure.mappers.vehicle_mapper import VehicleResponseMapper
-from modules.storage.api.dependencies import get_s3_service
 
 
 def get_vehicle_response_mapper(

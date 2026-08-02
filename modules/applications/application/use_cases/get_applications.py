@@ -1,124 +1,165 @@
 from modules.applications.api.schemas import (
     GetApplicationsDTO,
-    ApplicationListItemAdmin,
-    GetApplicationsResponse,
-    ApplicationListItemUser
 )
-
+from modules.auth.domain.enums import UserRole
 from modules.applications.domain.policies.cancel_application_policy import CancelApplicationPolicy
 from modules.applications.domain.policies.restore_application_policy import RestoreApplicationPolicy
+from modules.applications.domain.repositories.application_repository import ApplicationRepository
+from modules.applications.application.results.application_list_item_data import ApplicationListItemData
+from modules.applications.application.results.get_applications_result import GetApplicationsResult
+from modules.applications.application.services.restore_application_service import RestoreApplicationService
+from modules.applications.domain.exceptions import CannotRestoreApplication
+from modules.applications.domain.policies.soft_delete_application_policy import SoftDeleteApplicationPolicy
+from modules.applications.domain.policies.archive_application_policy import ArchiveApplicationPolicy
+
 class GetApplicationsUseCase:
 
-    def __init__(self, application_repository, reservation_repository):
+    def __init__(
+        self,
+        application_repository: ApplicationRepository,
+        restore_application_service: RestoreApplicationService,
+    ):
         self.application_repository = application_repository
-        self.reservation_repository = reservation_repository
+        self.restore_application_service = (
+            restore_application_service
+        )
 
 
+    # =========================
+    # EXECUTE
+    # =========================
     def execute(
         self,
         dto: GetApplicationsDTO,
-        role: str,
-        user_id
+        role: UserRole,
+        user_id: str,
     ):
 
         # =========================
-        # SEARCH STRATEGY (ROLE-BASED)
+        # SEARCH STRATEGY
         # =========================
         search_field = (
-            "vehicle" if role == "client"
+            "vehicle"
+            if role == UserRole.CLIENT
             else "user"
         )
 
-        # =========================
-        # FETCH DATA
-        # =========================
-        applications, total = self.application_repository.find_all(
-        page=dto.page,
-        limit=dto.limit,
-        search=dto.search,
-        search_field=search_field,
-        status=dto.status,
-        application_type=dto.application_type,
-        sort=dto.sort,
-        view_mode=dto.view_mode,
-        user_id=user_id,
-        role=role
-    )
-        # =========================
-        # FILTER BY ROLE (SAFETY LAYER)
-        # =========================
-        if role == "client":
-            applications = [
-                app for app in applications
-                if not app.is_archived
-            ]
 
         # =========================
-        # MAPPING
+        # FETCH
         # =========================
-        items = [
-            self._map_application(app, role, self.reservation_repository)
-            for app in applications
-        ]
+        applications, total = (
+            self.application_repository.find_all(
+                page=dto.page,
+                limit=dto.limit,
+                search=dto.search,
+                search_field=search_field,
+                status=dto.status,
+                application_type=dto.application_type,
+                sort=dto.sort,
+                view_mode=dto.view_mode,
+                user_id=user_id,
+                role=role,
+            )
+        )
+
+
+        # =========================
+        # BUSINESS RULES
+        # =========================
+        items = []
+
+        for application in applications:
+
+            can_cancel = (
+                CancelApplicationPolicy.can_cancel(
+                    application
+                )
+            )
+
+            can_restore_cancelled = False
+
+            can_delete = False
+
+            can_archive = False
+
+
+            if role == UserRole.ADMIN:
+
+
+                # -------------------------
+                # Restore cancelled
+                # -------------------------
+                try:
+
+                    RestoreApplicationPolicy.validate(
+                        application
+                    )
+
+                    self.restore_application_service.validate_rental(
+                        application
+                    )
+
+                    can_restore_cancelled = True
+
+
+                except CannotRestoreApplication:
+
+                    can_restore_cancelled = False
+
+
+
+                # -------------------------
+                # Archive
+                # -------------------------
+                can_archive = (
+                    ArchiveApplicationPolicy.can_archive(
+                        application
+                    )
+                )
+
+
+
+                # -------------------------
+                # Soft delete
+                # -------------------------
+                can_delete = (
+                    SoftDeleteApplicationPolicy.can_delete(
+                        application
+                    )
+                )
+
+
+
+            items.append(
+                ApplicationListItemData(
+                    application=application,
+
+                    can_cancel=can_cancel,
+
+                    can_restore_cancelled=(
+                        can_restore_cancelled
+                    ),
+
+                    can_archive=can_archive,
+
+                    can_delete=can_delete,
+                )
+            )
+
 
         # =========================
         # PAGINATION
         # =========================
-        pages = (total + dto.limit - 1) // dto.limit
+        pages = (
+            total + dto.limit - 1
+        ) // dto.limit
 
-        return GetApplicationsResponse(
+
+        return GetApplicationsResult(
             items=items,
             page=dto.page,
             limit=dto.limit,
             total=total,
-            pages=pages
-        )
-    
-    def _map_application(self, app, role: str, reservation_repository):
-
-        submitted_at = (
-            app.submitted_at.isoformat()
-            if app.submitted_at else None
-        )
-
-        vehicle_name = (
-            f"{app.vehicle.brand} {app.vehicle.model}"
-        )
-
-        base = {
-            "id": app.id,
-            "type": app.vehicle.type,
-            "vehicle": vehicle_name,
-            "status": app.status,
-            "submitted_at": submitted_at,
-        }
-
-        # =========================
-        # ADMIN VIEW
-        # =========================
-        if role == "admin":
-
-            return ApplicationListItemAdmin(
-                **base,
-                client=f"{app.first_name} {app.last_name}",
-                can_cancel=CancelApplicationPolicy.can_cancel(
-                    app,
-                    role
-                ),
-                can_restore_cancelled=RestoreApplicationPolicy.can_restore(
-                    app,
-                    reservation_repository
-                )
-            )
-
-        # =========================
-        # USER VIEW
-        # =========================
-        return ApplicationListItemUser(
-            **base,
-            created_at=app.created_at.isoformat(),
-            can_cancel=CancelApplicationPolicy.can_cancel(
-                app,
-                role
-            )
+            pages=pages,
         )

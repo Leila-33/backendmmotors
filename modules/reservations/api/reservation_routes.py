@@ -1,19 +1,20 @@
 from fastapi import APIRouter, Depends
 
 from modules.reservations.api.schemas import (
-    ReservationCheck,
     ReservationResponseDTO,
     CreateReservationDTO,
-    CancelReservationDTO
+    CancelReservationDTO,
+    CheckAvailabilityDTO,
+    ReservationAvailabilityResponse
 )
 from modules.reservations.application.use_cases.create_reservation import CreateReservationUseCase
 from modules.reservations.application.use_cases.cancel_reservation import CancelReservationUseCase
-from modules.dependencies.dependencies import (
-    get_reservation_repository
-    )
+from modules.reservations.application.use_cases.check_availability import CheckReservationAvailabilityUseCase
+
 from modules.reservations.api.dependencies import (
-    get_create_uc,
-    get_cancel_uc
+    get_create_reservation_usecase,
+    get_cancel_reservation_usecase,
+    get_check_availability_usecase
 )
 
 from core.security.dependencies import get_current_user
@@ -32,11 +33,11 @@ router = APIRouter(tags=["Reservations"])
 def create_reservation(
     dto: CreateReservationDTO,
     current_user=Depends(get_current_user),
-    usecase: CreateReservationUseCase = Depends(get_create_uc)
+    usecase: CreateReservationUseCase = Depends(get_create_reservation_usecase)
 ):
 
     reservation = usecase.execute(
-        data=dto,
+        dto=dto,
         application_id=dto.application_id
     )
 
@@ -54,11 +55,12 @@ def create_reservation(
 def cancel_reservation(
     dto: CancelReservationDTO,
     current_user=Depends(get_current_user),
-    usecase: CancelReservationUseCase = Depends(get_cancel_uc)
+    usecase: CancelReservationUseCase = Depends(get_cancel_reservation_usecase)
 ):
 
     reservation = usecase.execute(
         reservation_id=dto.reservation_id,
+        role=current_user.role,
         user_id=current_user.id
     )
 
@@ -72,17 +74,20 @@ def cancel_reservation(
 # =========================
 # CHECK AVAILABILITY
 # =========================
-@router.post("/check")
+@router.post(
+    "/check",
+    response_model=ReservationAvailabilityResponse
+)
 def check_availability(
-    data: ReservationCheck,
-    repo: ReservationRepositorySQL = Depends(get_reservation_repository),
-):
-    overlapping = repo.exists_overlap(
-        data.vehicle_id,
-        data.start_date,
-        data.end_date
-    )
+    dto: CheckAvailabilityDTO,
 
-    return {
-        "available": not overlapping
-    }
+    usecase: CheckReservationAvailabilityUseCase = Depends(
+        get_check_availability_usecase
+    ),
+):
+
+    available = usecase.execute(dto)
+
+    return ReservationAvailabilityResponse(
+        available=available
+    )

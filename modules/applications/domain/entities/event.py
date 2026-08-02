@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 from modules.applications.domain.enums import EventType
@@ -22,8 +22,9 @@ class Event:
     # TIMESTAMP
     # =========================
 
-    created_at=datetime.now(timezone.utc)
-
+    created_at: datetime = field(
+            default_factory=lambda: datetime.now(timezone.utc)
+        )
     
     # =========================
     # RELATIONS CONTEXT

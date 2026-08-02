@@ -1,13 +1,27 @@
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Enum, String, UniqueConstraint
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Enum, String, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
 from core.database.session import Base
 from modules.reservations.domain.enums import ReservationStatus
+from sqlalchemy import UniqueConstraint
+
 
 class ReservationModel(Base):
+
     __tablename__ = "reservations"
-    UniqueConstraint("application_id")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id",
+            name="uq_reservation_application"
+        ),
+        Index(
+            "idx_reservation_vehicle_dates",
+            "vehicle_id",
+            "start_date",
+            "end_date"
+        ),
+    )
     id = Column(String, primary_key=True, index=True)
 
     vehicle_id = Column(

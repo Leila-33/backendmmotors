@@ -1,9 +1,9 @@
 from typing import Literal, Optional, List
-from modules.applications.api.schemas import OptionDTO
 from datetime import datetime
 from pydantic import BaseModel, field_validator, model_validator, Field
 from modules.vehicles.domain.enums import VehicleType, VehicleCondition, EngineType, VehicleStatus
 from modules.warranties.api.schemas import WarrantyPlanResponse
+from modules.options.api.schemas import OptionResponse
 
 # =========================
 # REQUEST MODELS
@@ -116,7 +116,6 @@ class CreateVehicleRequest(BaseModel):
     
 
 # get vehicle detail
-
 class VehicleResponse(BaseModel):
     id: str
     brand: str
@@ -145,8 +144,8 @@ class VehicleResponse(BaseModel):
         pattern=r"^[A-Z]{2}-\d{3}-[A-Z]{2}$"
     )
 
-    included_options: list[OptionDTO] = Field(default_factory=list)
-    optional_options: list[OptionDTO] = Field(default_factory=list)
+    included_options: list[OptionResponse] = Field(default_factory=list)
+    optional_options: list[OptionResponse] = Field(default_factory=list)
     warranty_plan: WarrantyPlanResponse | None = None
 # =========================
 # update_vehicle

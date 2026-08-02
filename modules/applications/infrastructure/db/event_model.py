@@ -5,7 +5,6 @@ from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from modules.applications.domain.enums import EventType
 
-from datetime import datetime
 
 class EventModel(Base):
 
@@ -69,10 +68,11 @@ class EventModel(Base):
     # TIMESTAMP
     # =====================
 
+
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
-        default=datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc)
     )
 
     # =====================

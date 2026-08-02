@@ -1,61 +1,106 @@
 from uuid import uuid4
-from datetime import datetime, timezone
-
 from modules.applications.domain.entities.event import Event
 from modules.applications.domain.enums import EventType
 from modules.applications.domain.exceptions import ApplicationNotFound
+from modules.applications.domain.repositories.application_repository import ApplicationRepository
+from modules.applications.domain.repositories.event_repository import EventRepository
+from core.database.unit_of_work import UnitOfWork
+from modules.applications.domain.entities.application import Application
+from modules.auth.domain.entities.user import User
+from modules.applications.domain.policies.archive_application_policy import ArchiveApplicationPolicy
 
 class ArchiveApplicationUseCase:
 
     def __init__(
         self,
-        application_repository,
-        event_repository
+        application_repository: ApplicationRepository,
+        event_repository: EventRepository,
+        unit_of_work: UnitOfWork,
     ):
         self.application_repository = application_repository
         self.event_repository = event_repository
+        self.unit_of_work = unit_of_work
 
-    def execute(self, application_id: str, current_admin):
+
+    # =========================
+    # EXECUTE
+    # =========================
+    def execute(
+        self,
+        application_id: str,
+        current_admin: User,
+    ) -> Application:
+
 
         # =========================
-        # GET APPLICATION (important pour audit)
+        # GET APPLICATION
         # =========================
-        application = self.application_repository.get_by_id(application_id)
+        application = (
+            self.application_repository.get_by_id(
+                application_id
+            )
+        )
+
 
         if not application:
             raise ApplicationNotFound()
 
+
+        # =========================
+        # VALIDATION
+        # =========================
+        ArchiveApplicationPolicy.validate(
+            application
+        )
+
+
+
+
         # =========================
         # ARCHIVE
         # =========================
-        self.application_repository.archive(application_id)
+        application.is_archived = True
 
-        # =========================
-        # EVENT (AUDIT TRAIL)
-        # =========================
-        event = Event(
-            id=str(uuid4()),
-            application_id=application_id,
-            type=EventType.APPLICATION_ARCHIVED,
-            message="Dossier archivé par l'administrateur",
-            user_id=current_admin.id,
-            event_metadata={
-                "archived_by": current_admin.id,
-                "vehicle_id": application.vehicle_id,
-                "status_before": application.status.value if application.status else None
-            },
-            created_at=datetime.now(timezone.utc)
+
+        self.application_repository.update(
+            application
         )
 
-        self.event_repository.save(event)
+
+        # =========================
+        # EVENT AUDIT
+        # =========================
+        self.event_repository.save(
+            Event(
+                id=str(uuid4()),
+
+                application_id=application.id,
+
+                user_id=current_admin.id,
+
+                type=EventType.APPLICATION_ARCHIVED,
+
+                message=(
+                    "Dossier archivé par administrateur."
+                ),
+
+                event_metadata={
+                    "archived_by": current_admin.id,
+                    "vehicle_id": application.vehicle_id,
+                    "status_before": (
+                        application.status.value
+                        if application.status
+                        else None
+                    ),
+                },
+            )
+        )
+
 
         # =========================
         # COMMIT
         # =========================
-        self.application_repository.commit()
-        self.event_repository.commit()
+        self.unit_of_work.commit()
 
-        # =========================
-        # RESPONSE
-        # =========================
-        return {"success": True}
+
+        return application

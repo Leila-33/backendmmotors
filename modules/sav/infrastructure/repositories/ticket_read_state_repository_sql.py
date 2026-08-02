@@ -14,10 +14,15 @@ from modules.sav.infrastructure.db.support_ticket_model import SupportTicketMode
 
 from modules.sav.infrastructure.db.ticket_message_model import TicketMessageModel
 
+from datetime import datetime
+from sqlalchemy.orm import Session
+
+
 class TicketReadStateRepositorySQL(TicketReadStateRepository):
 
     def __init__(self, db: Session):
         self.db = db
+
 
     # =========================
     # GET
@@ -42,13 +47,15 @@ class TicketReadStateRepositorySQL(TicketReadStateRepository):
 
         return TicketReadStateMapper.to_domain(model)
 
+
+
     # =========================
-    # SAVE
+    # SAVE / UPDATE
     # =========================
     def save(
-    self,
-    state: TicketReadState,
-) -> TicketReadState:
+        self,
+        state: TicketReadState,
+    ) -> TicketReadState:
 
         model = (
             self.db.query(TicketReadStateModel)
@@ -59,45 +66,62 @@ class TicketReadStateRepositorySQL(TicketReadStateRepository):
             .first()
         )
 
+
         if model is None:
 
-            model = TicketReadStateMapper.to_model(state)
+            model = TicketReadStateMapper.to_model(
+                state
+            )
+
             self.db.add(model)
 
         else:
 
             model.last_read_at = state.last_read_at
 
-        try:
-            self.db.commit()
-            self.db.refresh(model)
-        except Exception:
-            self.db.rollback()
-            raise
 
-        return TicketReadStateMapper.to_domain(model)
+        self.db.flush()
+        self.db.refresh(model)
+
+        return TicketReadStateMapper.to_domain(
+            model
+        )
 
 
+
+    # =========================
+    # MARK LAST READ
+    # =========================
     def mark_last_read(
         self,
         ticket_id: str,
         user_id: str,
         last_read_at: datetime,
-    ):
+    ) -> TicketReadState:
 
-        state = self.get(ticket_id, user_id)
+        state = self.get(
+            ticket_id,
+            user_id,
+        )
+
 
         if state is None:
+
             state = TicketReadState(
                 ticket_id=ticket_id,
                 user_id=user_id,
                 last_read_at=last_read_at,
             )
+
         else:
+
             state.last_read_at = last_read_at
 
+
         return self.save(state)
-    
+
+
+
     # =========================
     # DELETE BY TICKET
     # =========================
@@ -109,9 +133,11 @@ class TicketReadStateRepositorySQL(TicketReadStateRepository):
         (
             self.db.query(TicketReadStateModel)
             .filter(
-                TicketReadStateModel.ticket_id == ticket_id,
+                TicketReadStateModel.ticket_id == ticket_id
             )
-            .delete(synchronize_session=False)
+            .delete(
+                synchronize_session=False
+            )
         )
 
-        self.db.commit()
+        self.db.flush()

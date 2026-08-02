@@ -56,10 +56,6 @@ class SupportTicketRepository(ABC):
         pass
 
     @abstractmethod
-    def count_open(self, user: Optional[User] = None) -> int:
-        pass
-
-    @abstractmethod
     def count_open_tickets_by_agent(self, agent_id: str) -> int:
         pass
 

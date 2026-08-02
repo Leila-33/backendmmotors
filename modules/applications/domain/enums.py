@@ -22,7 +22,9 @@ class ApplicationStatus(str, Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
-
+class ApplicationType(str, Enum):
+    SALE = "sale"
+    RENT = "rent"
 
 class OptionUsageType(str, Enum):
     INCLUDED = "included"
@@ -45,8 +47,10 @@ class EventType(str, Enum):
     APPLICATION_REJECTED = "application_rejected"
 
     APPLICATION_ARCHIVED = "application_archived"
+    APPLICATION_UNARCHIVED = "application_unarchived"
     APPLICATION_RESTORED = "application_restored"
     APPLICATION_CANCELLED = "application_cancelled"
+    APPLICATION_DELETED = "application_deleted"
 
     # =========================
     # DOCUMENTS
@@ -78,6 +82,7 @@ class EventType(str, Enum):
     # =========================
     RENTAL_PAYMENT_PAID = "rental_payment_paid"
     RENTAL_COMPLETED = "rental_completed"
+    RENTAL_CANCELLED = "rental_cancelled"
 
     # =========================
     # SUBSCRIPTION (STRIPE)

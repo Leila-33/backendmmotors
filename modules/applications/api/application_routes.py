@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
-from modules.applications.application.use_cases.save_draft_application_use_case import (
+from modules.applications.application.use_cases.save_draft_application import (
     SaveDraftApplicationUseCase
 )
 from modules.applications.application.use_cases.get_application_by_vehicle import (
@@ -8,39 +8,59 @@ from modules.applications.application.use_cases.get_application_by_vehicle impor
 )
 from modules.applications.application.use_cases.delete_application import (DeleteApplicationUseCase)
 from modules.applications.application.use_cases.get_applications import GetApplicationsUseCase
+from modules.applications.application.use_cases.get_applications import (
+    GetApplicationsUseCase
+)
+from modules.applications.application.use_cases.get_application import GetApplicationUseCase
+from modules.applications.application.use_cases.cancel_application import CancelApplicationUseCase
+from modules.applications.application.use_cases.submit_application import SubmitApplicationUseCase
+
 
 from modules.auth.domain.entities.user import User
-
 from core.security.dependencies import get_current_user
 
+
+from modules.applications.api.application_list_response_factory import ApplicationListResponseFactory
+from modules.applications.api.application_response_factory import ApplicationResponseFactory
 from modules.applications.api.schemas import (
     SaveDraftApplicationDTO,
     GetApplicationsResponse,
     SubmitApplicationDTO,
-    SubmitApplicationResponse,
     ApplicationCancelResponse,
-    ApplicationRestoreCancelledResponse
+    SaveDraftApplicationResponse,
+    ApplicationDetailResponse,
+    ApplicationByVehicleResponse,
+    GetApplicationsDTO
 )
+
 from modules.auth.infrastructure.db.user_model import (UserModel)
 from modules.applications.api.dependencies import (
-    get_save_draft_use_case,
+    get_save_draft_application_usecase,
     get_application_by_vehicle_usecase,
     get_delete_application_usecase,
-    get_applications_usecase,
-    get_submit_usecase,
+    get_get_applications_usecase,
+    get_submit_application_usecase,
     get_cancel_application_usecase,
-    get_restore_cancelled_usecase
+    get_application_response_factory,
+    get_application_usecase,
+    get_application_list_response_factory
     )
 router = APIRouter(tags=["Applications"])
 
-@router.post("/draft")
+
+@router.post(
+    "/draft",
+    response_model=SaveDraftApplicationResponse,
+)
 def save_or_update_draft_application(
     dto: SaveDraftApplicationDTO,
 
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(
+        get_current_user
+    ),
 
     usecase: SaveDraftApplicationUseCase = Depends(
-        get_save_draft_use_case
+        get_save_draft_application_usecase
     ),
 ):
 
@@ -49,38 +69,61 @@ def save_or_update_draft_application(
         current_user=current_user
     )
 
-    return {
-        "id": result.id,
-        "status": result.status
-    }
+    return SaveDraftApplicationResponse(
+        id=result.id,
+        status=result.status,
+    )
 
+@router.post(
+    "/submit",
+    response_model=SaveDraftApplicationResponse,
+)
+def submit_application(
+    dto: SubmitApplicationDTO,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    usecase: SubmitApplicationUseCase = Depends(
+        get_submit_application_usecase
+    ),
+):
 
+    result = usecase.execute(
+        dto,
+        current_user=current_user,
+    )
 
-@router.get("/by-vehicle/{vehicle_id}")
+    return SaveDraftApplicationResponse(
+        id=result.id,
+        status=result.status,
+    )
+
+@router.get(
+    "/by-vehicle/{vehicle_id}",
+    response_model=ApplicationByVehicleResponse | None,
+)
 def get_application_by_vehicle(
     vehicle_id: str,
     current_user: UserModel = Depends(get_current_user),
     usecase: GetApplicationByVehicleUseCase = Depends(
         get_application_by_vehicle_usecase
-    )
+    ),
 ):
 
     application = usecase.execute(
         vehicle_id=vehicle_id,
-        current_user=current_user
+        current_user=current_user,
     )
 
-    if not application:
+    if application is None:
         return None
 
-    return {
-        "id": application.id,
-        "status": application.status
-    }
+    return ApplicationByVehicleResponse(
+        id=application.id,
+        status=application.status,
+    )
 
 
-
-from fastapi import Query
 
 
 
@@ -100,7 +143,14 @@ def get_applications(
     sort: str = "created_at_desc",
     view_mode: str = "active",
 
-    usecase: GetApplicationsUseCase = Depends(get_applications_usecase),
+    usecase: GetApplicationsUseCase = Depends(
+        get_get_applications_usecase
+    ),
+
+    factory: ApplicationListResponseFactory = Depends(
+        get_application_list_response_factory
+    ),
+
     current_user=Depends(get_current_user)
 ):
 
@@ -114,57 +164,48 @@ def get_applications(
         view_mode=view_mode
     )
 
-    return usecase.execute(
+
+    result = usecase.execute(
         dto=dto,
-        role="client",
+        role=current_user.role,
         user_id=current_user.id
     )
 
 
-# =========================
-# IMPORTS
-# =========================
+    return factory.build(
+        result=result,
+        role=current_user.role
+    )
 
 
 
 
-
-
-from modules.applications.application.use_cases.get_application import (
-    GetApplicationUseCase
-)
-
-from modules.applications.api.dependencies import (
-    get_application_usecase
-)
-
-
-
-# =========================
-# ROUTE
-# =========================
-@router.get("/{application_id}")
+@router.get("/{id}", response_model=ApplicationDetailResponse)
 def get_application(
-    application_id: str,
-    current_user: UserModel = Depends(get_current_user),
+    id: str,
     usecase: GetApplicationUseCase = Depends(
         get_application_usecase
-    )
+    ),
+    factory: ApplicationResponseFactory = Depends(
+        get_application_response_factory
+    ),
+    current_user=Depends(get_current_user)
+
 ):
 
-    application = usecase.execute(
-        application_id=application_id,
-        current_user=current_user
+    application, payment = usecase.execute(
+        id, current_user
     )
 
-    return application
+    return factory.build(
+        application,
+        payment
+    )
 
 
 
 
-# =========================
-# ROUTE
-# =========================
+
 @router.delete("/{application_id}")
 def delete_application(
     application_id: str,
@@ -176,51 +217,10 @@ def delete_application(
 
 
 
-# =========================================
-# GET APPLICATIONS
-# =========================================
 
 
 
 
-
-from modules.applications.application.use_cases.get_applications import (
-    GetApplicationsUseCase
-)
-
-from modules.applications.api.schemas import (
-    GetApplicationsDTO
-)
-
-
-
-
-
-
-
-
-from modules.applications.application.use_cases.submit_application import SubmitApplicationUseCase
-
-
-
-@router.post(
-    "/submit",
-    response_model=SubmitApplicationResponse
-)
-def submit_application(
-    dto: SubmitApplicationDTO,
-    current_user=Depends(get_current_user),
-    usecase: SubmitApplicationUseCase = Depends(
-        get_submit_usecase
-    )
-):
-    return usecase.execute(
-        dto=dto,
-        current_user=current_user
-    )
-
-
-from modules.applications.application.use_cases.cancel_application import CancelApplicationUseCase
 
 @router.patch(
     "/{application_id}/cancel",
@@ -247,27 +247,3 @@ def cancel_application(
     )
 
 
-from modules.applications.application.use_cases.admin.restore_cancelled_application import RestoreCancelledApplicationUseCase
-
-@router.patch(
-    "/{application_id}/restore-cancelled",
-    response_model=ApplicationRestoreCancelledResponse
-)
-def restore_cancelled_application(
-    application_id: str,
-    current_user: User = Depends(get_current_user),
-    usecase: RestoreCancelledApplicationUseCase = Depends(
-        get_restore_cancelled_usecase
-    )
-):
-
-    application = usecase.execute(
-        application_id=application_id,
-        role=current_user.role
-    )
-
-    return ApplicationRestoreCancelledResponse(
-        id=application.id,
-        status=application.status,
-        message="Application restaurée avec succès"
-    )

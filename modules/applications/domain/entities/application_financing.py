@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ApplicationFinancing:
+    application_id: str
 
     down_payment: float
 

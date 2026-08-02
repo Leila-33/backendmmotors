@@ -1,62 +1,101 @@
 from uuid import uuid4
-from datetime import datetime, timezone
-
 from modules.applications.domain.entities.event import Event
 from modules.applications.domain.enums import EventType
 from modules.applications.domain.exceptions import ApplicationNotFound
+from modules.applications.domain.entities.application import Application
+from modules.applications.domain.repositories.application_repository import ApplicationRepository
+from core.database.unit_of_work import UnitOfWork
+from modules.applications.domain.repositories.event_repository import EventRepository
+from modules.auth.domain.entities.user import User
+from modules.applications.domain.exceptions import ApplicationNotArchived
 
 class UnarchiveApplicationUseCase:
 
     def __init__(
         self,
-        application_repository,
-        event_repository
+        application_repository: ApplicationRepository,
+        event_repository: EventRepository,
+        unit_of_work: UnitOfWork,
     ):
         self.application_repository = application_repository
         self.event_repository = event_repository
+        self.unit_of_work = unit_of_work
 
-    def execute(self, application_id: str, current_admin):
+
+    # =========================
+    # EXECUTE
+    # =========================
+    def execute(
+        self,
+        application_id: str,
+        current_admin: User,
+    ) -> Application:
+
 
         # =========================
-        # 1. GET APPLICATION (audit important)
+        # GET APPLICATION
         # =========================
-        application = self.application_repository.get_by_id(application_id)
+        application = (
+            self.application_repository.get_by_id(
+                application_id
+            )
+        )
 
         if not application:
             raise ApplicationNotFound()
 
-        # =========================
-        # 2. UNARCHIVE
-        # =========================
-        self.application_repository.unarchive(application_id)
 
         # =========================
-        # 3. EVENT (AUDIT TRAIL)
+        # VALIDATION
         # =========================
-        event = Event(
-            id=str(uuid4()),
-            application_id=application_id,
-            type=EventType.APPLICATION_RESTORED,
-            message="Dossier restauré depuis les archives",
-            user_id=current_admin.id,
-            event_metadata={
-                "restored_by": current_admin.id,
-                "vehicle_id": application.vehicle_id,
-                "status_at_restore": application.status.value if application.status else None,
-                "was_archived": True
-            },
-            created_at=datetime.now(timezone.utc)
+        if not application.is_archived:
+            raise ApplicationNotArchived()
+
+
+        # =========================
+        # UNARCHIVE
+        # =========================
+        application.is_archived = False
+
+        self.application_repository.update(
+            application
         )
 
-        self.event_repository.save(event)
 
         # =========================
-        # 4. COMMIT
+        # EVENT
         # =========================
-        self.application_repository.commit()
-        self.event_repository.commit()
+        self.event_repository.save(
+            Event(
+                id=str(uuid4()),
+
+                application_id=application.id,
+
+                user_id=current_admin.id,
+
+                type=EventType.APPLICATION_UNARCHIVED,
+
+                message=(
+                    "Dossier restauré depuis les archives."
+                ),
+
+                event_metadata={
+                    "restored_by": current_admin.id,
+                    "vehicle_id": application.vehicle_id,
+                    "status": (
+                        application.status.value
+                        if application.status
+                        else None
+                    ),
+                },
+            )
+        )
+
 
         # =========================
-        # 5. RESPONSE
+        # COMMIT
         # =========================
-        return {"success": True}
+        self.unit_of_work.commit()
+
+
+        return application

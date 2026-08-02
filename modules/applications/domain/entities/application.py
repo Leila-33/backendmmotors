@@ -11,7 +11,12 @@ from modules.applications.domain.entities.application_financing import (
 from modules.applications.domain.entities.application_trade_in import (
     ApplicationTradeIn
 )
+from modules.financing.domain.entities.financing_contract import FinancingContract
+from modules.vehicles.domain.entities.vehicle import Vehicle
+from modules.reservations.domain.entities.reservation import Reservation
 import uuid
+from modules.auth.domain.entities.user import User
+
 
 @dataclass
 class Application:
@@ -25,14 +30,14 @@ class Application:
 
     vehicle_id: str
 
+    # =====================================================
+    # OPTIONAL IDENTIFIERS
+    # =====================================================
     quote_id: str | None = None
-    
 
 
     # =====================================================
     # SNAPSHOT USER
-    # DRAFT => optional
-    # SUBMIT => validated later
     # =====================================================
     first_name: Optional[str] = None
 
@@ -46,6 +51,7 @@ class Application:
 
     birth_date: Optional[date] = None
 
+
     # =====================================================
     # FINANCIAL INFO
     # =====================================================
@@ -55,12 +61,16 @@ class Application:
 
     employment_status: Optional[str] = None
 
+
     # =====================================================
     # STATUS
     # =====================================================
-    status: ApplicationStatus = ApplicationStatus.DRAFT
+    status: ApplicationStatus = (
+        ApplicationStatus.DRAFT
+    )
 
     previous_status: Optional[ApplicationStatus] = None
+
 
     created_at: datetime = field(
         default_factory=datetime.utcnow
@@ -69,26 +79,46 @@ class Application:
     submitted_at: Optional[datetime] = None
 
     is_archived: bool = False
-    
+
     deleted_at: Optional[datetime] = None
-    
+
     discount: Optional[str] = None
 
 
     # =====================================================
-    # RELATIONS
+    # RELATIONS OPTIONAL
     # =====================================================
-    financing: Optional[ApplicationFinancing] = None
+    vehicle: Vehicle | None = None
 
-    trade_in: Optional[ApplicationTradeIn] = None
+    user: User | None = None
 
-    documents: list = field(default_factory=list)
+    financing_contract: FinancingContract | None = None
 
-    options: list = field(default_factory=list)
+    reservation: Reservation | None = None
 
-    events: list = field(default_factory=list)
+    option_ids: list[str] = field(
+        default_factory=list
+    )
 
-    notifications: list = field(default_factory=list)
+    financing: ApplicationFinancing | None = None
+
+    trade_in: ApplicationTradeIn | None = None
+
+    documents: list = field(
+        default_factory=list
+    )
+
+    options: list = field(
+        default_factory=list
+    )
+
+    events: list = field(
+        default_factory=list
+    )
+
+    notifications: list = field(
+        default_factory=list
+    )
 
 
     @staticmethod
@@ -114,3 +144,10 @@ class Application:
 
             discount=quote.discount,
         )
+
+    def change_status(
+    self,
+    status: ApplicationStatus
+):
+        self.previous_status = self.status
+        self.status = status

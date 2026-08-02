@@ -4,12 +4,12 @@ from modules.vehicles.domain.entities.vehicle import Vehicle
 from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
 from modules.vehicles.api.schemas import (
     VehicleResponse,
-    OptionDTO,
  )
 from modules.vehicles.domain.enums import (
     VehicleOptionType,
     
 )
+from modules.options.api.schemas import OptionResponse
 from modules.warranties.infrastructure.mappers.warranty_plan_mapper import WarrantyPlanMapper
 
 
@@ -308,7 +308,7 @@ class VehicleResponseMapper:
                 continue
 
 
-            option_dto = OptionDTO(
+            option_dto = OptionResponse(
 
                 id=vo.option.id,
 
@@ -321,7 +321,10 @@ class VehicleResponseMapper:
                         "value"
                     )
                     else vo.option.type
-                )
+                ),
+                price=vo.option.price,
+                is_active=vo.option.is_active,
+                billing_type=vo.option.billing_type
 
             )
 

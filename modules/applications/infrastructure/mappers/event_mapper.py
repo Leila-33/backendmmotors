@@ -1,6 +1,8 @@
 from modules.applications.infrastructure.db.event_model import EventModel
 from modules.applications.domain.entities.event import Event
 from modules.applications.api.schemas import EventResponse
+from modules.applications.domain.enums import EventType
+
 
 
 class EventMapper:
@@ -15,7 +17,7 @@ class EventMapper:
 
             id=model.id,
 
-            type=model.type,
+            type=EventType(model.type),
 
             message=model.message,
 
@@ -44,7 +46,7 @@ class EventMapper:
 
             id=event.id,
 
-            type=event.type,
+            type=event.type.value,
 
             message=event.message,
 

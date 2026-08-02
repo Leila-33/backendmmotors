@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from modules.applications.domain.enums import DocumentStatus, DocumentType
 from typing import Optional
+from modules.applications.domain.entities.application import Application
 
 @dataclass
 class Document:
@@ -16,3 +17,13 @@ class Document:
     status: DocumentStatus
 
     comment: Optional[str] = None
+
+
+    def update_status(
+        self,
+        status: DocumentStatus,
+        comment: str | None = None
+    ):
+
+        self.status = status
+        self.comment = comment

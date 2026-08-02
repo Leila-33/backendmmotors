@@ -3,7 +3,6 @@ from datetime import date, datetime
 from typing import Optional
 from modules.reservations.domain.enums import ReservationStatus
 
-
 @dataclass
 class Reservation:
 
@@ -20,3 +19,4 @@ class Reservation:
 
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+

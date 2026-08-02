@@ -1,279 +1,131 @@
-from uuid import uuid4
 from datetime import datetime, timezone
-
 import logging
-
-from core.config.settings import settings
-from modules.storage.infrastrucure.s3_client import get_s3_client
-
 logger = logging.getLogger(__name__)
-
-from sqlalchemy import or_
-
 from sqlalchemy.orm import selectinload, Session 
 from modules.applications.domain.enums import ApplicationStatus, ViewMode
 from modules.reservations.domain.enums import ReservationStatus
-
 from modules.auth.domain.exceptions import UserIdRequiredForClient
-
-
 from modules.applications.infrastructure.db.application_model import ApplicationModel
-from modules.applications.infrastructure.db.application_option_model import ApplicationOptionModel
-from modules.applications.infrastructure.db.document_model import DocumentModel
-from modules.applications.infrastructure.db.application_financing_model import ApplicationFinancingModel
-from modules.applications.infrastructure.db.application_trade_in_model import ApplicationTradeInModel
 from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
+from modules.applications.domain.entities.application import Application
+from modules.vehicles.infrastructure.db.vehicle_model import (
+    VehicleModel
+)
+from modules.applications.domain.repositories.application_repository import ApplicationRepository
+from modules.applications.infrastructure.mappers.application_mapper import ApplicationMapper
+from modules.auth.domain.enums import UserRole
+from sqlalchemy import and_, or_
+from modules.vehicles.domain.enums import VehicleType
 
-
-
-
-
-class ApplicationRepositorySQL:
+class ApplicationRepositorySQL(ApplicationRepository):
 
     def __init__(self, session: Session):
         self.session = session
 
-    # =========================
-    # BASE
-    # =========================
-    def create_base(self, **kwargs) -> ApplicationModel:
-        app = ApplicationModel(**kwargs)
-        self.session.add(app)
-        return app
 
-    def get_by_id(self, application_id: str):
-        return (
+    # =========================
+    # CREATE
+    # =========================
+    def create_base(
+        self,
+        application: Application
+    ) -> Application:
+
+        model = ApplicationMapper.to_model(application)
+
+        self.session.add(model)
+        self.session.flush()
+
+        return ApplicationMapper.to_domain(model)
+
+
+    # =========================
+    # GET BY ID
+    # =========================
+    def get_by_id(
+        self,
+        application_id: str
+    ) -> Application | None:
+
+        model = (
             self.session.query(ApplicationModel)
             .filter_by(id=application_id)
             .first()
         )
 
-    def update(self, application: ApplicationModel):
-        self.session.add(application)
-        return application
+        if not model:
+            return None
+
+        return ApplicationMapper.to_domain(model)
+
+
 
     # =========================
-    # OPTIONS
+    # UPDATE
     # =========================
-
-
-    def replace_options(
+    def update(
         self,
-        application_id: str,
-        option_ids: list[str]
-    ):
+        application: Application
+    ) -> Application:
 
-        self.session.query(ApplicationOptionModel)\
-            .filter_by(application_id=application_id)\
-            .delete()
+        model = (
+            self.session.query(ApplicationModel)
+            .filter_by(id=application.id)
+            .first()
+        )
 
-        for option_id in option_ids:
+        if not model:
+            return None
 
-            self.session.add(
-                ApplicationOptionModel(
-                    id=str(uuid4()),
-                    application_id=application_id,
-                    option_id=option_id
-                )
-            )
+
+        ApplicationMapper.update_model(
+            model,
+            application
+        )
 
         self.session.flush()
 
-    # =========================
-    # FINANCING
-    # =========================
-    def save_financing(self, application_id: str, data):
+        return ApplicationMapper.to_domain(model)
 
-        existing = (
-            self.session.query(ApplicationFinancingModel)
-            .filter_by(application_id=application_id)
-            .first()
-        )
 
-        if existing:
-            existing.down_payment = data.down_payment
-            existing.duration_months = data.duration_months
-            existing.financed_amount = data.financed_amount
-            existing.monthly_payment = data.monthly_payment
-
-        else:
-            self.session.add(
-                ApplicationFinancingModel(
-                    application_id=application_id,
-                    down_payment=data.down_payment,
-                    duration_months=data.duration_months,
-                    financed_amount=data.financed_amount,
-                    monthly_payment=data.monthly_payment
-                )
-            )
 
     # =========================
-    # TRADE-IN
+    # GET FULL
     # =========================
-    def save_trade_in(self, application_id: str, trade_in_value: float, data):
-
-        existing = (
-            self.session.query(ApplicationTradeInModel)
-            .filter_by(application_id=application_id)
-            .first()
-        )
-
-        if existing:
-            existing.brand = data.brand
-            existing.model = data.model
-            existing.year = data.year
-            existing.mileage = data.mileage
-            existing.condition = data.condition
-            existing.estimated_value = trade_in_value
-
-        else:
-            self.session.add(
-                ApplicationTradeInModel(
-                    application_id=application_id,
-                    brand=data.brand,
-                    model=data.model,
-                    year=data.year,
-                    mileage=data.mileage,
-                    condition=data.condition,
-                    estimated_value=trade_in_value
-                )
-            )
-    def commit(self):
-        self.session.commit()
-
-    def rollback(self):
-        self.session.rollback()
-
-
     def get_full_by_id(
-    self,
-    application_id: str
-):
+        self,
+        application_id: str
+    ) -> Application | None:
 
-        return (
+        model = (
             self.session.query(ApplicationModel)
-            .filter_by(id=application_id)
+            .options(
+                selectinload(ApplicationModel.vehicle),
+                selectinload(ApplicationModel.documents),
+                selectinload(ApplicationModel.financing),
+                selectinload(ApplicationModel.trade_in),
+                selectinload(ApplicationModel.options),
+            )
+            .filter(
+                ApplicationModel.id == application_id
+            )
             .first()
         )
-    
 
+        if not model:
+            return None
 
-
-
-    def sync_documents(
-        self,
-        application_id: str,
-        documents: list
-    ):
-
-        s3 = get_s3_client()
-
-        # =========================
-        # EXISTING DOCS
-        # =========================
-        existing_docs = (
-            self.session.query(DocumentModel)
-            .filter_by(application_id=application_id)
-            .all()
-        )
-
-        # =========================
-        # MAPS
-        # =========================
-        existing_by_type = {
-            doc.type: doc
-            for doc in existing_docs
-        }
-
-        incoming_types = {
-            doc.type
-            for doc in documents
-        }
-
-        # =========================
-        # UPSERT
-        # =========================
-        for incoming in documents:
-
-            existing = existing_by_type.get(
-                incoming.type
-            )
-
-            # =========================
-            # UPDATE EXISTING
-            # =========================
-            if existing:
-
-                # fichier changé
-                if existing.s3_key != incoming.s3_key:
-
-                    # delete old S3 file
-                    try:
-
-                        s3.delete_object(
-                            Bucket=settings.S3_BUCKET,
-                            Key=existing.s3_key
-                        )
-
-                    except Exception:
-                        logger.exception(
-                            f"Failed deleting S3 file: {existing.s3_key}"
-                        )
-
-                    existing.s3_key = incoming.s3_key
-
-                    # reset validation
-                    existing.status = "pending"
-                    existing.comment = None
-
-            # =========================
-            # INSERT NEW
-            # =========================
-            else:
-
-                self.session.add(
-                    DocumentModel(
-                        id=str(uuid4()),
-                        application_id=application_id,
-                        type=incoming.type,
-                        s3_key=incoming.s3_key,
-                        status="pending"
-                    )
-                )
-
-        # =========================
-        # DELETE REMOVED DOCS
-        # =========================
-        for existing in existing_docs:
-
-            if existing.type in incoming_types:
-                continue
-
-            # delete S3
-            try:
-
-                s3.delete_object(
-                    Bucket=settings.S3_BUCKET,
-                    Key=existing.s3_key
-                )
-
-            except Exception:
-                logger.exception(
-                    f"Failed deleting removed S3 file: {existing.s3_key}"
-                )
-
-            # delete DB
-            self.session.delete(existing)
-
-        self.session.flush()
+        return ApplicationMapper.to_domain(model)
 
 
 
 
 
- 
 
 
+    # =========================
+    # FIND ALL
+    # =========================
     def find_all(
         self,
         page,
@@ -283,26 +135,31 @@ class ApplicationRepositorySQL:
         status,
         application_type,
         sort,
-        view_mode="active",
+        view_mode,
         user_id=None,
-        role="client"
+        role=UserRole.CLIENT
     ):
 
         query = (
             self.session.query(ApplicationModel)
-            .options(selectinload(ApplicationModel.vehicle))
+            .join(
+                VehicleModel
+            )
+            .options(
+                selectinload(ApplicationModel.vehicle)
+            )
         )
 
-        # =========================
+
         # SOFT DELETE
-        # =========================
+
         query = query.filter(
             ApplicationModel.deleted_at.is_(None)
         )
 
-        # =========================
-        # ROLE FILTER
-        # =========================
+
+        # ROLE
+
         if role != "admin":
 
             if not user_id:
@@ -312,192 +169,263 @@ class ApplicationRepositorySQL:
                 ApplicationModel.user_id == user_id
             )
 
-        # =========================
-        # ARCHIVE
-        # =========================
-        # =========================
-        # VIEW MODE FILTER
-        # =========================
+
+
+        # VIEW MODE
+
         if view_mode == ViewMode.ACTIVE:
+
             query = query.filter(
                 ApplicationModel.is_archived.is_(False),
                 ApplicationModel.status != ApplicationStatus.CANCELLED
             )
 
+
         elif view_mode == ViewMode.CANCELLED:
+
             query = query.filter(
                 ApplicationModel.status == ApplicationStatus.CANCELLED
             )
 
+
         elif view_mode == ViewMode.ARCHIVED:
+
             query = query.filter(
                 ApplicationModel.is_archived.is_(True)
             )
-        # =========================
+
+
+
         # SEARCH
-        # =========================
+
         if search:
 
             search = search.strip()
 
+
             if search_field == "vehicle":
+
                 query = query.filter(
                     or_(
-                        VehicleModel.brand.ilike(f"%{search}%"),
-                        VehicleModel.model.ilike(f"%{search}%")
+                        VehicleModel.brand.ilike(
+                            f"%{search}%"
+                        ),
+                        VehicleModel.model.ilike(
+                            f"%{search}%"
+                        )
                     )
                 )
+
+
             else:
+
                 query = query.filter(
                     or_(
-                        ApplicationModel.first_name.ilike(f"%{search}%"),
-                        ApplicationModel.last_name.ilike(f"%{search}%")
+                        ApplicationModel.first_name.ilike(
+                            f"%{search}%"
+                        ),
+                        ApplicationModel.last_name.ilike(
+                            f"%{search}%"
+                        )
                     )
                 )
 
-        # =========================
+
+
         # STATUS
-        # =========================
+
         if status and status != "all":
-            query = query.filter(ApplicationModel.status == status)
 
-        # =========================
-        # TYPE
-        # =========================
+            query = query.filter(
+                ApplicationModel.status == status
+            )
+
+
+
+        # TYPE VEHICULE
+
         if application_type and application_type != "all":
-            query = query.filter(VehicleModel.type == application_type)
 
-        # =========================
+            query = query.filter(
+                VehicleModel.type == application_type
+            )
+
+
+
         # SORT
-        # =========================
-        query = query.order_by(
-            ApplicationModel.created_at.asc()
-            if sort == "created_at_asc"
-            else ApplicationModel.created_at.desc()
-        )
+
+        if sort == "created_at_asc":
+
+            query = query.order_by(
+                ApplicationModel.created_at.asc()
+            )
+
+        else:
+
+            query = query.order_by(
+                ApplicationModel.created_at.desc()
+            )
+
+
 
         # =========================
         # TOTAL
         # =========================
-        total = query.order_by(None).count()
+        total = query.count()
+
 
         # =========================
         # PAGINATION
         # =========================
-        items = (
+        models = (
             query
-            .offset((page - 1) * limit)
+            .offset(
+                (page - 1) * limit
+            )
             .limit(limit)
             .all()
         )
 
+
+        # =========================
+        # ORM -> DOMAIN
+        # =========================
+        items = [
+            ApplicationMapper.to_domain(app)
+            for app in models
+        ]
+
+
         return items, total
 
-    def update_status(self, application_id: str, status: str, reason: str = None):
 
-        application = self.session.query(ApplicationModel).filter_by(
-            id=application_id
-        ).first()
 
-        application.status = status
-        application.rejection_reason = reason
-
-        self.session.flush()
-
-        return application
-    
-    def delete(self, application_id: str):
-
-        self.session.query(ApplicationModel)\
-            .filter(ApplicationModel.id == application_id)\
-            .delete()
-
-        self.session.commit()
-
-    def archive(self, application_id: str):
-
-            self.session.query(ApplicationModel).filter(
-                ApplicationModel.id == application_id
-            ).update({
-                ApplicationModel.is_archived: True
-            })
-
-            self.session.commit()
 
     # =========================
-    # UNARCHIVE
+    # UPDATE STATUS
     # =========================
-    def unarchive(self, application_id: str):
+    def update_status(
+        self,
+        application_id,
+        status,
+        reason=None
+    ):
 
-        self.session.query(ApplicationModel).filter(
-            ApplicationModel.id == application_id
-        ).update({
-            ApplicationModel.is_archived: False
-        })
-
-        self.session.commit()
-
-    # =========================
-    # SOFT DELETE
-    # =========================
-    def soft_delete(self, application_id: str):
-
-        application = (
-            self.session.query(ApplicationModel)
-            .filter(ApplicationModel.id == application_id)
-            .first()
+        application = self.get_by_id(
+            application_id
         )
+
 
         if not application:
             return None
 
-        # Soft delete du dossier
-        application.deleted_at = datetime.now(timezone.utc)
 
-        # Libération de la réservation
-        if application.reservation:
-            application.reservation.status = ReservationStatus.CANCELLED
+        application.status = status
 
-        self.session.commit()
+        self.session.flush()
 
-        return application
 
+        return ApplicationMapper.to_domain(application)
+
+
+    # =========================
+    # ACTIVE APPLICATION
+    # =========================
     def find_active_by_user_and_vehicle(
-    self,
-    user_id: str,
-    vehicle_id: str
-):
-        return (
+        self,
+        user_id: str,
+        vehicle_id: str,
+    ) -> Application | None:
+
+        model = (
+            self.session.query(ApplicationModel)
+            .join(ApplicationModel.vehicle)
+            .filter(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.vehicle_id == vehicle_id,
+                ApplicationModel.deleted_at.is_(None),
+                or_(
+                    # =========================
+                    # LOCATION
+                    # =========================
+                    and_(
+                        VehicleModel.type == VehicleType.RENT,
+                        ApplicationModel.status.in_([
+                            ApplicationStatus.DRAFT,
+                            ApplicationStatus.PROCESSING,
+                            ApplicationStatus.SUBMITTED,
+                        ]),
+                    ),
+
+                    # =========================
+                    # VENTE
+                    # =========================
+                    and_(
+                        VehicleModel.type == VehicleType.SALE,
+                        ApplicationModel.status.in_([
+                            ApplicationStatus.DRAFT,
+                            ApplicationStatus.PROCESSING,
+                            ApplicationStatus.SUBMITTED,
+                            ApplicationStatus.APPROVED,
+                            ApplicationStatus.PAID,
+                            ApplicationStatus.COMPLETED,
+                        ]),
+                    ),
+                ),
+            )
+            .first()
+        )
+
+        if not model:
+            return None
+
+        return ApplicationMapper.to_domain(model)
+
+
+    def find_draft_by_user_and_vehicle(
+        self,
+        user_id: str,
+        vehicle_id: str,
+    ) -> Application | None:
+
+        model = (
             self.session.query(ApplicationModel)
             .filter(
                 ApplicationModel.user_id == user_id,
                 ApplicationModel.vehicle_id == vehicle_id,
-                ApplicationModel.status.in_([
-                    ApplicationStatus.DRAFT,
-                    ApplicationStatus.PROCESSING,
-                    ApplicationStatus.SUBMITTED,
-                ]),
-                ApplicationModel.deleted_at.is_(None)
+                ApplicationModel.status == ApplicationStatus.DRAFT,
+                ApplicationModel.deleted_at.is_(None),
             )
             .first()
         )
+
+        if model is None:
+            return None
+
+        return ApplicationMapper.to_domain(model)
     
+    # =========================
+    # QUOTE
+    # =========================
     def find_by_quote_id(
-    self,
-    quote_id: str
-) -> ApplicationModel | None:
+        self,
+        quote_id: str
+    ) -> Application | None:
 
         model = (
-            self.session
-            .query(ApplicationModel)
+            self.session.query(ApplicationModel)
             .filter(
                 ApplicationModel.quote_id == quote_id
             )
             .first()
         )
 
-
         if not model:
             return None
-        
-        return model
+
+        return ApplicationMapper.to_domain(model)
+
+    def delete(self, application_id: str):
+	    self.session.query(ApplicationModel)\
+	            .filter(ApplicationModel.id == application_id)\
+	            .delete()

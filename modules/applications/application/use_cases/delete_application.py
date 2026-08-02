@@ -1,5 +1,11 @@
-from modules.applications.domain.exceptions import ApplicationNotFound
 from modules.auth.domain.exceptions import Forbidden
+from modules.applications.domain.enums import ApplicationStatus
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
+    ApplicationCannotBeDeleted,
+)
+from modules.applications.api.schemas import DeleteApplicationResponseDTO
+from modules.notifications.domain.enums import NotificationEntityType
 
 class DeleteApplicationUseCase:
 
@@ -13,7 +19,8 @@ class DeleteApplicationUseCase:
         reservation_repo,
         event_repo,
         notification_repo,
-        s3_service
+        s3_service,
+        uow,
     ):
 
         self.application_repo = application_repo
@@ -25,49 +32,121 @@ class DeleteApplicationUseCase:
         self.event_repo = event_repo
         self.notification_repo = notification_repo
         self.s3_service = s3_service
+        self.uow = uow
 
-    def execute(self, application_id: str, current_user):
 
-        application = self.application_repo.get_by_id(application_id)
+    def execute(
+        self,
+        application_id: str,
+        current_user,
+    ):
+
+        # =====================================================
+        # GET APPLICATION
+        # =====================================================
+
+        application = (
+            self.application_repo.get_by_id(
+                application_id
+            )
+        )
 
         if not application:
             raise ApplicationNotFound()
 
-        # =========================
+
+        # =====================================================
         # SECURITY CHECK
-        # =========================
+        # =====================================================
+
         if application.user_id != current_user.id:
             raise Forbidden()
 
-        # =========================
-        # 1. DELETE S3 DOCUMENTS
-        # =========================
-        documents = self.document_repo.get_by_application(application_id)
 
-        for doc in documents:
-            if doc.s3_key:
-                self.s3_service.delete_file(doc.s3_key)
+        # =====================================================
+        # BUSINESS RULE
+        # ONLY DRAFT CAN BE DELETED
+        # =====================================================
 
-        # =========================
-        # 2. DELETE DB CHILDREN
-        # =========================
-        self.document_repo.delete_by_application(application_id)
+        if application.status != ApplicationStatus.DRAFT:
+            raise ApplicationCannotBeDeleted()
 
-        self.event_repo.delete_by_application(application_id)
 
-        self.notification_repo.delete_by_application(application_id)
+        # =====================================================
+        # GET DOCUMENTS BEFORE DELETE
+        # Needed for S3 cleanup
+        # =====================================================
 
-        self.trade_in_repo.delete_by_application(application_id)
+        documents = (
+            self.document_repo.get_by_application(
+                application_id
+            )
+        )
 
-        self.financing_repo.delete_by_application(application_id)
 
-        self.application_option_repo.delete_by_application(application_id)
-        
-        self.reservation.delete_by_application(application_id)
+        # =====================================================
+        # DELETE S3 FILES
+        # =====================================================
 
-        # =========================
-        # 3. DELETE APPLICATION
-        # =========================
-        self.application_repo.delete(application_id)
+        for document in documents:
 
-        return {"success": True}
+            if document.s3_key:
+
+                self.s3_service.delete_file(
+                    document.s3_key
+                )
+
+
+        # =====================================================
+        # DELETE CHILD ENTITIES
+        # =====================================================
+
+        self.document_repo.delete_by_application(
+            application_id
+        )
+
+        self.event_repo.delete_by_application(
+            application_id
+        )
+
+        self.notification_repo.delete_by_entity(NotificationEntityType.APPLICATION,
+        application_id
+        )
+
+        self.trade_in_repo.delete_by_application(
+            application_id
+        )
+
+        self.financing_repo.delete_by_application(
+            application_id
+        )
+
+        self.application_option_repo.delete_by_application(
+            application_id
+        )
+
+        self.reservation_repo.delete_by_application(
+            application_id
+        )
+
+
+        # =====================================================
+        # DELETE APPLICATION
+        # =====================================================
+
+        self.application_repo.delete(
+            application_id
+        )
+
+
+        # =====================================================
+        # COMMIT
+        # =====================================================
+
+        self.uow.commit()
+
+
+        return DeleteApplicationResponseDTO(
+            success=True,
+            application_id=application_id,
+        )

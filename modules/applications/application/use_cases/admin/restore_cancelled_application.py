@@ -4,32 +4,45 @@ from modules.reservations.domain.enums import ReservationStatus
 from uuid import uuid4
 from modules.applications.domain.entities.event import Event
 from modules.applications.domain.policies.restore_application_policy import RestoreApplicationPolicy
+from modules.applications.domain.repositories.application_repository import ApplicationRepository
+from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
+from modules.applications.domain.repositories.event_repository import EventRepository
+from modules.applications.application.services.restore_application_service import RestoreApplicationService
+from core.database.unit_of_work import UnitOfWork
+from modules.applications.domain.entities.application import Application
 
 
 class RestoreCancelledApplicationUseCase:
 
     def __init__(
         self,
-        application_repository,
-        reservation_repository,
-        event_repository
+        application_repository: ApplicationRepository,
+        reservation_repository: ReservationRepository,
+        event_repository: EventRepository,
+        restore_application_service: RestoreApplicationService,
+        unit_of_work: UnitOfWork,
     ):
-        self.application_repository = (
-            application_repository
+        self.application_repository = application_repository
+        self.reservation_repository = reservation_repository
+        self.event_repository = event_repository
+        self.restore_application_service = (
+            restore_application_service
         )
-        self.reservation_repository = (
-            reservation_repository
-        )
-        self.event_repository = (
-            event_repository
-        )
+        self.unit_of_work = unit_of_work
 
+
+    # =========================
+    # EXECUTE
+    # =========================
     def execute(
         self,
         application_id: str,
-        role: str = "admin"
-    ):
+    ) -> Application:
 
+
+        # =========================
+        # LOAD APPLICATION
+        # =========================
         application = (
             self.application_repository.get_by_id(
                 application_id
@@ -39,13 +52,22 @@ class RestoreCancelledApplicationUseCase:
         if not application:
             raise ApplicationNotFound()
 
+
         # =========================
         # POLICY
         # =========================
         RestoreApplicationPolicy.validate(
-            application,
-            self.reservation_repository
+            application
         )
+
+
+        # =========================
+        # RENTAL VALIDATION
+        # =========================
+        self.restore_application_service.validate_rental(
+            application
+        )
+
 
         # =========================
         # RESTORE RESERVATION
@@ -60,6 +82,7 @@ class RestoreCancelledApplicationUseCase:
                 application.reservation
             )
 
+
         # =========================
         # RESTORE APPLICATION
         # =========================
@@ -69,9 +92,11 @@ class RestoreCancelledApplicationUseCase:
 
         application.previous_status = None
 
+
         self.application_repository.update(
             application
         )
+
 
         # =========================
         # EVENT
@@ -79,19 +104,28 @@ class RestoreCancelledApplicationUseCase:
         self.event_repository.save(
             Event(
                 id=str(uuid4()),
+
                 application_id=application.id,
+
                 user_id=application.user_id,
+
                 type=EventType.APPLICATION_RESTORED,
+
                 message=(
-                    "Dossier restauré par "
-                    f"{'administrateur' if role == 'admin' else 'client'}."
+                    "Dossier restauré par administrateur."
                 ),
+
                 event_metadata={
-                    "role": role
-                }
+                    "action": "restore",
+                },
             )
         )
 
-        self.application_repository.commit()
+
+        # =========================
+        # COMMIT
+        # =========================
+        self.unit_of_work.commit()
+
 
         return application

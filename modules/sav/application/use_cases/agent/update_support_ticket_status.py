@@ -2,6 +2,7 @@ from modules.sav.domain.exceptions import SupportTicketNotFound, TicketAccessDen
 from modules.sav.domain.enums import TicketStatus
 from modules.auth.domain.enums import UserRole
 from modules.sav.application.ticket_chat_manager import TicketChatManager
+from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 
 class UpdateSupportTicketStatusUseCase:
 

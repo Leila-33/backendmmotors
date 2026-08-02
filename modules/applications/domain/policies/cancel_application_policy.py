@@ -5,61 +5,35 @@ from modules.applications.domain.exceptions import ApplicationAlreadyCancelled, 
 class CancelApplicationPolicy:
 
     @staticmethod
-    def can_cancel(
-        application,
-        role: str
-    ) -> bool:
+    def can_cancel(application) -> bool:
 
         if application.status == ApplicationStatus.CANCELLED:
+            return False
+
+        if application.status in (
+            ApplicationStatus.PAID,
+            ApplicationStatus.COMPLETED,
+        ):
             return False
 
         contract = application.financing_contract
 
         if (
             contract
-            and contract.subscription_status in [
+            and contract.subscription_status in (
                 SubscriptionStatus.ACTIVE,
-                SubscriptionStatus.COMPLETED
-            ]
+                SubscriptionStatus.COMPLETED,
+            )
         ):
             return False
 
-        if role != "admin":
-
-            if application.status in [
-                ApplicationStatus.PAID,
-                ApplicationStatus.COMPLETED
-            ]:
-                return False
-
         return True
-    
 
     @staticmethod
-    def validate(
-        application,
-        role: str
-    ):
+    def validate(application) -> None:
 
         if application.status == ApplicationStatus.CANCELLED:
             raise ApplicationAlreadyCancelled()
 
-        contract = application.financing_contract
-
-        if (
-            contract
-            and contract.subscription_status in [
-                SubscriptionStatus.ACTIVE,
-                SubscriptionStatus.COMPLETED
-            ]
-        ):
-            raise CannotCancelApplication()
-        
-        if (
-            role != "admin"
-            and application.status in [
-                ApplicationStatus.PAID,
-                ApplicationStatus.COMPLETED
-            ]
-        ):
+        if not CancelApplicationPolicy.can_cancel(application):
             raise CannotCancelApplication()

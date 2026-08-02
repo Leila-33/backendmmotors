@@ -10,57 +10,103 @@ from modules.reservations.domain.exceptions import (
 from uuid import uuid4
 from modules.applications.domain.entities.event import Event
 from modules.auth.domain.enums import UserRole
+from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
+from modules.applications.domain.repositories.event_repository import EventRepository
+from core.database.unit_of_work import UnitOfWork
+from modules.reservations.domain.entities.reservation import Reservation
 
 class CancelReservationUseCase:
 
-    def __init__(self, reservation_repository, event_repository):
+    def __init__(
+        self,
+        reservation_repository: ReservationRepository,
+        event_repository: EventRepository,
+        unit_of_work: UnitOfWork,
+    ):
         self.reservation_repository = reservation_repository
         self.event_repository = event_repository
+        self.unit_of_work = unit_of_work
 
-    def execute(self, reservation_id: str, role: str, user_id):
+    def execute(
+        self,
+        reservation_id: str,
+        role: str,
+        user_id: str,
+    ) -> Reservation:
 
-        reservation = self.reservation_repository.get_by_id(reservation_id)
+        try:
 
-        if not reservation:
-            raise ReservationNotFound()
+            # =========================
+            # LOAD
+            # =========================
+            reservation = self.reservation_repository.get_by_id(
+                reservation_id
+            )
 
-        if reservation.status == ReservationStatus.CANCELLED:
-            raise ReservationAlreadyCancelled()
+            if reservation is None:
+                raise ReservationNotFound()
 
-        # =========================
-        # BUSINESS RULE
-        # =========================
-        if role != UserRole.ADMIN:
-            if reservation.status != ReservationStatus.ACTIVE:
+            # =========================
+            # VALIDATION
+            # =========================
+            if reservation.status == ReservationStatus.CANCELLED:
+                raise ReservationAlreadyCancelled()
+
+            if reservation.status in (
+                ReservationStatus.COMPLETED,
+                ReservationStatus.CANCELLED,
+            ):
                 raise CannotCancelReservation()
 
-
-        # =========================
-        # OPTIONAL: DATE RULE
-        # =========================
-        now = datetime.now(timezone.utc)
-
-        if reservation.start_date <= now.date():
-            raise ReservationAlreadyStarted()
-        
-        reservation.status = ReservationStatus.CANCELLED
-        reservation.updated_at = now
-        self.reservation_repository.update(reservation)
-
-        self.event_repository.save(
-            Event(
-                id=str(uuid4()),
-                application_id=reservation.application_id,
-                user_id=user_id,
-                type=EventType.RESERVATION_CANCELLED,
-                message="Réservation annulée avec succès.",
-                event_metadata={
-                    "reservation_id": reservation.id,
-                    "vehicle_id": reservation.vehicle_id
-                }
+            if (
+            role != UserRole.ADMIN
+            and reservation.status not in (
+                ReservationStatus.DRAFT,
+                ReservationStatus.ACTIVE,
             )
-        )
+        ):
+                raise CannotCancelReservation()
 
-        self.reservation_repository.commit()
+            now = datetime.now(timezone.utc)
 
-        return reservation
+            if reservation.start_date <= now.date():
+                raise ReservationAlreadyStarted()
+
+            # =========================
+            # CANCEL
+            # =========================
+            reservation.status = ReservationStatus.CANCELLED
+            reservation.updated_at = now
+
+            self.reservation_repository.update(
+                reservation
+            )
+
+            # =========================
+            # EVENT
+            # =========================
+            self.event_repository.save(
+                Event(
+                    id=str(uuid4()),
+                    application_id=reservation.application_id,
+                    user_id=user_id,
+                    type=EventType.RENTAL_CANCELLED,
+                    message="Réservation annulée avec succès.",
+                    event_metadata={
+                        "reservation_id": reservation.id,
+                        "vehicle_id": reservation.vehicle_id,
+                        "role": role,
+                    },
+                )
+            )
+
+            # =========================
+            # COMMIT
+            # =========================
+            self.unit_of_work.commit()
+
+            return reservation
+
+        except Exception:
+            self.unit_of_work.rollback()
+            raise

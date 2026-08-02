@@ -193,6 +193,7 @@ class HandlePaymentSuccessUseCase:
 
             if self.create_installments_uc:
 
+
                 self.create_installments_uc.execute(
                     contract_id=contract.id
                 )

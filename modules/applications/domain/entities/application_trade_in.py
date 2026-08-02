@@ -4,6 +4,8 @@ from modules.applications.domain.enums import TradeInVehicleCondition
 @dataclass
 class ApplicationTradeIn:
 
+    application_id: str
+
     brand: str
 
     model: str
@@ -14,4 +16,4 @@ class ApplicationTradeIn:
 
     condition: TradeInVehicleCondition
 
-    estimated_value: int
+    estimated_value: float

@@ -1,8 +1,3 @@
-# =========================================================
-# SQLALCHEMY MODEL
-# modules/applications/infrastructure/models/application_model.py
-# =========================================================
-
 from datetime import datetime, timezone
 
 from sqlalchemy import (

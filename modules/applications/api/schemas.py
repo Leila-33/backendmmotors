@@ -1,48 +1,30 @@
-from pydantic import BaseModel, HttpUrl, field_validator, model_validator, Field
+from pydantic import BaseModel, HttpUrl, field_validator, model_validator, Field, EmailStr
 from typing import List, Optional
 from modules.applications.domain.enums import DocumentType, DocumentStatus, ViewMode
-from datetime import datetime
-
-# =========================
-# SaveDraftApplicationDTO
-# =========================
-from datetime import datetime
-from typing import Optional
-
-from pydantic import (
-    BaseModel,
-    Field,
-    field_validator
+from datetime import datetime, date
+import re
+from modules.applications.domain.enums import (
+    TradeInVehicleCondition,
+    ApplicationStatus
 )
+from typing import List
+from datetime import datetime
+from modules.applications.domain.enums import ApplicationStatus, ApplicationType
+# =========================
+# save draft application
+# =========================
 
-from pydantic import (
-    BaseModel,
-    Field,
-    field_validator,
-    model_validator,
-    EmailStr
-)
+from modules.applications.domain.entities.application import Application
 
-from typing import Optional
-from datetime import date
-
-from modules.applications.domain.enums import TradeInVehicleCondition
-
-
-
-# =========================================================
-# DOCUMENT
-# =========================================================
+class ApplicationFormResult(BaseModel):
+    application: Application
+    is_new: bool
 
 class DocumentDTO(BaseModel):
 
     type: str
     s3_key: str
 
-
-# =========================================================
-# TRADE-IN
-# =========================================================
 
 class TradeInDTO(BaseModel):
 
@@ -58,10 +40,6 @@ class TradeInDTO(BaseModel):
         TradeInVehicleCondition.GOOD
     )
 
-    # =========================
-    # NORMALIZATION
-    # =========================
-
     @field_validator(
         "brand",
         "model",
@@ -74,10 +52,6 @@ class TradeInDTO(BaseModel):
             return None
 
         return v
-
-    # =========================
-    # VALIDATION
-    # =========================
 
     @field_validator("year")
     @classmethod
@@ -120,19 +94,12 @@ class TradeInDTO(BaseModel):
         return value
 
 
-# =========================================================
-# FINANCING
-# =========================================================
 
 class FinancingDTO(BaseModel):
 
     down_payment: float = 0
 
     duration_months: int = 48
-
-    # =========================
-    # VALIDATION
-    # =========================
 
     @field_validator("down_payment")
     @classmethod
@@ -155,16 +122,26 @@ class FinancingDTO(BaseModel):
         return v
 
 
-# =========================================================
-# APPLICATION DRAFT
-# =========================================================
-
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional
-import re
 class SelectedDatesDTO(BaseModel):
+
     start: date
     end: date
+    @model_validator(mode="after")
+    def validate_dates(self):
+
+        today = date.today()
+
+        if self.start < today:
+            raise ValueError(
+                "La date de début doit être supérieure ou égale à aujourd'hui."
+            )
+
+        if self.end < self.start:
+            raise ValueError(
+                "La date de fin doit être après la date de début."
+            )
+
+        return self
 
 class SaveDraftApplicationDTO(BaseModel):
 
@@ -177,7 +154,7 @@ class SaveDraftApplicationDTO(BaseModel):
     # =========================
     # TYPE
     # =========================
-    application_type: Optional[str] = None  # "sale" | "rent"
+    application_type: Optional[ApplicationType] = None  # "sale" | "rent"
 
     # =========================
     # USER INFOS
@@ -317,10 +294,17 @@ class SaveDraftApplicationDTO(BaseModel):
         return self
 
 
+class SaveDraftApplicationResponse(BaseModel):
+    id: str
+    status: ApplicationStatus
 
-class SelectedDatesDTO(BaseModel):
-    start: date
-    end: date
+
+
+
+
+# =========================
+# submit application
+# =========================
 class SubmitApplicationDTO(BaseModel):
 
     # =========================
@@ -342,7 +326,7 @@ class SubmitApplicationDTO(BaseModel):
     # =========================
     # TYPE
     # =========================
-    application_type: str  # "sale" | "rent"
+    application_type: ApplicationType
 
     # =========================
     # FINANCIAL (SALE ONLY)
@@ -396,7 +380,7 @@ class SubmitApplicationDTO(BaseModel):
     
     @model_validator(mode="after")
     def validate_business_rules(self):
-        if self.application_type == "sale":
+        if self.application_type == ApplicationType.SALE:
 
             if self.selected_dates is not None:
                 raise ValueError(
@@ -420,7 +404,7 @@ class SubmitApplicationDTO(BaseModel):
             if not self.employment_status:
                 raise ValueError("Situation professionnelle requise")
 
-        else:
+        elif self.application_type == ApplicationType.RENT:
             if not self.selected_dates:
                 raise ValueError(
                     "selected_dates requis pour une location"
@@ -528,6 +512,266 @@ class SubmitApplicationDTO(BaseModel):
 
 
 
+# =========================
+# get application
+# =========================
+from modules.vehicles.domain.enums import (
+    VehicleType,
+    EngineType
+)
+from modules.options.api.schemas import OptionResponse
+from modules.applications.domain.enums import ApplicationStatus
+from modules.payments.domain.enums import PaymentStatus
+from modules.applications.domain.entities.event import EventType
+from typing import Any
+
+class VehicleApplicationResponse(BaseModel):
+
+    id: str
+
+    brand: str
+
+    model: str
+
+    year: int
+
+    price: float
+
+    type: VehicleType
+
+    mileage: int
+
+    engine_type: EngineType
+
+    included_options: list["OptionResponse"]
+
+    optional_options: list["OptionResponse"]
+
+
+
+class FinancingResponse(BaseModel):
+
+    down_payment: float
+
+    duration_months: int
+
+    financed_amount: float
+
+    monthly_payment: float
+
+
+
+class TradeInResponse(BaseModel):
+
+    brand: str
+
+    model: str
+
+    year: int
+
+    mileage: int
+
+    condition: str
+
+    estimated_value: float
+
+
+
+class DocumentResponse(BaseModel):
+
+    id: str
+    application_id: str
+
+    type: DocumentType
+
+    s3_key: str
+
+    status: DocumentStatus
+
+    comment: str | None = None
+
+    download_url: str
+
+
+class EventResponse(BaseModel):
+
+    id: str
+
+    type: EventType
+
+    message: str
+
+    event_metadata: dict[str, Any] | None = None
+
+    created_at: datetime
+
+class ApplicationDetailResponse(BaseModel):
+
+    # =========================
+    # CORE
+    # =========================
+    id: str
+
+    status: ApplicationStatus
+
+    discount: float | None = None
+
+    created_at: datetime
+
+    # =========================
+    # USER SNAPSHOT
+    # =========================
+    first_name: str | None = None
+
+    last_name: str | None = None
+
+    email: str | None = None
+
+    phone: str | None = None
+
+    address: str | None = None
+
+    birth_date: date | None = None
+
+    # =========================
+    # FINANCIAL INFO
+    # =========================
+    monthly_income: float | None = None
+
+    monthly_expenses: float | None = None
+
+    employment_status: str | None = None
+
+    # =========================
+    # RENT
+    # =========================
+    selected_dates: SelectedDatesDTO | None = None
+
+    # =========================
+    # VEHICLE
+    # =========================
+    vehicle: VehicleApplicationResponse
+
+    # =========================
+    # OPTIONS
+    # =========================
+    options_selected: list[str]
+
+    # =========================
+    # FINANCING
+    # =========================
+    financing: FinancingResponse | None = None
+
+    # =========================
+    # TRADE-IN
+    # =========================
+    trade_in: TradeInResponse | None = None
+
+    # =========================
+    # DOCUMENTS
+    # =========================
+    documents: list[DocumentResponse]
+
+    # =========================
+    # EVENTS
+    # =========================
+    events: list[EventResponse]
+
+    # =========================
+    # PAYMENT
+    # =========================
+    payment_status: PaymentStatus | None = None
+
+
+
+
+
+
+
+
+# =========================
+# get_applications
+# =========================
+
+class GetApplicationsDTO(BaseModel):
+
+    page: int
+    limit: int
+
+    search: str | None = None
+    status: str | None = None
+    application_type: str | None = None
+
+    sort: str = "created_at_desc"
+
+    view_mode: ViewMode = ViewMode.ACTIVE
+
+
+class ApplicationListBase(BaseModel):
+    id: str
+    type: ApplicationType
+    vehicle: str
+    status: ApplicationStatus
+    submitted_at: datetime | None
+
+
+class ApplicationListItemAdmin(ApplicationListBase):
+
+    client: str
+
+    can_cancel: bool
+
+    can_restore_cancelled: bool = False
+
+    can_archive: bool = False
+
+    can_delete: bool = False
+
+
+
+class ApplicationListItemUser(ApplicationListBase):
+
+    created_at: datetime
+
+    can_cancel: bool
+
+
+
+class GetApplicationsResponse(BaseModel):
+
+    items: list[
+        ApplicationListItemAdmin |
+        ApplicationListItemUser
+    ]
+
+    page: int
+
+    limit: int
+
+    total: int
+
+    pages: int
+
+
+
+# =========================
+# get application by vehicle
+# =========================
+class ApplicationByVehicleResponse(BaseModel):
+
+    id: str
+    status: ApplicationStatus
+
+
+
+
+
+# =========================
+# delete application
+# =========================
+class DeleteApplicationResponseDTO(BaseModel):
+    success: bool
+    application_id: str
 
 
 
@@ -540,9 +784,18 @@ class SubmitApplicationDTO(BaseModel):
 
 
 
+# ADMIN
 
 
+# archive
 
+class ApplicationActionResponse(BaseModel):
+
+    id: str
+
+    status: ApplicationStatus
+
+    message: str
 
 
 
@@ -603,7 +856,7 @@ class CreateApplicationOnboardingRequest(BaseModel):
 
         return v
 
-class DocumentResponse(BaseModel):
+class DocumentResponsel(BaseModel):
     id: str
     type: str
     status: str
@@ -666,89 +919,14 @@ class UpdateApplicationResponse(BaseModel):
 
 
 
-from pydantic import BaseModel
-
-
-class GetApplicationsDTO(BaseModel):
-
-    page: int
-    limit: int
-
-    search: str | None = None
-    status: str | None = None
-    application_type: str | None = None
-
-    sort: str = "created_at_desc"
-
-    view_mode: ViewMode = ViewMode.ACTIVE
 
 
 
 
 
-
-class ApplicationListItemBase(BaseModel):
-    id: str
-    type: str
-    vehicle: str
-    status: str
-
-class ApplicationListItemAdmin(ApplicationListItemBase):
-    client: str
-    submitted_at: Optional[str]
-    can_cancel: bool
-    can_restore_cancelled: bool
-
-class ApplicationListItemUser(ApplicationListItemBase):
-    created_at: str
-    submitted_at: Optional[str]
-    can_cancel: bool
-
-
-
-
-
-from typing import List, Union
-
-
-class GetApplicationsResponse(BaseModel):
-
-    items: List[
-        Union[
-            ApplicationListItemAdmin,
-            ApplicationListItemUser
-        ]
-    ]
-
-    page: int
-
-    limit: int
-
-    total: int
-
-    pages: int
 # =========================
 # get_application_detail
 # =========================
-class OptionDTO(BaseModel):
-    id: str
-    name: str
-    type: str
-
-
-class ClientDTO(BaseModel):
-    nom: str
-    prenom: str
-    phone: Optional[str]
-    adresse: Optional[str]
-    birth_date: Optional[str]
-
-
-class VehicleDTO(BaseModel):
-    id: str
-    brand: str
-    model: str
-    type: str
 
 
 class DocumentDTO(BaseModel):
@@ -764,23 +942,6 @@ class EventDTO(BaseModel):
     message: str
     date: str
     user_id: Optional[str]
-
-# detail application
-class ApplicationDetailResponse(BaseModel):
-    id: str
-    status: str
-    createdAt: Optional[str]
-    submittedAt: Optional[str]
-
-    client: ClientDTO
-    vehicle: VehicleDTO
-
-    optionsIncluded: List[OptionDTO]
-    optionsSelected: List[OptionDTO]
-    optionsOptional: Optional[List[OptionDTO]] = None
-
-    documents: List[DocumentDTO]
-    events: List[EventDTO]
 
 # update document
 
@@ -861,18 +1022,6 @@ class TradeInSnapshot(BaseModel):
     condition: str
 
 
-from modules.applications.domain.entities.event import EventType
-from typing import Any
 
 
-class EventResponse(BaseModel):
 
-    id: str
-
-    type: EventType
-
-    message: str
-
-    event_metadata: dict[str, Any] | None = None
-
-    created_at: datetime
