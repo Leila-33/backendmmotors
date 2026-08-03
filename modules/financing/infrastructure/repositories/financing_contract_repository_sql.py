@@ -2,109 +2,109 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from modules.financing.domain.entities.financing_contract import FinancingContract
 from modules.financing.domain.repositories.financing_contract_repository import (
     FinancingContractRepository
 )
 
-from modules.financing.infrastructure.db.financing_contract_model import FinancingContractModel
-from modules.financing.domain.exceptions import FinancingContractNotFound
-from datetime import datetime, timezone
+from modules.financing.domain.entities.financing_contract import (
+    FinancingContract
+)
 
-class FinancingContractRepositorySQL(FinancingContractRepository):
+from modules.financing.infrastructure.db.financing_contract_model import (
+    FinancingContractModel
+)
 
-    def __init__(self, db: Session):
-        self.db = db
+from modules.financing.infrastructure.mappers.financing_contract_mapper import (
+    FinancingContractMapper
+)
 
-    # =========================
-    # MAPPER MODEL → ENTITY
-    # =========================
-    def _to_entity(
+from modules.financing.domain.exceptions import (
+    FinancingContractNotFound
+)
+
+
+class SqlFinancingContractRepository(
+    FinancingContractRepository
+):
+
+    def __init__(
         self,
-        model: FinancingContractModel
-    ) -> FinancingContract:
+        session: Session
+    ):
 
-        return FinancingContract(
-            id=model.id,
-            application_id=model.application_id,
-            financed_amount=model.financed_amount,
-            monthly_payment=model.monthly_payment,
-            duration_months=model.duration_months,
-            remaining_balance=model.remaining_balance,
-            stripe_customer_id=model.stripe_customer_id,
-            stripe_subscription_id=model.stripe_subscription_id,
-            subscription_status=model.subscription_status,
-            created_at=model.created_at,
-            updated_at=model.updated_at
-        )
+        self.session = session
 
-    # =========================
-    # MAPPER ENTITY → MODEL
-    # =========================
-    def _to_model(
-        self,
-        entity: FinancingContract
-    ) -> FinancingContractModel:
 
-        return FinancingContractModel(
-            id=entity.id,
-            application_id=entity.application_id,
-            financed_amount=entity.financed_amount,
-            monthly_payment=entity.monthly_payment,
-            duration_months=entity.duration_months,
-            remaining_balance=entity.remaining_balance,
-            stripe_customer_id=entity.stripe_customer_id,
-            stripe_subscription_id=entity.stripe_subscription_id,
-            subscription_status=entity.subscription_status,
-            created_at=entity.created_at,
-            updated_at=entity.updated_at
-        )
-
-    # =========================
+    # =====================================================
     # SAVE
-    # =========================
+    # =====================================================
+
     def save(
         self,
         contract: FinancingContract
     ) -> FinancingContract:
 
-        model = self._to_model(contract)
 
-        self.db.add(model)
-        self.db.commit()
-        self.db.refresh(model)
+        model = (
+            FinancingContractMapper
+            .to_model(contract)
+        )
 
-        return self._to_entity(model)
 
-    # =========================
+        self.session.add(model)
+
+        self.session.flush()
+
+
+        return FinancingContractMapper.to_domain(
+            model
+        )
+
+
+    # =====================================================
     # FIND BY ID
-    # =========================
+    # =====================================================
+
     def find_by_id(
         self,
         contract_id: str
     ) -> Optional[FinancingContract]:
 
+
         model = (
-            self.db.query(FinancingContractModel)
-            .filter(FinancingContractModel.id == contract_id)
+            self.session.query(
+                FinancingContractModel
+            )
+            .filter(
+                FinancingContractModel.id == contract_id
+            )
             .first()
         )
+
 
         if not model:
             return None
 
-        return self._to_entity(model)
 
-    # =========================
+        return FinancingContractMapper.to_domain(
+            model
+        )
+
+
+    # =====================================================
     # FIND BY APPLICATION
-    # =========================
+    # =====================================================
+
     def find_by_application_id(
         self,
         application_id: str
     ) -> Optional[FinancingContract]:
 
+
         model = (
-            self.db.query(FinancingContractModel)
+            self.session.query(
+                FinancingContractModel
+            )
             .filter(
                 FinancingContractModel.application_id
                 == application_id
@@ -112,68 +112,83 @@ class FinancingContractRepositorySQL(FinancingContractRepository):
             .first()
         )
 
+
         if not model:
             return None
 
-        return self._to_entity(model)
 
-    # =========================
+        return FinancingContractMapper.to_domain(
+            model
+        )
+
+
+    # =====================================================
+    # FIND BY STRIPE SUBSCRIPTION
+    # =====================================================
+
+    def get_by_subscription_id(
+        self,
+        stripe_subscription_id: str
+    ) -> Optional[FinancingContract]:
+
+
+        model = (
+            self.session.query(
+                FinancingContractModel
+            )
+            .filter(
+                FinancingContractModel
+                .stripe_subscription_id
+                == stripe_subscription_id
+            )
+            .first()
+        )
+
+
+        if not model:
+            return None
+
+
+        return FinancingContractMapper.to_domain(
+            model
+        )
+
+
+    # =====================================================
     # UPDATE
-    # =========================
+    # =====================================================
+
     def update(
         self,
         contract: FinancingContract
     ) -> FinancingContract:
 
+
         model = (
-            self.db.query(FinancingContractModel)
-            .filter(FinancingContractModel.id == contract.id)
-            .first()
-        )
-
-        if not model:
-            raise FinancingContractNotFound
-
-        model.financed_amount = contract.financed_amount
-        model.monthly_payment = contract.monthly_payment
-        model.duration_months = contract.duration_months
-        model.remaining_balance = contract.remaining_balance
-        model.stripe_customer_id = contract.stripe_customer_id
-        model.stripe_subscription_id = contract.stripe_subscription_id
-        model.subscription_status = contract.subscription_status
-
-        self.db.commit()
-        self.db.refresh(model)
-
-        return self._to_entity(model)
-    
-    def get_by_subscription_id(self, subscription_id: str):
-        return (
-            self.db.query(FinancingContractModel)
+            self.session.query(
+                FinancingContractModel
+            )
             .filter(
-                FinancingContractModel.stripe_subscription_id == subscription_id
+                FinancingContractModel.id
+                == contract.id
             )
             .first()
         )
-    
-    def update(self, contract: FinancingContract):
 
-        model = (
-            self.db.query(FinancingContractModel)
-            .filter_by(id=contract.id)
-            .first()
-        )
 
         if not model:
-            return None
+            raise FinancingContractNotFound()
 
-        model.remaining_balance = contract.remaining_balance
-        model.subscription_status = contract.subscription_status
-        model.stripe_customer_id = contract.stripe_customer_id
-        model.stripe_subscription_id = contract.stripe_subscription_id
-        model.updated_at = datetime.now(timezone.utc)
 
-        self.db.commit()
-        self.db.refresh(model)
+        FinancingContractMapper.update_model(
+            model,
+            contract
+        )
 
-        return model
+
+        self.session.flush()
+
+
+        return FinancingContractMapper.to_domain(
+            model
+        )

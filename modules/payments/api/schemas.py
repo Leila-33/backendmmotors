@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
-
-class CreatePaymentDTO(BaseModel):
+# create checkout session
+class CreateCheckoutSessionDTO(BaseModel):
 
     application_id: str = Field(..., min_length=1)
 
@@ -48,3 +48,20 @@ class CreatePaymentDTO(BaseModel):
             raise ValueError("Nom du produit invalide")
 
         return value.strip()
+
+
+
+class CreateCheckoutSessionResponse(BaseModel):
+
+    checkout_url: str | None
+
+    payment_id: str
+
+
+# handle payment success
+
+class HandlePaymentSuccessResponseDTO(BaseModel):
+
+    payment_id: str
+
+    status: str

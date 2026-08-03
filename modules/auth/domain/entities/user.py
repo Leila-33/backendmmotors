@@ -31,3 +31,13 @@ class User:
         self.is_active = True
 
         self.accepted_cgu = True
+
+    def archive(self):
+
+        self.is_deleted = True
+
+        self.is_active = False
+
+        self.deleted_at = datetime.now(
+            timezone.utc
+        )

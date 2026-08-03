@@ -1,45 +1,50 @@
-from modules.auth.domain.exceptions import EmailAlreadyExists
-from modules.auth.domain.enums import UserRole
-from modules.auth.domain.entities.user import User
-from uuid import uuid4
-from core.security.password import hash_password
+from modules.auth.api.schemas import CreateUserResponse
 
 class CreateUserUseCase:
 
-    def __init__(self, user_repo):
-        self.user_repo = user_repo
-
-    def execute(self, payload):
-        # =====================
-        # EMAIL CHECK
-        # =====================
-        if self.user_repo.get_by_email(payload.email):
-            raise EmailAlreadyExists
-
-        # =====================
-        # ROLE VALIDATION (IMPORTANT)
-        # =====================
-        role = UserRole(payload.role)
-
-        # =====================
-        # CREATE USER
-        # =====================
-        user = User(
-            id=str(uuid4()),
-            first_name=payload.first_name,
-            last_name=payload.last_name,
-            email=payload.email,
-            password=hash_password(payload.password),
-            role=role,
-            is_active=True,
-            is_verified=True,
-            accepted_cgu=True,
+    def __init__(
+        self,
+        user_creation_service,
+        uow,
+    ):
+        self.user_creation_service = (
+            user_creation_service
         )
 
-        self.user_repo.save(user)
+        self.uow = uow
 
-        return {
-            "id": user.id,
-            "email": user.email,
-            "role": user.role
-        }
+    # =====================
+    # EXECUTE
+    # =====================
+    def execute(
+        self,
+        payload,
+    ) -> CreateUserResponse:
+
+        try:
+
+            user = (
+                self.user_creation_service
+                .create_user(
+                    first_name=payload.first_name,
+                    last_name=payload.last_name,
+                    email=payload.email,
+                    password=payload.password,
+                    role=payload.role,
+                )
+            )
+
+            self.uow.commit()
+
+            return CreateUserResponse(
+                id=user.id,
+                email=user.email,
+                role=user.role,
+                message="Utilisateur créé avec succès",
+            )
+
+        except Exception:
+
+            self.uow.rollback()
+
+            raise

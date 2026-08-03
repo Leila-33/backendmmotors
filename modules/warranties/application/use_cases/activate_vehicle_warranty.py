@@ -7,19 +7,35 @@ from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 
 
-class ActivateVehicleWarranty:
+from datetime import datetime, timezone
 
-    def __init__(self, warranty_plan_repo):
-        self.warranty_plan_repo = warranty_plan_repo
+from dateutil.relativedelta import relativedelta
+
+from modules.warranties.domain.exceptions import (
+    VehicleWarrantyNotAssigned,
+    WarrantyPlanNotFound,
+)
+
+
+class ActivateVehicleWarrantyUseCase:
+
+    def __init__(
+        self,
+        warranty_plan_repo,
+    ):
+
+        self.warranty_plan_repo = (
+            warranty_plan_repo
+        )
 
     def execute(
         self,
         vehicle,
-        mileage: int | None = None
+        mileage: int | None = None,
     ):
 
         # =========================
-        # WARRANTY ASSIGNED ?
+        # WARRANTY
         # =========================
         warranty = vehicle.warranty
 
@@ -33,7 +49,7 @@ class ActivateVehicleWarranty:
             return warranty
 
         # =========================
-        # GET WARRANTY PLAN
+        # WARRANTY PLAN
         # =========================
         plan = self.warranty_plan_repo.get_by_id(
             warranty.warranty_plan_id
@@ -45,24 +61,28 @@ class ActivateVehicleWarranty:
         # =========================
         # COMPUTE DATES
         # =========================
-        start_date = datetime.now(timezone.utc)
+        start_date = datetime.now(
+            timezone.utc
+        )
 
         end_date = start_date + relativedelta(
             months=plan.duration_months
         )
-        # =========================
-        # ACTIVATE WARRANTY
-        # =========================
-        warranty.is_active = True
-        warranty.start_date = start_date
-        warranty.end_date = end_date
 
-        warranty.current_mileage = (
+        current_mileage = (
             mileage
             if mileage is not None
             else vehicle.mileage
         )
 
-        warranty.max_mileage = plan.mileage_limit
+        # =========================
+        # ACTIVATE
+        # =========================
+        warranty.activate(
+            start_date=start_date,
+            end_date=end_date,
+            current_mileage=current_mileage,
+            max_mileage=plan.mileage_limit,
+        )
 
         return warranty

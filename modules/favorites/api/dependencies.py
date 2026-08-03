@@ -1,5 +1,3 @@
-# modules/favorites/infrastructure/dependencies.py
-
 from fastapi import Depends
 
 from modules.dependencies.dependencies import get_favorite_repository

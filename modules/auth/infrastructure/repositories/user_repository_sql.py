@@ -4,179 +4,366 @@ from modules.auth.infrastructure.db.user_model import UserModel
 from sqlalchemy.orm import Session
 from modules.auth.domain.enums import UserRole
 from modules.auth.infrastructure.mappers.user_mapper import UserMapper
-from sqlalchemy import update, or_, desc, asc
 from datetime import datetime, timezone
+from sqlalchemy.orm import Session
+from sqlalchemy import or_, asc, desc, update
+
 
 class UserRepositorySQL(UserRepository):
 
-    def __init__(self, db: Session):
+
+    def __init__(
+        self,
+        db: Session
+    ):
+
         self.db = db
 
-    # =========================
-    # GET USER BY EMAIL
-    # =========================
-    def get_by_email(self, email: str):
-        model = self.db.query(UserModel).filter(UserModel.email == email).first()
 
-        if not model:
-            return None
-
-        return UserMapper.to_domain(model)
 
     # =========================
-    # GET USER BY ID
+    # GET BY EMAIL
     # =========================
-    def get_by_id(self, user_id: str):
+
+    def get_by_email(
+        self,
+        email: str
+    ) -> User | None:
+
 
         model = (
             self.db.query(UserModel)
-            .filter(UserModel.id == user_id)
+            .filter(
+                UserModel.email == email
+            )
             .first()
         )
+
 
         if not model:
             return None
 
+
         return UserMapper.to_domain(model)
 
+
+
     # =========================
-    # SAVE USER
+    # GET BY ID
     # =========================
-    def save(self, user: User):
+
+    def get_by_id(
+        self,
+        user_id: str
+    ) -> User | None:
+
+
+        model = (
+            self.db.query(UserModel)
+            .filter(
+                UserModel.id == user_id
+            )
+            .first()
+        )
+
+
+        if not model:
+            return None
+
+
+        return UserMapper.to_domain(model)
+
+
+
+    # =========================
+    # SAVE
+    # =========================
+
+    def save(
+        self,
+        user: User
+    ) -> User:
+
 
         model = UserMapper.to_model(user)
 
+
         self.db.add(model)
-        self.db.commit()
-        self.db.refresh(model)
+
+        self.db.flush()
 
         return UserMapper.to_domain(model)
-    
+
+
+
     # =========================
-    # UPDATE USER
+    # UPDATE
     # =========================
 
-    def update(self, user: User):
+    def update(
+        self,
+        user: User
+    ) -> User | None:
+
 
         model = (
             self.db.query(UserModel)
-            .filter(UserModel.id == user.id)
+            .filter(
+                UserModel.id == user.id
+            )
             .first()
         )
+
 
         if not model:
             return None
 
-        UserMapper.update_model(model, user)
 
-        try:
-            self.db.commit()
-            self.db.refresh(model)
-        except Exception:
-            self.db.rollback()
-            raise
+        UserMapper.update_model(
+            model,
+            user
+        )
+
+
+        self.db.flush()
+
 
         return UserMapper.to_domain(model)
-    
 
 
-    def find_all(self, page, limit, search, role, status, sort):
 
-        query = self.db.query(UserModel)
+    # =========================
+    # FIND ALL
+    # =========================
+
+    def find_all(
+        self,
+        page: int,
+        limit: int,
+        search: str | None = None,
+        role: str | None = None,
+        status: str | None = None,
+        sort: str | None = None,
+    ):
+
+        query = self.db.query(
+            UserModel
+        )
+
 
         # =====================
         # SEARCH
         # =====================
+
         if search:
+
             search = search.strip()
+
             query = query.filter(
                 or_(
-                    UserModel.first_name.ilike(f"%{search}%"),
-                    UserModel.last_name.ilike(f"%{search}%"),
-                    UserModel.email.ilike(f"%{search}%")
+                    UserModel.first_name.ilike(
+                        f"%{search}%"
+                    ),
+                    UserModel.last_name.ilike(
+                        f"%{search}%"
+                    ),
+                    UserModel.email.ilike(
+                        f"%{search}%"
+                    )
                 )
             )
 
+
         # =====================
-        # ROLE FILTER
+        # ROLE
         # =====================
+
         if role:
-            role = role.strip().upper()
+
+            role = role.upper()
 
             if role != "ALL":
-                query = query.filter(UserModel.role == role)
+
+                query = query.filter(
+                    UserModel.role == UserRole(role)
+                )
+
 
         # =====================
-        # STATUS FILTER
+        # STATUS
         # =====================
+
         if status == "active":
-            query = query.filter(UserModel.is_active == True)
+
+            query = query.filter(
+                UserModel.is_deleted.is_(False),
+                UserModel.is_active.is_(True),
+                UserModel.is_verified.is_(True)
+            )
+
+
+        elif status == "pending":
+
+            query = query.filter(
+                UserModel.is_deleted.is_(False),
+                UserModel.is_active.is_(True),
+                UserModel.is_verified.is_(False)
+            )
+
 
         elif status == "inactive":
-            query = query.filter(UserModel.is_active == False)
+
+            query = query.filter(
+                UserModel.is_deleted.is_(False),
+                UserModel.is_active.is_(False)
+            )
+
+
+        elif status == "archived":
+
+            query = query.filter(
+                UserModel.is_deleted.is_(True)
+            )
+
+
+        else:
+
+            query = query.filter(
+                UserModel.is_deleted.is_(False)
+            )
+
 
         # =====================
-        # SORTING
+        # SORT
         # =====================
+
         if sort == "created_at_desc":
-            query = query.order_by(desc(UserModel.created_at))
+
+            query = query.order_by(
+                desc(UserModel.created_at)
+            )
+
 
         elif sort == "created_at_asc":
-            query = query.order_by(asc(UserModel.created_at))
+
+            query = query.order_by(
+                asc(UserModel.created_at)
+            )
+
 
         elif sort == "name_asc":
-            query = query.order_by(asc(UserModel.first_name))
+
+            query = query.order_by(
+                asc(UserModel.first_name)
+            )
+
 
         elif sort == "name_desc":
-            query = query.order_by(desc(UserModel.first_name))
+
+            query = query.order_by(
+                desc(UserModel.first_name)
+            )
+
+
+        else:
+
+            query = query.order_by(
+                desc(UserModel.created_at)
+            )
+
 
         # =====================
         # COUNT
         # =====================
+
         total = query.count()
 
-        users = (
+
+        # =====================
+        # PAGINATION
+        # =====================
+
+        page = max(page, 1)
+
+        limit = min(
+            max(limit, 1),
+            100
+        )
+
+
+        models = (
             query
-            .offset((page - 1) * limit)
+            .offset(
+                (page - 1) * limit
+            )
             .limit(limit)
             .all()
         )
 
+
+        # =====================
+        # MAPPER
+        # =====================
+
+        users = [
+            UserMapper.to_domain(model)
+            for model in models
+        ]
+
+
         return users, total
-    
-    def get_active_agents(self):
-        return (
+
+
+
+    # =========================
+    # ACTIVE AGENTS
+    # =========================
+
+    def get_active_agents(
+        self
+    ):
+
+
+        models = (
             self.db.query(UserModel)
-            .filter(UserModel.role == UserRole.SAV_AGENT, UserModel.is_active == True)
-            .order_by(UserModel.id.asc())
-            .all()
-        )
-    
-
-    
-    def find_by_ids(self, ids: list[str]):
-        return (
-            self.db.query(UserModel)
-            .filter(UserModel.id.in_(ids))
-            .all()
-        )
-
-
-    def archive_many(self, ids: list[str]):
-
-        try:
-            self.db.execute(
-                update(UserModel)
-                .where(UserModel.id.in_(ids))
-                .values(
-                    is_deleted=True,
-                    is_active=False,
-                    deleted_at=datetime.now(timezone.utc)
-                )
+            .filter(
+                UserModel.role == UserRole.SAV_AGENT,
+                UserModel.is_active.is_(True)
             )
+            .order_by(
+                UserModel.id.asc()
+            )
+            .all()
+        )
 
-            self.db.commit()
 
-        except Exception:
-            self.db.rollback()
-            raise
+        return [
+            UserMapper.to_domain(model)
+            for model in models
+        ]
+
+
+
+    # =========================
+    # FIND BY IDS
+    # =========================
+
+    def find_by_ids(
+        self,
+        ids: list[str]
+    ):
+
+
+        models = (
+            self.db.query(UserModel)
+            .filter(
+                UserModel.id.in_(ids)
+            )
+            .all()
+        )
+
+
+        return [
+            UserMapper.to_domain(model)
+            for model in models
+        ]

@@ -1,37 +1,43 @@
 from fastapi import APIRouter
+from fastapi import (
+    APIRouter,
+    Depends
+)
 
 from modules.financing.api.schemas import (
-    TradeInEstimateRequest
+    TradeInEstimateRequest,
+    TradeInEstimateResponse
 )
 
-from modules.financing.domain.entities.trade_in import (
-    TradeInInput
+from modules.financing.application.use_cases.estimate_trade_in import (
+    EstimateTradeInUseCase
 )
 
-from modules.financing.domain.services.trade_in_service import (
-    TradeInService
+from modules.financing.api.dependencies import (
+    get_estimate_trade_in_use_case
 )
 
-router = APIRouter()
+
+router = APIRouter(
+    tags=["Trade In"]
+)
 
 
-@router.post("/estimate")
+# =====================================================
+# ESTIMATE
+# =====================================================
+
+@router.post(
+    "/estimate",
+    response_model=TradeInEstimateResponse
+)
 def estimate_trade_in(
-    request: TradeInEstimateRequest
+    request: TradeInEstimateRequest,
+    use_case: EstimateTradeInUseCase = Depends(
+        get_estimate_trade_in_use_case
+    )
 ):
 
-    trade_input = TradeInInput(
-        brand=request.brand,
-        model=request.model,
-        year=request.year,
-        mileage=request.mileage,
-        condition=request.condition
+    return use_case.execute(
+        request
     )
-
-    estimated_value = TradeInService.estimate(
-        trade_input
-    )
-
-    return {
-        "estimated_value": estimated_value
-    }

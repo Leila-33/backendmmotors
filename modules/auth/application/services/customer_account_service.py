@@ -6,10 +6,17 @@ class CustomerAccountService:
         activation_token_service,
         lead_repository,
     ):
-        self.user_creation_service = user_creation_service
-        self.activation_token_service = activation_token_service
-        self.lead_repository = lead_repository
+        self.user_creation_service = (
+            user_creation_service
+        )
 
+        self.activation_token_service = (
+            activation_token_service
+        )
+
+        self.lead_repository = (
+            lead_repository
+        )
 
 
     def ensure_account(
@@ -25,23 +32,29 @@ class CustomerAccountService:
 
         user, created = (
             self.user_creation_service
-            .create_client(
+            .create_client_without_password(
                 first_name=lead.first_name,
                 last_name=lead.last_name,
                 email=lead.email,
             )
         )
+
+
+        # =========================
+        # ATTACH LEAD
+        # =========================
+
         self.lead_repository.attach_user(
-    lead_id=lead.id,
-    user_id=user.id,
-)
+            lead_id=lead.id,
+            user_id=user.id,
+        )
 
 
         token = None
 
 
         # =========================
-        # ACTIVATION TOKEN
+        # ACTIVATION
         # =========================
 
         if created:
@@ -56,10 +69,7 @@ class CustomerAccountService:
 
 
         return {
-
             "user": user,
-
             "created": created,
-
             "token": token,
         }

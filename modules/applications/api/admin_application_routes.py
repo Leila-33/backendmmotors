@@ -33,14 +33,7 @@ from core.security.dependencies import get_current_admin
 from modules.applications.api.application_list_response_factory import ApplicationListResponseFactory
 from modules.auth.domain.entities.user import User
 
-
-
 router = APIRouter(tags=["Admin Applications"])
-
-
-
-
-
 
 
 # =========================

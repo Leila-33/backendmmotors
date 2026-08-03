@@ -19,7 +19,6 @@ from core.database.dependencies import (
 from modules.dependencies.dependencies import (
     get_user_repository,
     get_ticket_repository,
-    get_blacklist_repository,
     get_ticket_message_repository,
     get_ticket_read_state_repository,
     get_ticket_chat_manager,
@@ -90,7 +89,6 @@ def get_ticket_chat_usecase(
     websocket_manager = Depends(get_websocket_manager),
     jwt_service = Depends(get_jwt_service),
     user_repo = Depends(get_user_repository),
-    blacklist_repo = Depends(get_blacklist_repository),
     ticket_repo = Depends(get_ticket_repository),
     read_state_repo = Depends(get_ticket_read_state_repository)
 ):
@@ -100,7 +98,6 @@ def get_ticket_chat_usecase(
         connection_manager=websocket_manager,
         jwt_service=jwt_service,
         user_repo=user_repo,
-        blacklist_repo=blacklist_repo,
         ticket_repo=ticket_repo,
         create_message_uc=create_message_uc,
         read_state_repo=read_state_repo

@@ -1,10 +1,41 @@
+from modules.auth.api.schemas import LogoutResponse
+
 class LogoutUser:
 
-    def __init__(self, blacklist_repo):
-        self.blacklist_repo = blacklist_repo
+    def __init__(
+        self,
+        refresh_repository,
+        jwt_service,
+        uow
+    ):
+        self.refresh_repository = refresh_repository
+        self.jwt_service = jwt_service
+        self.uow = uow
 
-    def execute(self, token: str):
+    # =========================
+    # EXECUTE
+    # =========================
+    def execute(
+        self,
+        refresh_token: str
+    ) -> LogoutResponse:
+        try:
 
-        self.blacklist_repo.add(token)
+            payload = self.jwt_service.decode(
+                refresh_token
+            )
 
-        return {"message": "Logged out"}
+            jti = payload["jti"]
+
+            self.refresh_repository.revoke_by_jti(
+                jti
+            )
+
+            self.uow.commit()
+
+            return LogoutResponse(
+                message="Logged out"
+            )
+        except Exception:
+            self.uow.rollback()
+            raise

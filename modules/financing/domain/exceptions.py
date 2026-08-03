@@ -28,3 +28,12 @@ class FinancingAmountNegative(DomainException):
             message="L'apport et la valeur de reprise dépassent le prix du véhicule.",
             status_code=400
         )
+
+class InstallmentNotFound(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "La mensualité de financement est introuvable.",
+            404
+        )

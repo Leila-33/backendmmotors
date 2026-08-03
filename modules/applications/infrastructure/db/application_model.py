@@ -179,7 +179,7 @@ class ApplicationModel(Base):
         cascade="all, delete-orphan"
     )
 
-    payments = relationship(
+    payment = relationship(
     "PaymentModel",
     back_populates="application",
     cascade="all, delete-orphan"

@@ -156,3 +156,11 @@ class Forbidden(DomainException):
             message="Accès interdit",
             status_code=403
         )
+
+class InvalidUserRole(DomainException):
+
+    def __init__(self):
+        super().__init__(
+            message="Le rôle utilisateur fourni est invalide",
+            status_code=400
+        )

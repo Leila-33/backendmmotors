@@ -9,7 +9,8 @@ class CreateInstallmentsUseCase:
     def __init__(
         self,
         financing_contract_repository,
-        installment_repository
+        installment_repository,
+        uow
     ):
 
         self.financing_contract_repository = (
@@ -20,63 +21,81 @@ class CreateInstallmentsUseCase:
             installment_repository
         )
 
-    # =========================
+        self.uow = uow
+
+    # =====================================================
     # EXECUTE
-    # =========================
+    # =====================================================
+
     def execute(
         self,
         contract_id: str
-    ):
+    ) -> list[InstallmentPayment]:
+        try:
+            # =================================================
+            # CONTRACT
+            # =================================================
 
-        contract = (
-            self.financing_contract_repository
-            .find_by_id(contract_id)
-        )
-
-        if not contract:
-            raise FinancingContractNotFound()
-
-        existing = (
-            self.installment_repository
-            .count_by_contract_id(
-                contract.id
-            )
-        )
-
-        # idempotence webhook
-        if existing > 0:
-            return
-
-        start_date = contract.created_at
-
-        installments = []
-
-        for month in range(
-            contract.duration_months
-        ):
-            installment = InstallmentPayment(
-
-
-                id=str(uuid4()),
-
-                financing_contract_id=
-                contract.id,
-                installment_number=month + 1,
-                amount=contract.monthly_payment,
-
-                due_date=
-                start_date +
-                relativedelta(
-                    months=month
-                ),
-
-                status=InstallmentStatus.PENDING
-            )
-            installments.append(
-                installment
+            contract = (
+                self.financing_contract_repository
+                .find_by_id(contract_id)
             )
 
-        self.installment_repository.save_all(
-            installments
-        )
-        return installments
+            if not contract:
+                raise FinancingContractNotFound()
+
+            # =================================================
+            # IDEMPOTENCY
+            # =================================================
+
+            existing = (
+                self.installment_repository
+                .count_by_contract_id(contract.id)
+            )
+
+            if existing > 0:
+                return (
+                    self.installment_repository
+                    .find_all_by_contract_id(contract.id)
+                )
+
+            # =================================================
+            # CREATE INSTALLMENTS
+            # =================================================
+
+            installments = []
+
+            for month in range(contract.duration_months):
+
+                installments.append(
+                    InstallmentPayment(
+
+                        id=str(uuid4()),
+
+                        financing_contract_id=contract.id,
+
+                        installment_number=month + 1,
+
+                        amount=contract.monthly_payment,
+
+                        due_date=(
+                            contract.created_at
+                            + relativedelta(months=month)
+                        ),
+
+                        status=InstallmentStatus.PENDING,
+                    )
+                )
+
+            installments = (
+                self.installment_repository
+                .save_all(installments)
+            )
+
+            self.uow.commit()
+
+            return installments
+
+        except Exception:
+            self.uow.rollback()
+            raise

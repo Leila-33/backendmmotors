@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from modules.financing.domain.entities.trade_in import TradeInInput
+from modules.financing.domain.entities.trade_in_input import TradeInInput
 
 
 class TradeInService:

@@ -10,122 +10,279 @@ from modules.financing.domain.entities.installment import (
 
 from modules.payments.domain.enums import InstallmentStatus
 
+from sqlalchemy.orm import Session
+
+
+
+from modules.financing.infrastructure.mappers.installment_mapper import (
+    InstallmentPaymentMapper
+)
+
+from modules.financing.domain.enums import InstallmentStatus
+
+from modules.financing.domain.exceptions import (
+    InstallmentNotFound
+)
+
+
 class InstallmentRepositorySQL:
 
-    def __init__(self, session: Session):
+
+    def __init__(
+        self,
+        session: Session
+    ):
 
         self.session = session
 
-    # =========================
+
+    # =====================================================
     # SAVE ONE
-    # =========================
-    def save(self, installment: InstallmentPayment):
+    # =====================================================
 
-        model = InstallmentPaymentModel(
+    def save(
+        self,
+        installment: InstallmentPayment
+    ) -> InstallmentPayment:
 
-            id=installment.id,
-
-            financing_contract_id=installment.financing_contract_id,
-            
-            installment_number=installment.installment_number,
-
-            amount=installment.amount,
-
-            due_date=installment.due_date,
-
-            status=installment.status,
-
-            paid_at=installment.paid_at,
-
-            stripe_invoice_id=installment.stripe_invoice_id
-        )
-
-        self.session.merge(model)
-
-    # =========================
-    # SAVE MANY
-    # =========================
-    def save_all(self, installments):
-
-        for inst in installments:
-
-            model = InstallmentPaymentModel(
-
-                id=inst.id,
-
-                financing_contract_id=inst.financing_contract_id,
-
-                installment_number=inst.installment_number,
-
-                amount=inst.amount,
-
-                due_date=inst.due_date,
-
-                status=inst.status,
-
-                paid_at=inst.paid_at,
-
-                stripe_invoice_id=inst.stripe_invoice_id
-            )
-
-            self.session.add(model)
-
-    # =========================
-    # GET BY ID
-    # =========================
-    def get_by_id(self, installment_id: str):
 
         model = (
-            self.session.query(InstallmentPaymentModel)
-            .filter_by(id=installment_id)
+            InstallmentPaymentMapper
+            .to_model(installment)
+        )
+
+        self.session.add(model)
+
+        self.session.flush()
+
+
+        return (
+            InstallmentPaymentMapper
+            .to_domain(model)
+        )
+
+
+    # =====================================================
+    # SAVE MANY
+    # =====================================================
+
+    def save_all(
+        self,
+        installments: list[InstallmentPayment]
+    ):
+
+        models = [
+
+            InstallmentPaymentMapper
+            .to_model(inst)
+
+            for inst in installments
+
+        ]
+
+
+        self.session.add_all(models)
+
+        self.session.flush()
+
+
+        return [
+
+            InstallmentPaymentMapper
+            .to_domain(model)
+
+            for model in models
+
+        ]
+
+
+    # =====================================================
+    # FIND BY ID
+    # =====================================================
+
+    def find_by_id(
+        self,
+        installment_id: str
+    ):
+
+        model = (
+            self.session.query(
+                InstallmentPaymentModel
+            )
+            .filter(
+                InstallmentPaymentModel.id
+                == installment_id
+            )
+            .first()
+        )
+
+
+        if not model:
+            return None
+
+
+        return (
+            InstallmentPaymentMapper
+            .to_domain(model)
+        )
+
+
+    # =====================================================
+    # UPDATE
+    # =====================================================
+
+    def update(
+        self,
+        installment: InstallmentPayment
+    ):
+
+
+        model = (
+            self.session.query(
+                InstallmentPaymentModel
+            )
+            .filter(
+                InstallmentPaymentModel.id
+                == installment.id
+            )
+            .first()
+        )
+
+
+        if not model:
+            raise InstallmentNotFound()
+
+
+        InstallmentPaymentMapper.update_model(
+            model,
+            installment
+        )
+
+
+        self.session.flush()
+
+
+        return (
+            InstallmentPaymentMapper
+            .to_domain(model)
+        )
+
+
+    # =====================================================
+    # NEXT UNPAID
+    # =====================================================
+
+    def find_next_unpaid(
+        self,
+        contract_id: str
+    ):
+
+
+        model = (
+            self.session.query(
+                InstallmentPaymentModel
+            )
+            .filter(
+                InstallmentPaymentModel.financing_contract_id
+                == contract_id,
+
+                InstallmentPaymentModel.status.in_(
+                    [
+                        InstallmentStatus.PENDING,
+                        InstallmentStatus.FAILED
+                    ]
+                )
+            )
+            .order_by(
+                InstallmentPaymentModel.due_date.asc()
+            )
+            .first()
+        )
+
+
+        if not model:
+            return None
+
+
+        return (
+            InstallmentPaymentMapper
+            .to_domain(model)
+        )
+
+
+    # =====================================================
+    # COUNT
+    # =====================================================
+
+    def count_by_contract_id(
+        self,
+        contract_id: str
+    ):
+
+        return (
+            self.session.query(
+                InstallmentPaymentModel
+            )
+            .filter(
+                InstallmentPaymentModel.financing_contract_id
+                == contract_id
+            )
+            .count()
+        )
+
+
+    # =====================================================
+    # GET ALL BY CONTRACT
+    # =====================================================
+
+    def find_all_by_contract_id(
+        self,
+        contract_id: str
+    ):
+
+        models = (
+            self.session.query(
+                InstallmentPaymentModel
+            )
+            .filter(
+                InstallmentPaymentModel.financing_contract_id
+                == contract_id
+            )
+            .order_by(
+                InstallmentPaymentModel.installment_number.asc()
+            )
+            .all()
+        )
+
+
+        return [
+            InstallmentPaymentMapper.to_domain(model)
+            for model in models
+        ]
+
+    # =====================================================
+    # FIND BY STRIPE INVOICE ID
+    # =====================================================
+    def find_by_stripe_invoice_id(
+        self,
+        stripe_invoice_id: str
+    ) -> InstallmentPayment | None:
+
+        model = (
+            self.session.query(
+                InstallmentPaymentModel
+            )
+            .filter(
+                InstallmentPaymentModel.stripe_invoice_id
+                == stripe_invoice_id
+            )
             .first()
         )
 
         if not model:
             return None
 
-        return model
-
-    # =========================
-    # NEXT PENDING
-    # =========================
-    def find_next_unpaid(
-            self,
-            contract_id: str
-        ):
-            return (
-                self.session.query(
-                    InstallmentPaymentModel
-                )
-                .filter(
-                    InstallmentPaymentModel.financing_contract_id
-                    == contract_id,
-
-                    InstallmentPaymentModel.status.in_([
-                        InstallmentStatus.PENDING,
-                        InstallmentStatus.FAILED
-                    ])
-                )
-                .order_by(
-                    InstallmentPaymentModel.due_date.asc()
-                )
-                .first()
-            )
-
-    # =========================
-    # COUNT
-    # =========================
-    def count_by_contract_id(self, contract_id: str):
-
         return (
-            self.session.query(InstallmentPaymentModel)
-            .filter_by(financing_contract_id=contract_id)
-            .count()
+            InstallmentPaymentMapper
+            .to_domain(model)
         )
-
-    # =========================
-    # COMMIT
-    # =========================
-    def commit(self):
-
-        self.session.commit()

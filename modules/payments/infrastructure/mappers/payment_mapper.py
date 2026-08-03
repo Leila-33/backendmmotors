@@ -3,67 +3,74 @@ from modules.payments.infrastructure.db.payment_model import PaymentModel
 from modules.payments.domain.entities.payment import Payment
 
 
-# =========================
-# MODEL → DOMAIN
-# =========================
-def to_domain(model: PaymentModel) -> Payment:
+class PaymentMapper:
 
-    return Payment(
+    @staticmethod
+    def to_domain(model: PaymentModel) -> Payment:
 
-        id=model.id,
+        return Payment(
+            id=model.id,
 
-        # relations
-        application_id=model.application_id,
-        user_id=model.user_id,
+            application_id=model.application_id,
+            user_id=model.user_id,
 
-        # stripe
-        stripe_session_id=model.stripe_session_id,
-        stripe_payment_intent_id=model.stripe_payment_intent_id,
+            stripe_session_id=model.stripe_session_id,
+            stripe_payment_intent_id=model.stripe_payment_intent_id,
 
-        # financial
-        amount=model.amount,
-        currency=model.currency,
+            amount=model.amount,
+            currency=model.currency,
 
-        # status
-        status=model.status,
+            status=model.status,
 
-        # metadata
-        description=model.description,
+            description=model.description,
 
-        # timestamps
-        created_at=model.created_at,
-        updated_at=model.updated_at
-    )
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
 
+    @staticmethod
+    def to_model(entity: Payment) -> PaymentModel:
 
-# =========================
-# DOMAIN → MODEL
-# =========================
-def to_model(domain: Payment) -> PaymentModel:
+        return PaymentModel(
+            id=entity.id,
 
-    return PaymentModel(
+            application_id=entity.application_id,
+            user_id=entity.user_id,
 
-        id=domain.id,
+            stripe_session_id=entity.stripe_session_id,
+            stripe_payment_intent_id=entity.stripe_payment_intent_id,
 
-        # relations
-        application_id=domain.application_id,
-        user_id=domain.user_id,
+            amount=entity.amount,
+            currency=entity.currency,
 
-        # stripe
-        stripe_session_id=domain.stripe_session_id,
-        stripe_payment_intent_id=domain.stripe_payment_intent_id,
+            status=entity.status,
 
-        # financial
-        amount=domain.amount,
-        currency=domain.currency,
+            description=entity.description,
 
-        # status
-        status=domain.status,
+            created_at=entity.created_at,
+            updated_at=entity.updated_at,
+        )
 
-        # metadata
-        description=domain.description,
+    @staticmethod
+    def update_model(
+        model: PaymentModel,
+        entity: Payment,
+    ) -> PaymentModel:
 
-        # timestamps
-        created_at=domain.created_at,
-        updated_at=domain.updated_at
-    )
+        model.application_id = entity.application_id
+        model.user_id = entity.user_id
+
+        model.stripe_session_id = entity.stripe_session_id
+        model.stripe_payment_intent_id = entity.stripe_payment_intent_id
+
+        model.amount = entity.amount
+        model.currency = entity.currency
+
+        model.status = entity.status
+
+        model.description = entity.description
+
+        model.created_at = entity.created_at
+        model.updated_at = entity.updated_at
+
+        return model

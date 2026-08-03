@@ -1,33 +1,94 @@
 from modules.auth.domain.exceptions import UserNotFound, Forbidden
 from modules.auth.domain.enums import UserRole
+from modules.auth.api.schemas import ToggleUserActiveResponse
 
 class ToggleUserActiveUseCase:
 
-    def __init__(self, user_repo):
+
+    def __init__(
+        self,
+        user_repo,
+        uow,
+    ):
+
         self.user_repo = user_repo
 
-    def execute(self, user_id: str, is_active: bool):
+        self.uow = uow
 
-        # =====================
-        # AUTH CHECK
-        # =====================
 
-        user = self.user_repo.get_by_id(user_id)
 
-        if not user:
-            raise UserNotFound()
+    def execute(
+        self,
+        user_id: str,
+        is_active: bool,
+    ) -> ToggleUserActiveResponse:
 
-        # =====================
-        # BUSINESS RULE
-        # =====================
-        if user.role == UserRole.ADMIN:
-            raise Forbidden("Impossible de modifier un admin")
 
-        user.is_active = is_active
+        try:
 
-        self.user_repo.update(user)
+            # =====================
+            # GET USER
+            # =====================
 
-        return {
-            "id": user.id,
-            "is_active": user.is_active
-        }
+            user = (
+                self.user_repo
+                .get_by_id(user_id)
+            )
+
+
+            if not user:
+                raise UserNotFound()
+
+
+
+            # =====================
+            # PROTECTION ADMIN
+            # =====================
+
+            if user.role == UserRole.ADMIN:
+
+                raise Forbidden(
+                    "Impossible de désactiver un administrateur"
+                )
+
+
+
+            # =====================
+            # UPDATE STATUS
+            # =====================
+
+            user.is_active = is_active
+
+
+            self.user_repo.update(
+                user
+            )
+
+
+
+            # =====================
+            # COMMIT
+            # =====================
+
+            self.uow.commit()
+
+
+
+            return ToggleUserActiveResponse(
+
+                id=user.id,
+
+                is_active=user.is_active,
+
+                message=(
+                    "Statut utilisateur mis à jour"
+                )
+            )
+
+
+
+        except Exception:
+
+            self.uow.rollback()
+
+            raise

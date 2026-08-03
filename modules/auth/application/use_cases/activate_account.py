@@ -1,15 +1,12 @@
 from datetime import datetime, timezone
-
 from modules.auth.domain.exceptions import (
     InvalidActivationToken,
     CguNotAccepted
 )
-
 from core.security.password import hash_password
 from datetime import datetime, timezone, timedelta
-
 from modules.auth.api.schemas import ActivateAccountRequest, ActivateAccountResponse
-from modules.auth.domain.entities.refresh_token import RefreshTokenEntity
+from modules.auth.domain.entities.refresh_token import RefreshToken
 
 class ActivateAccountUseCase:
 
@@ -21,6 +18,7 @@ class ActivateAccountUseCase:
         user_repository,
         refresh_repository,
         jwt_service,
+        uow,
     ):
 
         self.validator = validator
@@ -32,142 +30,192 @@ class ActivateAccountUseCase:
         self.user_repository = (
             user_repository
         )
-        self.refresh_repository = refresh_repository
+
+        self.refresh_repository = (
+            refresh_repository
+        )
 
         self.jwt_service = jwt_service
+
+        self.uow = uow
 
 
 
     def execute(
         self,
         request: ActivateAccountRequest,
-    ):
+    ) -> ActivateAccountResponse:
 
 
-        # =========================
-        # VALIDATE TOKEN
-        # =========================
+        try:
 
-        activation = (
-    self.validator.get_activation(request.token)
-)
+            # =========================
+            # VALIDATE TOKEN
+            # =========================
 
-
-        self.validator.validate_for_activation(
-    activation
-)
-
-
-        # =========================
-        # CGU
-        # =========================
-
-        if not request.accepted_cgu:
-
-            raise CguNotAccepted()
-
-
-        # =========================
-        # USER
-        # =========================
-
-        user = (
-            self.user_repository.get_by_id(
-                activation.user_id
+            activation = (
+                self.validator
+                .get_activation(
+                    request.token
+                )
             )
-        )
 
 
-        if user is None:
-
-            raise InvalidActivationToken()
-
-
-        # =========================
-        # ACTIVATE USER
-        # =========================
-
-        user.activate(
-            hashed_password=hash_password(
-                request.password
+            self.validator.validate_for_activation(
+                activation
             )
-        )
 
 
-        # =========================
-        # CONSUME TOKEN
-        # =========================
+            # =========================
+            # CGU
+            # =========================
 
-        activation.consume(
-            datetime.now(
+            if not request.accepted_cgu:
+                raise CguNotAccepted()
+
+
+
+            # =========================
+            # USER
+            # =========================
+
+            user = (
+                self.user_repository
+                .get_by_id(
+                    activation.user_id
+                )
+            )
+
+
+            if not user:
+                raise InvalidActivationToken()
+
+
+
+            # =========================
+            # ACTIVATE USER
+            # =========================
+
+            user.activate(
+                hashed_password=hash_password(
+                    request.password
+                )
+            )
+
+
+            # =========================
+            # CONSUME TOKEN
+            # =========================
+
+            activation.consume(
+                datetime.now(
+                    timezone.utc
+                )
+            )
+
+
+            # =========================
+            # SAVE USER + TOKEN
+            # =========================
+
+            self.user_repository.update(
+                user
+            )
+
+            self.activation_token_repository.update(
+                activation
+            )
+
+
+
+            # =========================
+            # CREATE JWT
+            # =========================
+
+            access_token = (
+                self.jwt_service
+                .create_access_token(
+                    user_id=user.id,
+                    role=user.role
+                )
+            )
+
+
+            refresh_token = (
+                self.jwt_service
+                .create_refresh_token(
+                    user_id=user.id,
+                    role=user.role
+                )
+            )
+
+
+            payload = (
+                self.jwt_service
+                .decode(
+                    refresh_token
+                )
+            )
+
+
+            now = datetime.now(
                 timezone.utc
             )
-        )
 
 
-        # =========================
-        # SAVE
-        # =========================
+            refresh_entity = RefreshToken(
+                id=payload["jti"],
 
-        self.user_repository.update(
-            user
-        )
-
-        self.activation_token_repository.update(
-            activation
-        )
-
-
-        # =========================
-        # JWT
-        # =========================
-
-        access_token = (
-            self.jwt_service.create_access_token(
                 user_id=user.id,
-                role=user.role.value,
+
+                role=user.role,
+
+                jti=payload["jti"],
+
+                expires_at=(
+                    now +
+                    timedelta(days=7)
+                ),
+
+                created_at=now,
+
+                revoked=False,
             )
-        )
 
-        refresh_token = (
-            self.jwt_service.create_refresh_token(
-                user_id=user.id,
-                role=user.role.value,
+
+            self.refresh_repository.save(
+                refresh_entity
             )
-        )
-        payload = self.jwt_service.decode(refresh_token)
-        jti = payload["jti"]
-        now = datetime.now(timezone.utc)
 
-        # =========================
-        # 3. SAVE SESSION (JTI BASED)
-        # =========================
-        refresh_token_entity = RefreshTokenEntity(
-            id=jti,
-            user_id=user.id,
-            role=user.role,
-            jti=jti,
-            expires_at=now + timedelta(days=7),
-            created_at=now,
-            revoked=False
-        )
-        self.refresh_repository.save(refresh_token_entity)
 
-        # =========================
-        # RESPONSE
-        # =========================
+            # =========================
+            # COMMIT
+            # =========================
 
-        return ActivateAccountResponse(
+            self.uow.commit()
 
-            message="Compte activé avec succès.",
 
-            access_token=access_token,
 
-            refresh_token=refresh_token,
+            return ActivateAccountResponse(
 
-            redirect=(
-                f"/quotes/{activation.quote_id}"
-                if activation.quote_id
-                else "/"
-            ),
-        )
+                message=(
+                    "Compte activé avec succès."
+                ),
+
+                access_token=access_token,
+
+                refresh_token=refresh_token,
+
+                redirect=(
+                    f"/quotes/{activation.quote_id}"
+                    if activation.quote_id
+                    else "/"
+                )
+            )
+
+
+        except Exception:
+
+            self.uow.rollback()
+
+            raise

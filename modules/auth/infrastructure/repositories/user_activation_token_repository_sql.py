@@ -1,15 +1,21 @@
 import hashlib
-
+from sqlalchemy.orm import Session
 from modules.auth.domain.repositories.user_activation_token_repository import UserActivationTokenRepository
 from modules.auth.infrastructure.db.user_activation_token_model import UserActivationTokenModel
 from modules.auth.infrastructure.mappers.user_activation_token_mapper import UserActivationTokenMapper
 from modules.auth.domain.entities.user_activation_token import UserActivationToken
 
+
+
+
 class SQLActivationTokenRepository(
     UserActivationTokenRepository
 ):
 
-    def __init__(self, db):
+    def __init__(
+        self,
+        db: Session
+    ):
         self.db = db
 
     # =====================================
@@ -27,7 +33,7 @@ class SQLActivationTokenRepository(
 
         self.db.add(model)
 
-        self.db.commit()
+        self.db.flush()
 
         return UserActivationTokenMapper.to_domain(
             model
@@ -71,24 +77,28 @@ class SQLActivationTokenRepository(
     def update(
         self,
         token: UserActivationToken,
-    ) -> None:
+    ) -> UserActivationToken | None:
 
         model = (
             self.db.query(
                 UserActivationTokenModel
             )
-            .filter_by(
-                id=token.id
+            .filter(
+                UserActivationTokenModel.id == token.id
             )
             .first()
         )
 
         if not model:
-            return
+            return None
 
         UserActivationTokenMapper.update_model(
             model,
             token
         )
 
-        self.db.commit()
+        self.db.flush()
+
+        return UserActivationTokenMapper.to_domain(
+            model
+        )

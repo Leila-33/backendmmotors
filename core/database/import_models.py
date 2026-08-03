@@ -4,7 +4,7 @@
 from modules.auth.infrastructure.db.user_model import UserModel
 
 # Auth (refresh + blacklist)
-from modules.auth.infrastructure.db.refresh_model import RefreshTokenModel
+from modules.auth.infrastructure.db.refresh_token_model import RefreshTokenModel
 from modules.auth.infrastructure.db.token_blacklist_model import TokenBlacklistModel
 from modules.auth.infrastructure.db.user_activation_token_model import UserActivationTokenModel
 

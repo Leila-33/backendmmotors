@@ -42,9 +42,5 @@ class UserRepository(ABC):
         pass
     
     @abstractmethod
-    def archive_many(self, ids: list[str]):
-        pass
-
-    @abstractmethod
     def find_by_ids(self, ids: list[str]):
         pass

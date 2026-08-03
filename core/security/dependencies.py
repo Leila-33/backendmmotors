@@ -1,14 +1,15 @@
 from fastapi import Request, Depends
-from modules.auth.domain.exceptions import TokenInvalid, TokenRevoked, Forbidden, TokenExpired
+from modules.auth.domain.exceptions import TokenInvalid, Forbidden, TokenExpired
 from modules.auth.domain.enums import UserRole
 from modules.dependencies.dependencies import (
     get_user_repository,
-    get_blacklist_repository
 )
-from jwt import ExpiredSignatureError, InvalidTokenError
 from core.config.settings import settings
 from core.security.jwt_service import JwtService
-
+from jwt.exceptions import (
+    ExpiredSignatureError,
+    InvalidTokenError
+)
 from fastapi import Request, Depends
 
 def get_jwt_service():
@@ -17,39 +18,75 @@ def get_jwt_service():
         algorithm="HS256",
     )
 
+
 def get_current_user(
     request: Request,
     jwt_service=Depends(get_jwt_service),
     user_repo=Depends(get_user_repository),
-    blacklist_repo=Depends(get_blacklist_repository)
 ):
 
-    auth = request.headers.get("Authorization")
+    auth = request.headers.get(
+        "Authorization"
+    )
 
     if not auth:
         raise TokenInvalid()
 
-    token = auth.replace("Bearer ", "")
 
-    if blacklist_repo.exists(token):
-        raise TokenRevoked()
-
-    try:
-        payload = jwt_service.decode(token)
-
-    except ExpiredSignatureError:
-        raise TokenExpired()  # ✅ ICI
-
-    except InvalidTokenError:
-        raise TokenInvalid()  # ✅ ICI
-
-    user = user_repo.get_by_id(payload["sub"])
-
-    if not user:
+    if not auth.startswith(
+        "Bearer "
+    ):
         raise TokenInvalid()
 
-    if not user.is_active:
+
+    token = auth.replace(
+        "Bearer ",
+        ""
+    )
+
+
+    try:
+
+        payload = jwt_service.decode(
+            token
+        )
+
+
+    except ExpiredSignatureError:
+
+        raise TokenExpired()
+
+
+    except InvalidTokenError:
+
+        raise TokenInvalid()
+
+
+    if payload.get("type") != "access":
+
+        raise TokenInvalid()
+
+
+    user = user_repo.get_by_id(
+        payload.get("sub")
+    )
+
+
+    if not user:
+
+        raise TokenInvalid()
+
+
+    if user.is_deleted:
+
         raise Forbidden()
+
+
+    if not user.is_active:
+
+        raise Forbidden()
+
+
     return user
 
 
@@ -87,14 +124,24 @@ def get_optional_current_user(
     request: Request,
     jwt_service=Depends(get_jwt_service),
     user_repo=Depends(get_user_repository),
-    blacklist_repo=Depends(get_blacklist_repository)
 ):
 
-    auth = request.headers.get("Authorization")
+    auth = request.headers.get(
+        "Authorization"
+    )
 
 
-    # Visiteur non connecté
+    # =====================
+    # VISITEUR NON CONNECTÉ
+    # =====================
+
     if not auth:
+        return None
+
+
+    if not auth.startswith(
+        "Bearer "
+    ):
         return None
 
 
@@ -104,10 +151,9 @@ def get_optional_current_user(
     )
 
 
-    # Token révoqué
-    if blacklist_repo.exists(token):
-        return None
-
+    # =====================
+    # DECODE TOKEN
+    # =====================
 
     try:
 
@@ -127,16 +173,48 @@ def get_optional_current_user(
 
 
 
+    # =====================
+    # ACCESS TOKEN ONLY
+    # =====================
+
+    if payload.get("type") != "access":
+
+        return None
+
+
+
+    user_id = payload.get(
+        "sub"
+    )
+
+
+    if not user_id:
+
+        return None
+
+
+
+    # =====================
+    # USER
+    # =====================
+
     user = user_repo.get_by_id(
-        payload.get("sub")
+        user_id
     )
 
 
     if not user:
+
+        return None
+
+
+    if user.is_deleted:
+
         return None
 
 
     if not user.is_active:
+
         return None
 
 

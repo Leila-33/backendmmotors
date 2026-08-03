@@ -24,3 +24,24 @@ class VehicleWarranty:
     current_mileage: int = 0
     max_mileage: Optional[int] = None
     warranty_plan: Optional["WarrantyPlan"] = None
+
+    def activate(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        current_mileage: int,
+        max_mileage: int,
+    ):
+
+        if self.is_active:
+            return
+
+        self.is_active = True
+
+        self.start_date = start_date
+
+        self.end_date = end_date
+
+        self.current_mileage = current_mileage
+
+        self.max_mileage = max_mileage

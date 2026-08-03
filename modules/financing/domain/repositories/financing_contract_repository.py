@@ -37,6 +37,17 @@ class FinancingContractRepository(ABC):
         pass
 
     # =========================
+    # FIND BY APPLICATION
+    # =========================
+    @abstractmethod
+    def get_by_subscription_id(
+        self,
+        stripe_subscription_id: str
+    ) -> Optional[FinancingContract]:
+        pass
+
+
+    # =========================
     # UPDATE
     # =========================
     @abstractmethod

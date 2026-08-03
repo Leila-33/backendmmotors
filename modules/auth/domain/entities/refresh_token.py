@@ -1,16 +1,28 @@
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from modules.auth.domain.enums import UserRole
 
 
+
 @dataclass
-class RefreshTokenEntity:
+class RefreshToken:
+
     id: str
+
     user_id: str
-    role: UserRole
+
     jti: str
 
+    role: UserRole
+
     expires_at: datetime
-    created_at: datetime
 
     revoked: bool = False
+
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+    updated_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )

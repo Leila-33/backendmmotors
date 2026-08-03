@@ -1,103 +1,133 @@
 from modules.auth.domain.exceptions import TokenInvalid, TokenExpired
-
 from jwt import ExpiredSignatureError, InvalidTokenError
 from datetime import datetime, timezone, timedelta
-from modules.auth.domain.entities.refresh_token import RefreshTokenEntity
+from modules.auth.domain.entities.refresh_token import RefreshToken
+from modules.auth.api.schemas import RefreshTokensResult
+
+from datetime import datetime, timedelta, timezone
 
 
 class RefreshTokenUseCase:
 
-    def __init__(self, refresh_repo, blacklist_repo, jwt_service):
+    def __init__(
+        self,
+        refresh_repo,
+        jwt_service,
+        uow
+    ):
         self.refresh_repo = refresh_repo
-        self.blacklist_repo = blacklist_repo
         self.jwt = jwt_service
+        self.uow = uow
 
-    def execute(self, refresh_token: str):
+    # =========================
+    # EXECUTE
+    # =========================
+    def execute(
+        self,
+        refresh_token: str
+    ) -> RefreshTokensResult:
 
-        print("REFRESH TOKEN RECEIVED:", refresh_token)
-
-        # =========================
-        # 1. blacklist check
-        # =========================
-        if self.blacklist_repo.exists(refresh_token):
-            print("❌ BLACKLIST HIT")
-            raise TokenInvalid()
-
-        # =========================
-        # 2. decode JWT
-        # =========================
         try:
-            payload = self.jwt.decode(refresh_token)
-            print("✅ PAYLOAD:", payload)
-        except ExpiredSignatureError:
-            print("❌ TOKEN EXPIRED")
-            raise TokenExpired()
-        except InvalidTokenError:
-            print("❌ INVALID SIGNATURE")
-            raise TokenInvalid()
+            # =========================
+            # DECODE JWT
+            # =========================
+            try:
 
-        if payload.get("type") != "refresh":
-            print("❌ WRONG TYPE:", payload.get("type"))
-            raise TokenInvalid()
+                payload = self.jwt.decode(
+                    refresh_token
+                )
 
-        user_id = payload.get("sub")
-        role = payload.get("role")
-        jti = payload.get("jti")
+            except ExpiredSignatureError:
+                raise TokenExpired()
 
-        print("JTI:", jti)
+            except InvalidTokenError:
+                raise TokenInvalid()
 
-        if not jti:
-            print("❌ NO JTI IN TOKEN")
-            raise TokenInvalid()
+            # =========================
+            # VALIDATE TOKEN
+            # =========================
+            if payload.get("type") != "refresh":
+                raise TokenInvalid()
 
-        # =========================
-        # 3. DB check
-        # =========================
-        stored = self.refresh_repo.find_by_jti(jti)
+            user_id = payload.get("sub")
+            role = payload.get("role")
+            jti = payload.get("jti")
 
-        print("DB RESULT:", stored)
+            if not all([user_id, role, jti]):
+                raise TokenInvalid()
 
-        if not stored:
-            print("❌ JTI NOT FOUND IN DB")
-            raise TokenInvalid()
+            # =========================
+            # CHECK DATABASE
+            # =========================
+            stored = self.refresh_repo.find_by_jti(
+                jti
+            )
 
-        if stored.revoked:
-            print("❌ TOKEN ALREADY REVOKED")
-            raise TokenInvalid()
+            if not stored:
+                raise TokenInvalid()
 
-        # =========================
-        # 4. revoke old session
-        # =========================
-        self.refresh_repo.revoke_by_jti(jti)
+            if stored.revoked:
+                raise TokenInvalid()
 
-        now = datetime.now(timezone.utc)
+            # =========================
+            # REVOKE CURRENT TOKEN
+            # =========================
+            self.refresh_repo.revoke_by_jti(
+                jti
+            )
 
-        # =========================
-        # 5. new tokens
-        # =========================
-        new_refresh = self.jwt.create_refresh_token(user_id, role)
-        new_payload = self.jwt.decode(new_refresh)
+            # =========================
+            # CREATE NEW TOKENS
+            # =========================
+            new_access = (
+                self.jwt.create_access_token(
+                    user_id,
+                    role
+                )
+            )
 
-        print("NEW JTI:", new_payload["jti"])
+            new_refresh = (
+                self.jwt.create_refresh_token(
+                    user_id,
+                    role
+                )
+            )
 
-        new_access = self.jwt.create_access_token(user_id, role)
+            new_payload = self.jwt.decode(
+                new_refresh
+            )
 
-        # =========================
-        # 6. save new session
-        # =========================
-        refresh_token_entity = RefreshTokenEntity(
-            id=new_payload["jti"],
-            user_id=user_id,
-            role=role,
-            jti=new_payload["jti"],
-            expires_at=now + timedelta(days=7),
-            created_at=now,
-            revoked=False
-        )
+            now = datetime.now(
+                timezone.utc
+            )
 
-        self.refresh_repo.save(refresh_token_entity)
+            # =========================
+            # SAVE NEW REFRESH TOKEN
+            # =========================
+            self.refresh_repo.save(
+                RefreshToken(
+                    id=new_payload["jti"],
+                    user_id=user_id,
+                    role=role,
+                    jti=new_payload["jti"],
+                    expires_at=now + timedelta(days=7),
+                    created_at=now,
+                    revoked=False
+                )
+            )
 
-        return {
-            "access_token": new_access,
-            "refresh_token": new_refresh
-        }
+            # =========================
+            # COMMIT
+            # =========================
+            self.uow.commit()
+
+            # =========================
+            # RESPONSE
+            # =========================
+            return RefreshTokensResult(
+                access_token=new_access,
+                refresh_token=new_refresh
+            )
+        except Exception:
+            self.uow.rollback()
+            raise

@@ -1,46 +1,50 @@
 from abc import ABC, abstractmethod
 
 
+from abc import ABC, abstractmethod
+
+from modules.payments.domain.entities.payment import Payment
+from modules.payments.domain.enums import PaymentStatus
+
+
 class PaymentRepository(ABC):
 
-    # =========================
-    # SAVE
-    # =========================
     @abstractmethod
-    def save(self, payment):
+    def save(
+        self,
+        payment: Payment
+    ):
         pass
 
-    # =========================
-    # UPDATE
-    # =========================
+
     @abstractmethod
-    def update(self, payment):
+    def update(
+        self,
+        payment: Payment
+    ):
         pass
 
-    # =========================
-    # GET BY ID
-    # =========================
+
     @abstractmethod
-    def get_by_id(self, payment_id: str):
+    def get_by_id(
+        self,
+        payment_id: str
+    ) -> Payment | None:
         pass
 
-    # =========================
-    # GET BY STRIPE SESSION
-    # =========================
+
     @abstractmethod
     def get_by_session_id(
         self,
         stripe_session_id: str
-    ):
+    ) -> Payment | None:
         pass
 
-    # =========================
-    # COMMIT
-    # =========================
-    @abstractmethod
-    def commit(self):
-        pass
 
     @abstractmethod
-    def get_by_application_id(self, application_id: str):
+    def get_by_application_and_status(
+        self,
+        application_id: str,
+        status: PaymentStatus
+    ) -> Payment | None:
         pass

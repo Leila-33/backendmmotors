@@ -6,138 +6,233 @@ from modules.applications.domain.exceptions import ApplicationNotFound
 from modules.payments.domain.enums import PaymentStatus
 from modules.applications.domain.enums import ApplicationStatus, EventType
 from modules.applications.domain.entities.event import Event
+from datetime import datetime, timezone
+from modules.payments.api.schemas import (
+    CreateCheckoutSessionResponse,
+)
 
 
 
 class CreateCheckoutSessionUseCase:
+
 
     def __init__(
         self,
         payment_repository,
         stripe_service,
         application_repository,
-        event_repository
+        event_repository,
+        uow,
     ):
+
         self.payment_repository = payment_repository
         self.stripe_service = stripe_service
         self.application_repository = application_repository
         self.event_repository = event_repository
+        self.uow = uow
 
-    # =========================
-    # EXECUTE
-    # =========================
-    def execute(self, dto):
 
-        application = self.application_repository.get_by_id(dto.application_id)
 
-        if not application:
-            raise ApplicationNotFound()
+    def execute(
+        self,
+        dto
+    ):
 
-        if application.status != ApplicationStatus.APPROVED:
-            raise PaymentNotAllowed()
-
-        existing_payment = self.payment_repository.get_by_application_id(
-            dto.application_id
-        )
-
-        payment = None
-
+        try:
         # =========================
-        # HANDLE EXISTING PAYMENT
+        # APPLICATION
         # =========================
-        if existing_payment:
 
-            if existing_payment.status == PaymentStatus.PAID:
-                return {
-                    "checkout_url": None,
-                    "payment_id": existing_payment.id
-                }
+            application = (
+                self.application_repository
+                .get_by_id(
+                    dto.application_id
+                )
+            )
 
-            if existing_payment.status == PaymentStatus.PENDING:
-                # ❌ on ne réutilise PAS Stripe session
-                # 👉 on recrée une session pour garantir validité
-                session = self.stripe_service.create_checkout_session(
-                    application_id=dto.application_id,
+            if not application:
+                raise ApplicationNotFound()
+
+
+
+            if application.status != ApplicationStatus.APPROVED:
+                raise PaymentNotAllowed()
+
+
+
+            # =========================
+            # ALREADY PAID
+            # =========================
+
+            payment = (
+                self.payment_repository
+                .get_by_application_and_status(
+                    application.id,
+                    PaymentStatus.PAID
+                )
+            )
+
+
+            if payment:
+
+                return CreateCheckoutSessionResponse(
+                    checkout_url=None,
+                    payment_id=payment.id
+                )
+
+
+
+            # =========================
+            # PENDING PAYMENT
+            # =========================
+
+            payment = (
+                self.payment_repository
+                .get_by_application_and_status(
+                    application.id,
+                    PaymentStatus.PENDING
+                )
+            )
+
+
+
+            # =========================
+            # FAILED PAYMENT
+            # =========================
+
+            if not payment:
+
+                payment = (
+                    self.payment_repository
+                    .get_by_application_and_status(
+                        application.id,
+                        PaymentStatus.FAILED
+                    )
+                )
+
+
+
+            # =========================
+            # STRIPE SESSION
+            # =========================
+
+            session = (
+                self.stripe_service
+                .create_checkout_session(
+                    application_id=application.id,
                     amount=dto.amount,
                     product_name=dto.product_name,
                     success_url=settings.SUCCESS_URL,
                     cancel_url=settings.CANCEL_URL,
-                    customer_email=dto.email
+                    customer_email=dto.email,
+                )
+            )
+
+
+
+            # =========================
+            # CREATE PAYMENT
+            # =========================
+
+            if not payment:
+
+
+                payment = Payment(
+
+                    id=str(uuid4()),
+
+                    application_id=application.id,
+
+                    user_id=dto.user_id,
+
+                    amount=dto.amount,
+
+                    currency="eur",
+
+                    stripe_session_id=session.id,
+
+                    status=PaymentStatus.PENDING,
+
+                    description=dto.product_name,
+
+                    created_at=datetime.now(
+                        timezone.utc
+                    )
                 )
 
-                # update session id
-                existing_payment.stripe_session_id = session.id
-                self.payment_repository.update(existing_payment)
-                self.payment_repository.commit()
 
-                return {
-                    "checkout_url": session.url,
-                    "payment_id": existing_payment.id
-                }
+                self.payment_repository.save(
+                    payment
+                )
 
-            if existing_payment.status == PaymentStatus.FAILED:
-                payment = existing_payment
 
-        # =========================
-        # CREATE NEW STRIPE SESSION
-        # =========================
-        session = self.stripe_service.create_checkout_session(
-            application_id=dto.application_id,
-            amount=dto.amount,
-            product_name=dto.product_name,
-            success_url=settings.SUCCESS_URL,
-            cancel_url=settings.CANCEL_URL,
-            customer_email=dto.email
-        )
+            else:
 
-        # =========================
-        # CREATE PAYMENT
-        # =========================
-        if not payment:
 
-            payment = Payment(
-                id=str(uuid4()),
-                application_id=dto.application_id,
-                user_id=dto.user_id,
-                stripe_session_id=session.id,
-                amount=dto.amount,
-                status=PaymentStatus.PENDING,
-                description=dto.product_name
+                payment.stripe_session_id = (
+                    session.id
+                )
+
+                payment.status = (
+                    PaymentStatus.PENDING
+                )
+
+
+                self.payment_repository.update(
+                    payment
+                )
+
+
+
+            # =========================
+            # EVENT
+            # =========================
+
+            self.event_repository.save(
+                Event(
+
+                    id=str(uuid4()),
+
+                    application_id=application.id,
+
+                    user_id=dto.user_id,
+
+                    type=EventType.PAYMENT_INITIATED,
+
+                    message="Paiement initialisé.",
+
+                    event_metadata={
+
+                        "payment_id": payment.id,
+
+                        "amount": payment.amount,
+
+                        "stripe_session_id": session.id,
+
+                    },
+
+                    created_at=datetime.now(
+                        timezone.utc
+                    )
+                )
             )
 
-            self.payment_repository.save(payment)
 
-        else:
+            # =========================
+            # COMMIT
+            # =========================
 
-            payment.stripe_session_id = session.id
-            payment.status = PaymentStatus.PENDING
-            self.payment_repository.update(payment)
+            self.uow.commit()
 
-        self.payment_repository.commit()
 
-        # =========================
-        # EVENT
-        # =========================
-        self.event_repository.save(
-            Event(
-                id=str(uuid4()),
-                application_id=application.id,
-                user_id=dto.user_id,
-                type=EventType.PAYMENT_INITIATED,
-                message="Paiement initialisé",
-                event_metadata={
-                    "amount": dto.amount,
-                    "stripe_session_id": session.id
-                }
+
+            return CreateCheckoutSessionResponse(
+
+                checkout_url=session.url,
+
+                payment_id=payment.id
+
             )
-        )
-
-        self.event_repository.commit()
-
-        # =========================
-        # RETURN
-        # =========================
-        return {
-            "checkout_url": session.url,
-            "payment_id": payment.id
-        }
+        except Exception:
+            self.uow.rollback()
+            raise

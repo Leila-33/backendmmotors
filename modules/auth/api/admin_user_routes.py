@@ -1,5 +1,4 @@
 from modules.auth.application.use_cases.admin.find_users import FindUsersUseCase
-from modules.auth.application.use_cases.admin.delete_user import DeleteUserUseCase
 from modules.auth.application.use_cases.admin.update_user_role import UpdateUserRoleUseCase
 from modules.auth.application.use_cases.admin.create_user import CreateUserUseCase
 from modules.auth.application.use_cases.admin.toggle_user_active import ToggleUserActiveUseCase
@@ -11,22 +10,23 @@ from fastapi import APIRouter, Depends
 
 from modules.auth.api.schemas import (
     FindUsersQuery,
-    UpdateUserRoleSchema,
-    CreateUserSchema,
-    ToggleActiveSchema,
+    UpdateUserRoleRequest,
+    UpdateUserRoleResponse,
+    CreateUserRequest,
+    CreateUserResponse,
+    ToggleUserActiveRequest,
     ToggleUserActiveResponse,
     ArchiveUserResponse,
-    ArchiveUsersSchema,
+    ArchiveUsersRequest,
     ArchiveUsersResponse,
     PaginatedUsersResponse
 )
 
 from modules.auth.api.dependencies import (
     get_find_users_usecase,
-    get_delete_user_usecase,
     get_update_user_role_usecase,
     get_create_user_usecase,
-    get_toggle_active_usecase,
+    get_toggle_user_active_usecase,
     get_archive_user_usecase,
     get_archive_users_usecase
 )
@@ -35,13 +35,20 @@ from core.security.dependencies import get_current_admin
 
 router = APIRouter(tags=["AdminAuth"])
 
-@router.post("/")
+@router.post(
+    "/",
+    response_model=CreateUserResponse,
+)
 def create_user(
-    payload: CreateUserSchema,
-    usecase: CreateUserUseCase = Depends(get_create_user_usecase),
-    current_admin: User = Depends(get_current_admin)
+    request: CreateUserRequest,
+    use_case: CreateUserUseCase = Depends(
+        get_create_user_usecase
+    ),
 ):
-    return usecase.execute(payload)
+
+    return use_case.execute(
+        payload=request
+    )
 
 
 
@@ -69,23 +76,42 @@ def get_users(
     return usecase.execute(query)
 
 
-@router.patch("/{user_id}/role")
-def update_user_role(
+@router.patch(
+    "/{user_id}/role",
+    response_model=UpdateUserRoleResponse
+)
+def update_role(
     user_id: str,
-    payload: UpdateUserRoleSchema,
-    usecase: UpdateUserRoleUseCase = Depends(get_update_user_role_usecase),
+    request: UpdateUserRoleRequest,
+    uc: UpdateUserRoleUseCase = Depends(
+        get_update_user_role_usecase
+    ),
     current_admin: User = Depends(get_current_admin)
 ):
-    return usecase.execute(user_id, payload.role)
 
-@router.patch("/{user_id}/active", response_model=ToggleUserActiveResponse)
-def toggle_active(
+    return uc.execute(
+        user_id=user_id,
+        new_role=request.role
+    )
+
+@router.patch(
+    "/{user_id}/active",
+    response_model=ToggleUserActiveResponse
+)
+def toggle_user_active(
     user_id: str,
-    payload: ToggleActiveSchema,
-    usecase: ToggleUserActiveUseCase = Depends(get_toggle_active_usecase),
-    current_admin: User = Depends(get_current_admin)
+    request: ToggleUserActiveRequest,
+    uc: ToggleUserActiveUseCase = Depends(
+        get_toggle_user_active_usecase
+    )
 ):
-    return usecase.execute(user_id, payload.is_active)
+
+    return uc.execute(
+        user_id=user_id,
+        is_active=request.is_active
+    )
+
+
 
 @router.patch("/{user_id}/archive", response_model=ArchiveUserResponse)
 def archive_user(
@@ -95,19 +121,18 @@ def archive_user(
 ):
     return usecase.execute(user_id)
 
-@router.delete("/{user_id}")
-def delete_user(
-    user_id: str,
-    usecase: DeleteUserUseCase = Depends(get_delete_user_usecase),
-    current_admin: User = Depends(get_current_admin)
-):
-    return usecase.execute(user_id)
-
-
-@router.patch("/archive/bulk", response_model=ArchiveUsersResponse)
+@router.post(
+    "/archive",
+    response_model=ArchiveUsersResponse,
+)
 def archive_users(
-    payload: ArchiveUsersSchema,
-    usecase: ArchiveUsersUseCase = Depends(get_archive_users_usecase),
+    request: ArchiveUsersRequest,
+    use_case: ArchiveUsersUseCase = Depends(
+        get_archive_users_usecase
+    ),
     current_admin: User = Depends(get_current_admin)
 ):
-    return usecase.execute(payload.ids)
+
+    return use_case.execute(
+        ids=request.user_ids
+    )

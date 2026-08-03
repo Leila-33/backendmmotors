@@ -31,6 +31,7 @@ class PaymentModel(Base):
     application_id = Column(
         String,
         ForeignKey("applications.id"),
+        unique=True,
         nullable=False
     )
 
@@ -103,7 +104,7 @@ class PaymentModel(Base):
     # =========================
     application = relationship(
         "ApplicationModel",
-        back_populates="payments"
+        back_populates="payment"
     )
 
     user = relationship(

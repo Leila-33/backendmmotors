@@ -1,43 +1,69 @@
-import uuid
-from core.security.password import hash_password
-from modules.auth.domain.entities.user import User
-from modules.auth.domain.enums import UserRole
-from modules.auth.domain.exceptions import EmailAlreadyExists
-
+from modules.auth.api.schemas import RegisterResponse
 
 class RegisterUser:
 
-    def __init__(self, user_repo, jwt_service, email_service):
-        self.user_repo = user_repo
+    def __init__(
+        self,
+        user_creation_service,
+        jwt_service,
+        email_service,
+        uow
+    ):
+
+        self.user_creation_service = (
+            user_creation_service
+        )
+
         self.jwt = jwt_service
+
         self.email_service = email_service
 
-    def execute(self, data):
+        self.uow = uow
 
-        if self.user_repo.get_by_email(data.email):
-            raise EmailAlreadyExists()
 
-        user = User(
-            id=str(uuid.uuid4()),
-            first_name=data.first_name,
-            last_name=data.last_name,
-            email=data.email,
-            password=hash_password(data.password),
-            role=UserRole.CLIENT,
-            is_verified=False,
-            is_active=True,
-            accepted_cgu=True,
-        )
+    def execute(
+        self,
+        data
+    ):
 
-        user = self.user_repo.save(user)
+        try:
 
-        token = self.jwt.create_email_token(user.id)
+            user = (
+                self.user_creation_service
+                .create_client(
+                    first_name=data.first_name,
+                    last_name=data.last_name,
+                    email=data.email,
+                    password=data.password,
+                    accepted_cgu=data.accepted_cgu
+                )
+            )
 
-        self.email_service.send_verification_email(
-            email=user.email,
-            token=token,
-        )
 
-        return {
-            "message": "Utilisateur créé avec succès."
-        }
+            token = (
+                self.jwt
+                .create_email_token(
+                    user.id
+                )
+            )
+
+
+            self.email_service.send_verification_email(
+                email=user.email,
+                token=token,
+            )
+
+
+            self.uow.commit()
+
+
+            return RegisterResponse(
+                message="Utilisateur créé avec succès."
+            )
+
+
+        except Exception:
+
+            self.uow.rollback()
+
+            raise

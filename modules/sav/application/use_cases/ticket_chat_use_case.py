@@ -14,7 +14,6 @@ class TicketChatUseCase:
         connection_manager,
         jwt_service,
         user_repo,
-        blacklist_repo,
         ticket_repo,
         read_state_repo,
         create_message_uc,
@@ -24,7 +23,6 @@ class TicketChatUseCase:
 
         self.jwt_service = jwt_service
         self.user_repo = user_repo
-        self.blacklist_repo = blacklist_repo
 
         self.ticket_repo = ticket_repo
         self.read_state_repo = read_state_repo
@@ -54,7 +52,6 @@ class TicketChatUseCase:
             websocket,
             jwt_service=self.jwt_service,
             user_repo=self.user_repo,
-            blacklist_repo=self.blacklist_repo,
         )
 
 
@@ -62,7 +59,6 @@ class TicketChatUseCase:
             await websocket.close(code=1008)
             return
 
-        print(user)
 
         # =====================
         # LOAD TICKET

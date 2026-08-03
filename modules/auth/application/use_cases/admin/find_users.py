@@ -27,6 +27,7 @@ class FindUsersUseCase:
                 role=u.role,
                 is_active=u.is_active,
                 is_deleted=u.is_deleted,
+                is_verified=u.is_verified,
                 created_at=u.created_at
             )
             for u in users

@@ -5,68 +5,144 @@ from modules.auth.domain.exceptions import (
     AccountDeleted
 )
 from core.security.password import verify_password
+from datetime import datetime, timezone
+from modules.auth.domain.entities.refresh_token import RefreshToken
 
 
-from datetime import datetime, timezone, timedelta
-from modules.auth.domain.entities.refresh_token import RefreshTokenEntity
 
 
 class LoginUser:
 
-    def __init__(self, user_repo, jwt_service, refresh_repo):
+    def __init__(
+        self,
+        user_repo,
+        jwt_service,
+        refresh_repo,
+        uow
+    ):
         self.user_repo = user_repo
         self.jwt = jwt_service
         self.refresh_repo = refresh_repo
+        self.uow = uow
 
-    def execute(self, data):
 
-        # =========================
-        # 1. GET USER
-        # =========================
-        user = self.user_repo.get_by_email(data.email)
+    # =========================
+    # EXECUTE
+    # =========================
 
-        if not user or not verify_password(data.password, user.password):
-            raise InvalidCredentials()
-        
-        if user.is_deleted:
-            raise AccountDeleted()
-        
-        if not user.is_active:
-            raise AccountDisabled()
+    def execute(
+        self,
+        data
+    ):
+        try:
+            # =========================
+            # GET USER
+            # =========================
 
-        if not user.is_verified:
-            raise EmailNotVerified()
+            user = (
+                self.user_repo
+                .get_by_email(data.email)
+            )
 
-        now = datetime.now(timezone.utc)
 
-        # =========================
-        # 2. CREATE TOKENS (WITH JTI INSIDE)
-        # =========================
-        access = self.jwt.create_access_token(user.id, user.role)
-        refresh_token_str = self.jwt.create_refresh_token(user.id, user.role)
+            if (
+                not user
+                or not verify_password(
+                    data.password,
+                    user.password
+                )
+            ):
+                raise InvalidCredentials()
 
-        payload = self.jwt.decode(refresh_token_str)
-        jti = payload["jti"]
 
-        # =========================
-        # 3. SAVE SESSION (JTI BASED)
-        # =========================
-        refresh_token = RefreshTokenEntity(
-            id=jti,
-            user_id=user.id,
-            role=user.role,
-            jti=jti,
-            expires_at=now + timedelta(days=7),
-            created_at=now,
-            revoked=False
-        )
+            if user.is_deleted:
+                raise AccountDeleted()
 
-        self.refresh_repo.save(refresh_token)
 
-        # =========================
-        # 4. RESPONSE
-        # =========================
-        return {
-            "access_token": access,
-            "refresh_token": refresh_token_str
-        }
+            if not user.is_active:
+                raise AccountDisabled()
+
+
+            if not user.is_verified:
+                raise EmailNotVerified()
+
+
+            # =========================
+            # CREATE TOKENS
+            # =========================
+
+            access_token = (
+                self.jwt
+                .create_access_token(
+                    user.id,
+                    user.role
+                )
+            )
+
+
+            refresh_token_string = (
+                self.jwt
+                .create_refresh_token(
+                    user.id,
+                    user.role
+                )
+            )
+
+
+            payload = (
+                self.jwt
+                .decode(
+                    refresh_token_string
+                )
+            )
+
+
+            jti = payload["jti"]
+
+            expires_at = datetime.fromtimestamp(
+                payload["exp"],
+                tz=timezone.utc
+            )
+
+
+            # =========================
+            # SAVE REFRESH SESSION
+            # =========================
+
+            refresh_token = RefreshToken(
+
+                id=jti,
+
+                user_id=user.id,
+
+                role=user.role,
+
+                jti=jti,
+
+                expires_at=expires_at,
+
+                revoked=False
+            )
+
+
+            self.refresh_repo.save(
+                refresh_token
+            )
+
+            # =========================
+            # COMMIT TRANSACTION
+            # =========================
+
+            self.uow.commit()
+            # =========================
+            # RETURN
+            # =========================
+
+            return {
+                "access_token": access_token,
+                "refresh_token": refresh_token_string
+            }
+
+        except Exception:
+            self.uow.rollback()
+            raise

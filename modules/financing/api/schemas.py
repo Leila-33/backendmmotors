@@ -3,7 +3,7 @@ from datetime import datetime
 
 from modules.applications.domain.enums import TradeInVehicleCondition
 
-
+# estimate trade in
 class TradeInEstimateRequest(BaseModel):
 
     brand: str = Field(..., min_length=1)
@@ -45,8 +45,9 @@ class TradeInEstimateRequest(BaseModel):
         return v
     
 
+class TradeInEstimateResponse(BaseModel):
 
-
+    estimated_value: float
 
 
 class FinancingRequest(BaseModel):

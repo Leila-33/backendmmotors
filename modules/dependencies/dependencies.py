@@ -108,7 +108,7 @@ def get_stripe_service():
 
 
 # =====================================================
-# FINANCING SERVICES
+# FINANCING 
 # =====================================================
 
 from modules.financing.domain.services.trade_in_service import (
@@ -126,6 +126,18 @@ def get_trade_in_service():
 def get_financing_service():
     return FinancingService()
 
+from modules.financing.infrastructure.repositories.financing_contract_repository_sql import SqlFinancingContractRepository
+from modules.financing.infrastructure.repositories.installment_repository_sql import InstallmentRepositorySQL
+
+def get_financing_contract_repository(
+    db: Session = Depends(get_db),
+):
+    return SqlFinancingContractRepository(db)
+
+def get_installment_repository(
+    db: Session = Depends(get_db),
+):
+    return InstallmentRepositorySQL(db)
 
 # =====================================================
 # FAVORITES
@@ -245,12 +257,10 @@ def get_reservation_repository(
 from modules.auth.infrastructure.repositories.user_repository_sql import (
     UserRepositorySQL,
 )
-from modules.auth.infrastructure.repositories.refresh_repository_sql import (
-    RefreshRepositorySQL,
+from modules.auth.infrastructure.repositories.refresh_token_repository_sql import (
+    RefreshTokenRepositorySQL,
 )
-from modules.auth.infrastructure.repositories.blacklist_repository_sql import (
-    BlacklistRepositorySQL,
-)
+
 from modules.auth.infrastructure.repositories.user_activation_token_repository_sql import SQLActivationTokenRepository
 
 def get_user_repository(
@@ -262,13 +272,8 @@ def get_user_repository(
 def get_refresh_repository(
     db: Session = Depends(get_db),
 ):
-    return RefreshRepositorySQL(db)
+    return RefreshTokenRepositorySQL(db)
 
-
-def get_blacklist_repository(
-    db: Session = Depends(get_db),
-):
-    return BlacklistRepositorySQL(db)
 
 def get_user_activation_token_repository(
     db: Session = Depends(get_db),

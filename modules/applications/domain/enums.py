@@ -60,6 +60,11 @@ class EventType(str, Enum):
     DOCUMENT_REJECTED = "document_rejected"
 
     # =========================
+    # LEADS
+    # =========================
+    LEAD_WON = "lead_won"
+
+    # =========================
     # PAYMENTS (ACOMPTE)
     # =========================
     PAYMENT_INITIATED = "payment_initiated"

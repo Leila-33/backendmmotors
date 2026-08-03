@@ -7,7 +7,6 @@ from core.security.dependencies import get_jwt_service
 from modules.dependencies.dependencies import (
     get_user_repository,
     get_refresh_repository,
-    get_blacklist_repository,
     get_user_activation_token_repository,
     get_lead_repository
 )
@@ -17,15 +16,22 @@ from modules.auth.application.use_cases.refresh_token import RefreshTokenUseCase
 from modules.auth.application.use_cases.logout_user import LogoutUser
 from modules.auth.application.use_cases.verify_email import VerifyEmail
 from modules.auth.application.use_cases.admin.find_users import FindUsersUseCase
-from modules.auth.application.use_cases.admin.delete_user import DeleteUserUseCase
 from modules.auth.application.use_cases.admin.update_user_role import UpdateUserRoleUseCase
 from modules.auth.application.use_cases.admin.create_user import CreateUserUseCase
 from modules.auth.application.use_cases.admin.toggle_user_active import ToggleUserActiveUseCase
 from modules.auth.application.use_cases.admin.archive_user import ArchiveUserUseCase
 from modules.auth.application.use_cases.admin.archive_users import ArchiveUsersUseCase
-from modules.auth.application.use_cases.admin.delete_user import DeleteUserUseCase
 from modules.auth.application.use_cases.activate_account import ActivateAccountUseCase
 from modules.auth.application.use_cases.check_activation_token import CheckActivationTokenUseCase
+
+# =========================
+# CORE
+# =========================
+from core.database.dependencies import (
+    get_unit_of_work
+)
+from core.database.unit_of_work import UnitOfWork
+
 # =========================
 # SERVICES
 # =========================
@@ -40,97 +46,12 @@ from core.security.jwt_service import JwtService
 # =========================
 from modules.auth.domain.repositories.user_repository import UserRepository
 from modules.auth.domain.repositories.user_activation_token_repository import UserActivationTokenRepository
-from modules.auth.domain.repositories.refresh_repository import RefreshRepository
+from modules.auth.domain.repositories.refresh_token_repository import RefreshTokenRepository
 from modules.leads.domain.repositories.lead_repository import LeadRepository
 
 # =========================
-# USE CASES
+# SERVICES
 # =========================
-
-def get_register_uc(
-    user_repo=Depends(get_user_repository),
-    jwt=Depends(get_jwt_service),
-    email=Depends(get_email_service)
-):
-    return RegisterUser(user_repo, jwt, email)
-
-
-def get_login_uc(
-    user_repo=Depends(get_user_repository),
-    jwt=Depends(get_jwt_service),
-    refresh_repo=Depends(get_refresh_repository)
-):
-    return LoginUser(user_repo, jwt, refresh_repo)
-
-
-def get_refresh_uc(
-    jwt=Depends(get_jwt_service),
-    refresh_repo=Depends(get_refresh_repository),
-    blacklist_repo=Depends(get_blacklist_repository)
-):
-    return RefreshTokenUseCase(
-        refresh_repo=refresh_repo,
-        blacklist_repo=blacklist_repo,
-        jwt_service=jwt
-    )
-
-
-def get_logout_uc(
-    blacklist=Depends(get_blacklist_repository)
-):
-    return LogoutUser(blacklist)
-
-
-def get_verify_email_uc(
-    user_repo=Depends(get_user_repository),
-    jwt=Depends(get_jwt_service)
-):
-    return VerifyEmail(user_repo, jwt)
-
-
-def get_find_users_usecase(
-    user_repository=Depends(get_user_repository)
-):
-    return FindUsersUseCase(user_repository)
-
-def get_delete_user_usecase(
-    user_repository=Depends(get_user_repository)
-):
-    return DeleteUserUseCase(user_repository)
-
-
-
-def get_update_user_role_usecase(
-    user_repository=Depends(get_user_repository)
-):
-    return UpdateUserRoleUseCase(user_repository)
-
-
-def get_create_user_usecase(
-    user_repository=Depends(get_user_repository)
-):
-    return CreateUserUseCase(user_repository)
-
-def get_toggle_active_usecase(
-    user_repository=Depends(get_user_repository)
-):
-    return ToggleUserActiveUseCase(user_repository)
-
-def get_archive_user_usecase(
-    user_repository=Depends(get_user_repository)
-):
-    return ArchiveUserUseCase(user_repository)
-
-def get_archive_users_usecase(
-    user_repository=Depends(get_user_repository)
-):
-    return ArchiveUsersUseCase(user_repository)
-
-def get_delete_user_usecase(
-    user_repository=Depends(get_user_repository)
-):
-    return DeleteUserUseCase(user_repository)
-
 def get_user_creation_service(
     user_repository=Depends(get_user_repository)
 ):
@@ -162,7 +83,6 @@ def get_customer_account_service(
     )
 
 
-
 def get_activation_token_validator(
 
     activation_token_repository: UserActivationTokenRepository = Depends(
@@ -175,6 +95,76 @@ def get_activation_token_validator(
 
         activation_token_repository
     )
+
+
+# =========================
+# USE CASES CLIENT
+# =========================
+def get_register_uc(
+    user_creation_service : UserCreationService = Depends(get_user_creation_service),
+    jwt=Depends(get_jwt_service),
+    email=Depends(get_email_service),
+    uow=Depends(get_unit_of_work)
+):
+    return RegisterUser(
+        user_creation_service=user_creation_service,
+        jwt_service=jwt,
+        email_service=email,
+        uow=uow
+ )
+
+
+def get_login_uc(
+    user_repo=Depends(get_user_repository),
+    refresh_repo=Depends(get_refresh_repository),
+    jwt_service=Depends(get_jwt_service),
+    uow=Depends(get_unit_of_work)
+):
+
+    return LoginUser(
+        user_repo=user_repo,
+        jwt_service=jwt_service,
+        refresh_repo=refresh_repo,
+        uow=uow
+    )
+
+
+def get_refresh_uc(
+    jwt=Depends(get_jwt_service),
+    refresh_repo=Depends(get_refresh_repository),
+    uow=Depends(get_unit_of_work)
+):
+    return RefreshTokenUseCase(
+        refresh_repo=refresh_repo,
+        jwt_service=jwt,
+        uow=uow
+    )
+
+
+def get_logout_uc(
+    refresh_repo=Depends(get_refresh_repository),
+    jwt_service=Depends(get_jwt_service),
+    uow=Depends(get_unit_of_work)
+):
+
+    return LogoutUser(
+        jwt_service=jwt_service,
+        refresh_repo=refresh_repo,
+        uow=uow
+    )
+
+def get_verify_email_uc(
+    user_repo=Depends(get_user_repository),
+    jwt_service=Depends(get_jwt_service),
+    uow=Depends(get_unit_of_work)
+):
+
+    return VerifyEmail(
+        user_repo=user_repo,
+        jwt_service=jwt_service,
+        uow=uow
+    )
+
 
 def get_activate_account_usecase(
 
@@ -189,12 +179,12 @@ def get_activate_account_usecase(
     user_repository: UserRepository = Depends(
         get_user_repository,
     ),
-    refresh_repository : RefreshRepository = Depends(get_refresh_repository),
+    refresh_repository : RefreshTokenRepository = Depends(get_refresh_repository),
 
     jwt_service: JwtService = Depends(
         get_jwt_service,
     ),
-
+    uow=Depends(get_unit_of_work)
 ):
 
     return ActivateAccountUseCase(
@@ -210,6 +200,7 @@ def get_activate_account_usecase(
 
 
         jwt_service=jwt_service,
+        uow=uow
     )
 
 
@@ -231,3 +222,98 @@ def get_check_activation_token_usecase(
 
         user_repository=user_repository
     )
+
+
+
+
+
+
+
+# =========================
+# USE CASES ADMIN
+# =========================
+def get_update_user_role_usecase(
+    user_repository=Depends(
+        get_user_repository
+    ),
+    uow=Depends(
+        get_unit_of_work
+    ),
+):
+
+    return UpdateUserRoleUseCase(
+        user_repo=user_repository,
+        uow=uow,
+    )
+
+
+
+def get_toggle_user_active_usecase(
+    user_repository=Depends(
+        get_user_repository
+    ),
+    uow=Depends(
+        get_unit_of_work
+    ),
+):
+
+    return ToggleUserActiveUseCase(
+        user_repo=user_repository,
+        uow=uow,
+    )
+
+def get_archive_user_usecase(
+    user_repository=Depends(
+        get_user_repository
+    ),
+    uow=Depends(
+        get_unit_of_work
+    ),
+):
+
+    return ArchiveUserUseCase(
+        user_repo=user_repository,
+        uow=uow,
+    )
+
+def get_archive_users_usecase(
+    user_repository=Depends(
+        get_user_repository
+    ),
+    uow=Depends(
+        get_unit_of_work
+    ),
+):
+
+    return ArchiveUsersUseCase(
+        user_repo=user_repository,
+        uow=uow,
+    )
+
+
+def get_find_users_usecase(
+    user_repository=Depends(get_user_repository)
+):
+    return FindUsersUseCase(user_repository)
+
+
+def get_create_user_usecase(
+    user_creation_service=Depends(
+        get_user_creation_service
+    ),
+    uow=Depends(
+        get_unit_of_work
+    ),
+):
+
+    return CreateUserUseCase(
+        user_creation_service=user_creation_service,
+        uow=uow,
+    )
+
+
+
+
+
+
+
