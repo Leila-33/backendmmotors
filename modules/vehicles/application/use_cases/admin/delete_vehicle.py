@@ -2,6 +2,7 @@ from modules.vehicles.domain.repositories.vehicle_repository import VehicleRepos
 from modules.vehicles.domain.exceptions import VehicleNotFound
 from modules.storage.infrastrucure.s3_service import S3Service
 from core.database.unit_of_work import UnitOfWork
+from modules.applications.domain.enums import EventType
 
 class DeleteVehicle:
 
@@ -9,16 +10,19 @@ class DeleteVehicle:
         self,
         repo: VehicleRepository,
         s3_service: S3Service,
+        event_service,
         unit_of_work: UnitOfWork,
     ):
         self.repo = repo
         self.s3_service = s3_service
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
     def execute(
         self,
-        vehicle_id: str
+        vehicle_id: str,
+        current_admin
     ):
 
         vehicle = self.repo.get_by_id(vehicle_id)
@@ -41,7 +45,16 @@ class DeleteVehicle:
             # =========================
             self.repo.delete(vehicle_id)
 
-
+            self.event_service.log(
+    type=EventType.VEHICLE_DELETED,
+    message="Véhicule archivé",
+    vehicle_id=vehicle.id,
+    user_id=current_admin.id,
+    event_metadata={
+        "brand": vehicle.brand,
+        "model": vehicle.model,
+    }
+)
             # =========================
             # COMMIT TRANSACTION
             # =========================

@@ -5,21 +5,21 @@ from modules.leads.api.schemas import CreateLeadResponse
 from modules.leads.domain.enums import LeadStatus
 from modules.leads.domain.entities.lead import Lead
 from modules.leads.domain.exceptions import ActiveLeadAlreadyExists
-
+from modules.applications.domain.enums import (
+    EventType
+)
 
 class CreateLeadUseCase:
 
     def __init__(
         self,
         lead_repository,
+        event_service,
         unit_of_work,
     ):
-        self.lead_repository = (
-            lead_repository
-        )
-        self.unit_of_work = (
-            unit_of_work
-        )
+        self.lead_repository = lead_repository
+        self.event_service = event_service
+        self.unit_of_work = unit_of_work
 
     def execute(
         self,
@@ -76,6 +76,18 @@ class CreateLeadUseCase:
 
             self.lead_repository.save(
                 lead
+            )
+
+            self.event_service.log(
+                type=EventType.LEAD_CREATED,
+                message="Nouveau lead créé",
+                user_id=user_id,
+                vehicle_id=lead.vehicle_id,
+                event_metadata={
+                    "lead_id": lead.id,
+                    "email": lead.email,
+                    "status": lead.status.value,
+                }
             )
 
             self.unit_of_work.commit()

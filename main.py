@@ -13,7 +13,6 @@ configure_mappers()
 
 
 
-# seulement après
 from core.exception_handlers import register_exception_handlers
 from api.routes import api_router
 
@@ -25,7 +24,6 @@ load_dotenv()
 # =========================
 # APP INIT (ONLY ONCE)
 # =========================
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 import asyncio

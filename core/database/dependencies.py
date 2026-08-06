@@ -1,8 +1,5 @@
-# core/database/dependencies.py
-
 from fastapi import Depends
 from sqlalchemy.orm import Session
-
 from .session import SessionLocal
 from .unit_of_work import UnitOfWork
 

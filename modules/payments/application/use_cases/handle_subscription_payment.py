@@ -5,10 +5,11 @@ from datetime import (
 from modules.financing.domain.exceptions import FinancingContractNotFound
 from modules.payments.domain.enums import InstallmentStatus, SubscriptionStatus
 from modules.applications.domain.enums import ApplicationStatus, EventType
-from modules.applications.domain.entities.event import Event
-from uuid import uuid4
 from modules.applications.domain.exceptions import ApplicationNotFound
 from modules.financing.domain.exceptions import InstallmentNotFound
+from modules.applications.domain.enums import (
+    EventType
+)
 
 class HandleSubscriptionPaymentUseCase:
 
@@ -18,7 +19,7 @@ class HandleSubscriptionPaymentUseCase:
         installment_repository,
         financing_contract_repository,
         application_repository,
-        event_repository,
+        event_service,
         uow
     ):
 
@@ -34,9 +35,7 @@ class HandleSubscriptionPaymentUseCase:
             application_repository
         )
 
-        self.event_repository = (
-            event_repository
-        )
+        self.event_service = event_service
 
         self.uow = uow
 
@@ -149,10 +148,7 @@ class HandleSubscriptionPaymentUseCase:
 
 
 
-                self.event_repository.save(
-                    Event(
-
-                        id=str(uuid4()),
+                self.event_service.log(
 
                         application_id=application.id,
 
@@ -170,12 +166,8 @@ class HandleSubscriptionPaymentUseCase:
                             "contract_id": contract.id,
                             "installment_id": installment.id,
                             "invoice_id": invoice.id
-                        },
+                        }
 
-                        created_at=datetime.now(
-                            timezone.utc
-                        )
-                    )
                 )
 
 
@@ -207,10 +199,7 @@ class HandleSubscriptionPaymentUseCase:
                     )
 
 
-                    self.event_repository.save(
-                        Event(
-
-                            id=str(uuid4()),
+                    self.event_service.log(
 
                             application_id=application.id,
 
@@ -228,13 +217,9 @@ class HandleSubscriptionPaymentUseCase:
 
                             event_metadata={
                                 "contract_id": contract.id
-                            },
-
-                            created_at=datetime.now(
-                                timezone.utc
+                            }
                             )
-                        )
-                    )
+                        
 
 
 
@@ -255,10 +240,7 @@ class HandleSubscriptionPaymentUseCase:
                 )
 
 
-                self.event_repository.save(
-                    Event(
-
-                        id=str(uuid4()),
+                self.event_service.log(
 
                         application_id=application.id,
 
@@ -277,13 +259,9 @@ class HandleSubscriptionPaymentUseCase:
                             "contract_id": contract.id,
                             "installment_id": installment.id,
                             "invoice_id": invoice.id
-                        },
+                        }
 
-                        created_at=datetime.now(
-                            timezone.utc
-                        )
                     )
-                )
 
 
             self.uow.commit()

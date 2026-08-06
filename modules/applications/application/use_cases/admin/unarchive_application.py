@@ -5,7 +5,7 @@ from modules.applications.domain.exceptions import ApplicationNotFound
 from modules.applications.domain.entities.application import Application
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from core.database.unit_of_work import UnitOfWork
-from modules.applications.domain.repositories.event_repository import EventRepository
+from modules.applications.application.services.event_service import EventService
 from modules.auth.domain.entities.user import User
 from modules.applications.domain.exceptions import ApplicationNotArchived
 
@@ -14,11 +14,11 @@ class UnarchiveApplicationUseCase:
     def __init__(
         self,
         application_repository: ApplicationRepository,
-        event_repository: EventRepository,
+        event_service: EventService,
         unit_of_work: UnitOfWork,
     ):
         self.application_repository = application_repository
-        self.event_repository = event_repository
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
@@ -65,9 +65,7 @@ class UnarchiveApplicationUseCase:
         # =========================
         # EVENT
         # =========================
-        self.event_repository.save(
-            Event(
-                id=str(uuid4()),
+        self.event_service.log(
 
                 application_id=application.id,
 
@@ -89,7 +87,7 @@ class UnarchiveApplicationUseCase:
                     ),
                 },
             )
-        )
+        
 
 
         # =========================

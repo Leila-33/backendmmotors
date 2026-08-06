@@ -10,6 +10,7 @@ from modules.vehicles.domain.exceptions import (
 from modules.reconditionings.domain.enums import ReconditioningStatus
 from modules.vehicles.domain.enums import VehicleStatus
 from modules.vehicles.api.schemas import FinalCheckResponse
+from modules.applications.domain.enums import EventType
 
 class FinalCheckUseCase:
 
@@ -17,12 +18,14 @@ class FinalCheckUseCase:
         self,
         vehicle_repository,
         reconditioning_repository,
+        event_service,
         unit_of_work,
     ):
         self.vehicle_repository = vehicle_repository
         self.reconditioning_repository = (
             reconditioning_repository
         )
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
@@ -30,6 +33,7 @@ class FinalCheckUseCase:
     def execute(
         self,
         vehicle_id: str,
+        current_admin
     ):
 
 
@@ -116,7 +120,15 @@ class FinalCheckUseCase:
             vehicle
         )
 
-
+        self.event_service.log(
+    type=EventType.FINAL_CHECK_COMPLETED,
+    message="Contrôle final terminé",
+    vehicle_id=vehicle.id,
+    user_id=current_admin.id,
+    event_metadata={
+        "final_check_at ": vehicle.final_check_at,
+    }
+)
         self.unit_of_work.commit()
 
 

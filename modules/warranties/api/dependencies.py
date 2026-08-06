@@ -11,8 +11,7 @@ from modules.warranties.application.use_cases.activate_vehicle_warranty import A
 from core.database.dependencies import (
     get_unit_of_work
 )
-
-
+from modules.applications.api.dependencies import get_event_service
 # =====================================================
 # DEPENDENCY: USECASE
 # =====================================================
@@ -21,6 +20,7 @@ def get_create_warranty_usecase(
     repository=Depends(
         get_warranty_plan_repository
     ),
+    event_service=Depends(get_event_service),
 
     unit_of_work=Depends(
         get_unit_of_work
@@ -31,6 +31,7 @@ def get_create_warranty_usecase(
     return CreateWarrantyPlanUseCase(
 
         repository=repository,
+        event_service=event_service,
 
         unit_of_work=unit_of_work,
 
@@ -52,6 +53,7 @@ def get_toggle_warranty_usecase(
     repository=Depends(
         get_warranty_plan_repository
     ),
+    event_service=Depends(get_event_service),
 
     unit_of_work=Depends(
         get_unit_of_work
@@ -62,7 +64,7 @@ def get_toggle_warranty_usecase(
     return ToggleWarrantyPlanUseCase(
 
         repository=repository,
-
+        event_service=event_service,
         unit_of_work=unit_of_work,
 
     )
@@ -73,6 +75,7 @@ def get_update_warranty_plan_usecase(
     repository=Depends(
         get_warranty_plan_repository
     ),
+    event_service=Depends(get_event_service),
 
     unit_of_work=Depends(
         get_unit_of_work
@@ -83,7 +86,7 @@ def get_update_warranty_plan_usecase(
     return UpdateWarrantyPlanUseCase(
 
         repository=repository,
-
+        event_service=event_service,
         unit_of_work=unit_of_work,
 
     )
@@ -97,11 +100,14 @@ def get_activate_vehicle_warranty_usecase(
     warranty_plan_repository=Depends(
         get_warranty_plan_repository
     ),
+    event_service=Depends(get_event_service)
+
 
 ):
 
     return ActivateVehicleWarrantyUseCase(
-        warranty_plan_repo=warranty_plan_repository
+        warranty_plan_repo=warranty_plan_repository,
+        event_service=event_service
     )
 
 

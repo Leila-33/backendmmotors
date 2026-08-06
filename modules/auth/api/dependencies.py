@@ -40,6 +40,7 @@ from modules.auth.application.services.user_creation_service import UserCreation
 from modules.auth.application.services.activation_token_service import ActivationTokenService
 from modules.auth.application.services.activation_token_validator import ActivationTokenValidator
 from core.security.jwt_service import JwtService
+from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # REPOSITORY
@@ -101,18 +102,30 @@ def get_activation_token_validator(
 # USE CASES CLIENT
 # =========================
 def get_register_uc(
-    user_creation_service : UserCreationService = Depends(get_user_creation_service),
-    jwt=Depends(get_jwt_service),
-    email=Depends(get_email_service),
-    uow=Depends(get_unit_of_work)
+    user_creation_service=Depends(
+        get_user_creation_service
+    ),
+    jwt_service=Depends(
+        get_jwt_service
+    ),
+    email_service=Depends(
+        get_email_service
+    ),
+    event_service=Depends(
+        get_event_service
+    ),
+    uow=Depends(
+        get_unit_of_work
+    ),
 ):
-    return RegisterUser(
-        user_creation_service=user_creation_service,
-        jwt_service=jwt,
-        email_service=email,
-        uow=uow
- )
 
+    return RegisterUser(
+        user_creation_service,
+        jwt_service,
+        email_service,
+        event_service,
+        uow
+    )
 
 def get_login_uc(
     user_repo=Depends(get_user_repository),
@@ -156,12 +169,16 @@ def get_logout_uc(
 def get_verify_email_uc(
     user_repo=Depends(get_user_repository),
     jwt_service=Depends(get_jwt_service),
+    event_service=Depends(
+        get_event_service
+    ),
     uow=Depends(get_unit_of_work)
 ):
 
     return VerifyEmail(
         user_repo=user_repo,
         jwt_service=jwt_service,
+        event_service=event_service,
         uow=uow
     )
 
@@ -183,6 +200,10 @@ def get_activate_account_usecase(
 
     jwt_service: JwtService = Depends(
         get_jwt_service,
+
+    ),   
+    event_service=Depends(
+        get_event_service
     ),
     uow=Depends(get_unit_of_work)
 ):
@@ -200,6 +221,7 @@ def get_activate_account_usecase(
 
 
         jwt_service=jwt_service,
+        event_service=event_service,
         uow=uow
     )
 
@@ -236,6 +258,9 @@ def get_update_user_role_usecase(
     user_repository=Depends(
         get_user_repository
     ),
+    event_service=Depends(
+        get_event_service
+    ),
     uow=Depends(
         get_unit_of_work
     ),
@@ -243,6 +268,7 @@ def get_update_user_role_usecase(
 
     return UpdateUserRoleUseCase(
         user_repo=user_repository,
+        event_service=event_service,
         uow=uow,
     )
 
@@ -252,6 +278,9 @@ def get_toggle_user_active_usecase(
     user_repository=Depends(
         get_user_repository
     ),
+    event_service=Depends(
+        get_event_service
+    ),
     uow=Depends(
         get_unit_of_work
     ),
@@ -259,12 +288,16 @@ def get_toggle_user_active_usecase(
 
     return ToggleUserActiveUseCase(
         user_repo=user_repository,
+        event_service=event_service,
         uow=uow,
     )
 
 def get_archive_user_usecase(
     user_repository=Depends(
         get_user_repository
+    ),
+    event_service=Depends(
+        get_event_service
     ),
     uow=Depends(
         get_unit_of_work
@@ -273,12 +306,16 @@ def get_archive_user_usecase(
 
     return ArchiveUserUseCase(
         user_repo=user_repository,
+        event_service=event_service,
         uow=uow,
     )
 
 def get_archive_users_usecase(
     user_repository=Depends(
         get_user_repository
+    ),
+    event_service=Depends(
+        get_event_service
     ),
     uow=Depends(
         get_unit_of_work
@@ -287,6 +324,7 @@ def get_archive_users_usecase(
 
     return ArchiveUsersUseCase(
         user_repo=user_repository,
+        event_service=event_service,
         uow=uow,
     )
 
@@ -301,6 +339,9 @@ def get_create_user_usecase(
     user_creation_service=Depends(
         get_user_creation_service
     ),
+    event_service=Depends(
+        get_event_service
+    ),
     uow=Depends(
         get_unit_of_work
     ),
@@ -308,6 +349,7 @@ def get_create_user_usecase(
 
     return CreateUserUseCase(
         user_creation_service=user_creation_service,
+        event_service=event_service,
         uow=uow,
     )
 

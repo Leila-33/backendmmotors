@@ -46,6 +46,7 @@ from modules.vehicles.application.use_cases.get_vehicle_interest_status import G
 # SERVICE
 # =========================
 from modules.storage.infrastrucure.s3_service import S3Service
+from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # MAPPER
@@ -77,6 +78,7 @@ def get_assign_options_vehicle_uc(
 def get_create_vehicle_use_case(
     vehicle_repo: VehicleRepository = Depends(get_vehicle_repository),
     assign_options_uc: AssignOptionsToVehicleUseCase = Depends(get_assign_options_vehicle_uc),
+    event_service=Depends(get_event_service),
     unit_of_work=Depends(
         get_unit_of_work
     ),
@@ -84,6 +86,7 @@ def get_create_vehicle_use_case(
     return CreateVehicle(
         repo = vehicle_repo,
         assign_options_uc = assign_options_uc,
+        event_service=event_service,
         unit_of_work=unit_of_work
 )
 
@@ -94,6 +97,7 @@ def get_update_vehicle_use_case(
     vehicle_repo: VehicleRepository = Depends(get_vehicle_repository),
     vehicle_warranty_repository = Depends(get_vehicle_warranty_repository),
     assign_options_uc: AssignOptionsToVehicleUseCase = Depends(get_assign_options_vehicle_uc),
+    event_service=Depends(get_event_service),
     unit_of_work=Depends(
         get_unit_of_work
     ),
@@ -103,6 +107,7 @@ def get_update_vehicle_use_case(
         repo = vehicle_repo,
         vehicle_warranty_repository=vehicle_warranty_repository,
         assign_options_uc = assign_options_uc,
+        event_service=event_service,
         unit_of_work=unit_of_work,
         s3_service=s3_service
 
@@ -137,12 +142,14 @@ def get_get_vehicles_admin_uc(
 def get_delete_vehicle_use_case(
     repo: VehicleRepository = Depends(get_vehicle_repository),
     s3_service: S3Service = Depends(get_s3_service),
+    event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(get_unit_of_work),
 ):
 
     return DeleteVehicle(
         repo=repo,
         s3_service=s3_service,
+        event_service=event_service,
         unit_of_work=unit_of_work,
     )
 
@@ -189,6 +196,7 @@ def get_vehicle_lifecycle_uc(
 def get_final_check_uc(
     vehicle_repository=Depends(get_vehicle_repository),
     reconditioning_repository=Depends(get_reconditioning_repository),
+    event_service=Depends(get_event_service),
         unit_of_work=Depends(
         get_unit_of_work
     ),
@@ -196,8 +204,8 @@ def get_final_check_uc(
     return FinalCheckUseCase(
         vehicle_repository=vehicle_repository,
         reconditioning_repository=reconditioning_repository,
+        event_service=event_service,
         unit_of_work=unit_of_work,
-
     )
 
 # =====================================================
@@ -205,12 +213,14 @@ def get_final_check_uc(
 # =====================================================
 def get_publish_vehicle_uc(
     vehicle_repository=Depends(get_vehicle_repository),
+    event_service=Depends(get_event_service),
     unit_of_work=Depends(
         get_unit_of_work
     )
 ):
     return PublishVehicleUseCase(
         vehicle_repository=vehicle_repository,
+        event_service=event_service,
         unit_of_work=unit_of_work
 )
 
@@ -221,14 +231,16 @@ def get_set_availability_uc(
     vehicle_repository: VehicleRepository = Depends(
         get_vehicle_repository
     ),
+    event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
     ),
 ):
 
     return SetAvailabilityUseCase(
-        vehicle_repository,
-        unit_of_work
+        vehicle_repository=vehicle_repository,
+        event_service=event_service,
+        unit_of_work=unit_of_work
     )
 
 

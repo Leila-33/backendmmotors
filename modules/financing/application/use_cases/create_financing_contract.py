@@ -13,10 +13,6 @@ from modules.financing.domain.exceptions import (
     FinancingDataNotFound
 )
 
-from modules.applications.domain.entities.event import (
-    Event
-)
-
 from modules.applications.domain.enums import (
     EventType
 )
@@ -29,7 +25,7 @@ class CreateFinancingContractUseCase:
         self,
         application_repository,
         financing_contract_repository,
-        event_repository,
+        event_service,
         uow
     ):
 
@@ -41,9 +37,7 @@ class CreateFinancingContractUseCase:
             financing_contract_repository
         )
 
-        self.event_repository = (
-            event_repository
-        )
+        self.event_service = event_service
 
         self.uow = uow
 
@@ -148,10 +142,7 @@ class CreateFinancingContractUseCase:
             # EVENT
             # =================================================
 
-            self.event_repository.save(
-                Event(
-
-                    id=str(uuid4()),
+            self.event_service.log(
 
                     application_id=application.id,
 
@@ -182,13 +173,9 @@ class CreateFinancingContractUseCase:
                             contract.monthly_payment
                         )
 
-                    },
-
-                    created_at=datetime.now(
-                        timezone.utc
+                    }
                     )
-                )
-            )
+                
 
 
             # =================================================

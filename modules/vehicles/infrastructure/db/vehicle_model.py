@@ -149,3 +149,8 @@ class VehicleModel(Base):
     back_populates="vehicle",
     cascade="all, delete-orphan",
 )
+
+    events = relationship(
+        "EventModel",
+        back_populates="vehicle"
+    )

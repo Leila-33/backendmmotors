@@ -1025,3 +1025,36 @@ class TradeInSnapshot(BaseModel):
 
 
 
+
+# =========================
+# get_events
+# =========================
+class EventDetailResponse(BaseModel):
+
+    id: str
+    type: str
+    message: str
+    event_metadata: dict | None = None
+
+    created_at: datetime
+
+    application_id: str | None = None
+    test_drive_id: str | None = None
+    user_id: str | None = None
+
+
+class EventPaginationResponse(BaseModel):
+
+    items: list[EventDetailResponse]
+
+    total: int
+
+    page: int
+
+    limit: int
+
+    total_pages: int
+
+    has_next: bool
+
+    has_previous: bool

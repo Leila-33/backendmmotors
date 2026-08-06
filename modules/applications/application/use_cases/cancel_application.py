@@ -6,7 +6,7 @@ from modules.applications.domain.exceptions import ApplicationNotFound
 from modules.applications.domain.policies.cancel_application_policy import CancelApplicationPolicy
 from modules.auth.domain.enums import UserRole
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.domain.repositories.event_repository import EventRepository
+from modules.applications.application.services.event_service import EventService
 from modules.reservations.application.use_cases.cancel_reservation import CancelReservationUseCase
 from modules.financing.domain.repositories.financing_contract_repository import FinancingContractRepository
 from modules.applications.domain.entities.application import Application
@@ -19,13 +19,13 @@ class CancelApplicationUseCase:
         self,
         application_repository: ApplicationRepository,
         financing_contract_repository: FinancingContractRepository,
-        event_repository: EventRepository,
+        event_service: EventService,
         cancel_reservation_uc: CancelReservationUseCase,
         unit_of_work: UnitOfWork,
     ):
         self.application_repository = application_repository
         self.financing_contract_repository = financing_contract_repository
-        self.event_repository = event_repository
+        self.event_service = event_service
         self.cancel_reservation_uc = cancel_reservation_uc
         self.unit_of_work = unit_of_work
 
@@ -94,9 +94,7 @@ class CancelApplicationUseCase:
             # =========================
             # EVENT
             # =========================
-            self.event_repository.save(
-                Event(
-                    id=str(uuid4()),
+            self.event_service.log(
                     application_id=application.id,
                     user_id=user_id,
                     type=EventType.APPLICATION_CANCELLED,
@@ -108,7 +106,6 @@ class CancelApplicationUseCase:
                         "role": role,
                     },
                 )
-            )
 
             # =========================
             # COMMIT

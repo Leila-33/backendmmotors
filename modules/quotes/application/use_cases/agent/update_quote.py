@@ -5,7 +5,9 @@ from modules.financing.domain.entities.trade_in_input import TradeInInput
 from modules.leads.domain.exceptions import LeadNotFound
 from modules.vehicles.domain.exceptions import VehicleNotFound
 from modules.quotes.domain.exceptions import QuoteNotFound
-
+from modules.applications.domain.enums import (
+    EventType
+)
 class UpdateQuoteUseCase:
 
 
@@ -18,6 +20,7 @@ class UpdateQuoteUseCase:
         financing_service,
         trade_in_service,
         authorization,
+        event_service,
         unit_of_work,
     ):
 
@@ -36,6 +39,7 @@ class UpdateQuoteUseCase:
         self.trade_in_service = trade_in_service
 
         self.authorization = authorization
+        self.event_service = event_service
 
         self.unit_of_work = unit_of_work
 
@@ -331,7 +335,15 @@ class UpdateQuoteUseCase:
                         existing_trade_in.id
                     )
 
-
+            self.event_service.log(
+    type=EventType.QUOTE_UPDATED,
+    message="Devis mis à jour",
+    quote_id=quote.id,
+    user_id=agent_id,
+    event_metadata={
+        "quote_id": quote.id,
+    }
+)
 
             # =========================
             # COMMIT

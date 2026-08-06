@@ -7,6 +7,8 @@ from modules.reservations.api.schemas import CreateReservationDTO
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 from core.database.unit_of_work import UnitOfWork
+from modules.applications.domain.enums import EventType
+from modules.applications.application.services.event_service import EventService
 
 class CreateReservationUseCase:
 
@@ -14,10 +16,12 @@ class CreateReservationUseCase:
         self,
         application_repository: ApplicationRepository,
         reservation_repository: ReservationRepository,
+        event_service: EventService,
         unit_of_work: UnitOfWork,
     ):
         self.application_repository = application_repository
         self.reservation_repository = reservation_repository
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
     def execute(
@@ -65,6 +69,20 @@ class CreateReservationUseCase:
             reservation = self.reservation_repository.create(
                 reservation
             )
+
+            self.event_service.log(
+    type=EventType.RENTAL_CREATED,
+    message="Réservation créée",
+    user_id=application.user_id,
+    vehicle_id=reservation.vehicle_id,
+    application_id=application_id,
+    event_metadata={
+        "reservation_id": reservation.id,
+        "start_date": reservation.start_date.isoformat(),
+        "end_date": reservation.end_date.isoformat(),
+        "status": reservation.status.value,
+    }
+)
 
             self.unit_of_work.commit()
 

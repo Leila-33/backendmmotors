@@ -1,6 +1,7 @@
 from modules.auth.domain.exceptions import Forbidden, UserNotFound, InvalidUserRole
 from modules.auth.domain.enums import UserRole
 from modules.auth.api.schemas import UpdateUserRoleResponse
+from modules.applications.domain.enums import EventType
 
 class UpdateUserRoleUseCase:
 
@@ -8,11 +9,12 @@ class UpdateUserRoleUseCase:
     def __init__(
         self,
         user_repo,
+        event_service,
         uow,
     ):
 
         self.user_repo = user_repo
-
+        self.event_service = event_service
         self.uow = uow
 
 
@@ -74,8 +76,20 @@ class UpdateUserRoleUseCase:
                 user
             )
 
+            old_role = user.role
 
+            user.role = new_role
 
+            self.event_service.log(
+    type=EventType.USER_ROLE_UPDATED,
+    message="Rôle utilisateur modifié",
+    user_id=user.id,
+    event_metadata={
+        "email": user.email,
+        "old_role": old_role.value,
+        "new_role": user.role.value
+    }
+)
             # =====================
             # COMMIT
             # =====================

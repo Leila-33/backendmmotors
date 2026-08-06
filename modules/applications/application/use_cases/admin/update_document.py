@@ -1,6 +1,3 @@
-from datetime import datetime, timezone
-from uuid import uuid4
-
 from modules.applications.api.schemas import (
     UpdateDocumentDTO,
     UpdateDocumentResponseDTO,
@@ -17,7 +14,6 @@ from modules.applications.domain.document_messages import (
     DOCUMENT_EVENT_MAP,
 )
 
-from modules.applications.domain.entities.event import Event
 from modules.applications.domain.enums import DocumentStatus
 
 from modules.applications.domain.exceptions import (
@@ -40,13 +36,13 @@ class UpdateDocumentUseCase:
         self,
         document_repository,
         application_repository,
-        event_repository,
+        event_service,
         notification_service,
         uow : UnitOfWork,
     ):
         self.document_repository = document_repository
         self.application_repository = application_repository
-        self.event_repository = event_repository
+        self.event_service = event_service
         self.notification_service = notification_service
         self.uow = uow
 
@@ -84,8 +80,7 @@ class UpdateDocumentUseCase:
             comment=dto.comment,
         )
 
-        event = Event(
-            id=str(uuid4()),
+        self.event_service.log(
             application_id=document.application_id,
             type=DOCUMENT_EVENT_MAP[dto.status],
             message=message,
@@ -95,10 +90,7 @@ class UpdateDocumentUseCase:
                 "document_type": document.type,
                 "status": dto.status.value,
             },
-            created_at=datetime.now(timezone.utc),
         )
-
-        self.event_repository.save(event)
 
         if dto.status == DocumentStatus.REJECTED:
 

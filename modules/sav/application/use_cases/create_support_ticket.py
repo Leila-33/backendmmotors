@@ -4,7 +4,7 @@ from modules.sav.domain.entities.ticket_message import TicketMessage
 from modules.sav.domain.enums import TicketStatus
 from datetime import datetime, timezone
 from modules.auth.domain.enums import UserRole
-
+from modules.applications.domain.enums import EventType
 
 class CreateSupportTicketUseCase:
 
@@ -13,11 +13,13 @@ class CreateSupportTicketUseCase:
         repo,
         message_repo,
         assignment_service,
-        unit_of_work
+        event_service,
+        unit_of_work,
     ):
         self.repo = repo
         self.message_repo = message_repo
         self.assignment_service = assignment_service
+        self.event_service = event_service
         self.uow = unit_of_work
 
 
@@ -101,7 +103,30 @@ class CreateSupportTicketUseCase:
 
             self.message_repo.create(message)
 
+            self.event_service.log(
 
+                type=EventType.SUPPORT_TICKET_CREATED,
+
+                message="Ticket SAV créé",
+
+                application_id=saved_ticket.application_id,
+
+                user_id=user_id,
+
+                event_metadata={
+
+                    "ticket_id": saved_ticket.id,
+
+                    "subject": saved_ticket.subject,
+
+                    "category": saved_ticket.category.value,
+
+                    "priority": saved_ticket.priority.value,
+
+                    "assigned_to": saved_ticket.assigned_to,
+
+                }
+            )
             # =========================
             # COMMIT
             # =========================

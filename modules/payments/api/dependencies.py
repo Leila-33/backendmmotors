@@ -4,14 +4,12 @@ from fastapi import Depends
 # =========================
 from modules.dependencies.dependencies import (
     get_payment_repository,
-    get_stripe_service,
     get_application_repository,
-    get_event_repository,
     get_financing_contract_repository,
     get_installment_repository,
     get_vehicle_repository,
-    get_vehicle_warranty_repository
-    
+    get_vehicle_warranty_repository,
+    get_lead_repository
 )
 from modules.financing.api.dependencies import (
     get_create_financing_contract_usecase,
@@ -31,12 +29,26 @@ from core.database.dependencies import (
 # =========================
 from modules.payments.application.use_cases.create_checkout_session import CreateCheckoutSessionUseCase
 from modules.payments.application.use_cases.handle_payment_success import HandlePaymentSuccessUseCase
+from modules.payments.application.use_cases.complete_rental_payment import CompleteRentalPaymentUseCase
+from modules.payments.application.use_cases.complete_sale_payment import CompleteSalePaymentUseCase
 from modules.payments.application.use_cases.create_subscription import CreateSubscriptionUseCase
 from modules.payments.application.use_cases.handle_subscription_payment import HandleSubscriptionPaymentUseCase
 from modules.payments.application.use_cases.handle_invoice_created import (
     HandleInvoiceCreatedUseCase
 )
 
+
+# =========================
+# SERVICES
+# =========================
+from modules.payments.infrastructure.services.stripe_service import (
+    StripeService,
+)
+
+
+def get_stripe_service():
+    return StripeService()
+from modules.applications.api.dependencies import get_event_service
 
 # =====================================================
 # CREATE CHECKOUT SESSION
@@ -56,10 +68,7 @@ def get_create_checkout_session_usecase(
         get_application_repository
     ),
 
-    event_repository=Depends(
-        get_event_repository
-    ),
-
+    event_service=Depends(get_event_service),
     uow=Depends(
         get_unit_of_work
     ),
@@ -69,7 +78,7 @@ def get_create_checkout_session_usecase(
         payment_repository=payment_repository,
         stripe_service=stripe_service,
         application_repository=application_repository,
-        event_repository=event_repository,
+        event_service=event_service,
         uow=uow,
     )
 
@@ -87,9 +96,8 @@ def get_create_subscription_usecase(
         get_financing_contract_repository
     ),
 
-    event_repository=Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
+
     uow=Depends(
         get_unit_of_work
     ),
@@ -101,19 +109,14 @@ def get_create_subscription_usecase(
         financing_contract_repository=(
             financing_contract_repository
         ),
-        event_repository=event_repository,
+        event_service=event_service,
         uow=uow,
     )
 
 # =====================================================
-# HANDLE PAYMENT SUCCESS
+# GET COMPLETE SALE PAYMENT
 # =====================================================
-
-def get_handle_payment_success_usecase(
-
-    payment_repository=Depends(
-        get_payment_repository
-    ),
+def get_complete_sale_payment_usecase(
 
     vehicle_repository=Depends(
         get_vehicle_repository
@@ -123,12 +126,12 @@ def get_handle_payment_success_usecase(
         get_application_repository
     ),
 
-    warranty_repository=Depends(
-        get_vehicle_warranty_repository
+    lead_repository=Depends(
+        get_lead_repository
     ),
 
-    event_repository=Depends(
-        get_event_repository
+    event_service=Depends(
+        get_event_service
     ),
 
     activate_vehicle_warranty_uc=Depends(
@@ -147,24 +150,114 @@ def get_handle_payment_success_usecase(
         get_create_installments_usecase
     ),
 
+):
+
+    return CompleteSalePaymentUseCase(
+
+        vehicle_repository=vehicle_repository,
+
+        application_repository=application_repository,
+
+        lead_repository=lead_repository,
+
+        event_service=event_service,
+
+        activate_vehicle_warranty_uc=(
+            activate_vehicle_warranty_uc
+        ),
+
+        create_financing_contract_uc=(
+            create_financing_contract_uc
+        ),
+
+        create_subscription_uc=(
+            create_subscription_uc
+        ),
+
+        create_installments_uc=(
+            create_installments_uc
+        ),
+    )
+
+# =====================================================
+# GET RENTAL SALE PAYMENT
+# =====================================================
+
+def get_complete_rental_payment_usecase(
+
+    vehicle_repository=Depends(
+        get_vehicle_repository
+    ),
+
+    application_repository=Depends(
+        get_application_repository
+    ),
+
+    event_service=Depends(
+        get_event_service
+    ),
+
+):
+
+    return CompleteRentalPaymentUseCase(
+
+        vehicle_repository=vehicle_repository,
+
+        application_repository=application_repository,
+
+        event_service=event_service,
+
+    )
+
+# =====================================================
+# HANDLE PAYMENT SUCCESS
+# =====================================================
+def get_handle_payment_success_usecase(
+
+    payment_repository=Depends(
+        get_payment_repository
+    ),
+
+    application_repository=Depends(
+        get_application_repository
+    ),
+
+    complete_sale_payment_uc=Depends(
+        get_complete_sale_payment_usecase
+    ),
+
+    complete_rental_payment_uc=Depends(
+        get_complete_rental_payment_usecase
+    ),
+
+    event_service=Depends(
+        get_event_service
+    ),
+
     uow=Depends(
         get_unit_of_work
     ),
+
 ):
 
     return HandlePaymentSuccessUseCase(
+
         payment_repository=payment_repository,
-        vehicle_repository=vehicle_repository,
+
         application_repository=application_repository,
-        warranty_repository=warranty_repository,
-        event_repository=event_repository,
-        activate_vehicle_warranty_uc=activate_vehicle_warranty_uc,
-        create_financing_contract_uc=create_financing_contract_uc,
-        create_subscription_uc=create_subscription_uc,
-        create_installments_uc=create_installments_uc,
+
+        complete_sale_payment_uc=(
+            complete_sale_payment_uc
+        ),
+
+        complete_rental_payment_uc=(
+            complete_rental_payment_uc
+        ),
+
+        event_service=event_service,
+
         uow=uow,
     )
-
 
 # =====================================================
 # HANDLE SUBSCRIPTION PAYMENT
@@ -184,9 +277,7 @@ def get_handle_subscription_payment_usecase(
         get_application_repository
     ),
 
-    event_repository=Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
 
     uow=Depends(
         get_unit_of_work
@@ -197,7 +288,7 @@ def get_handle_subscription_payment_usecase(
         installment_repository=installment_repository,
         financing_contract_repository=financing_contract_repository,
         application_repository=application_repository,
-        event_repository=event_repository,
+        event_service=event_service,
         uow=uow,
     )
 

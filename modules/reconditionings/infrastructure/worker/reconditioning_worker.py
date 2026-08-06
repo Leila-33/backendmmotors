@@ -16,6 +16,9 @@ from modules.vehicles.infrastructure.queue.redis_connection import redis_conn
 from core.database.session import SessionLocal
 from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import VehicleRepositorySQL
 from core.database.unit_of_work import UnitOfWork
+from modules.applications.domain.enums import EventType
+from modules.applications.infrastructure.repositories.event_repository_sql import EventRepositorySQL
+from modules.applications.application.services.event_service import EventService
 
 
 
@@ -42,7 +45,8 @@ def run_reconditioning(
             VehicleRepositorySQL(db)
         )
 
-
+        event_repository = EventRepositorySQL(db)
+        event_service = EventService(event_repository)
         # =========================
         # 1. GET RECONDITIONING
         # =========================
@@ -85,8 +89,22 @@ def run_reconditioning(
         reconditioning_repository.update(
             reconditioning
         )
-
-
+        vehicle = (
+                    vehicle_repository
+                    .get_by_id(
+                        reconditioning.vehicle_id
+                    )
+                )
+        
+        event_service.log(
+    type=EventType.RECONDITIONING_STARTED,
+    message="Reconditioning démarré",
+    vehicle_id=vehicle.id,
+    user_id=admin_id,
+    event_metadata={
+        "reconditioning_id": reconditioning.id
+    }
+)
         unit_of_work.commit()
 
 
@@ -146,11 +164,14 @@ def run_reconditioning(
         )
 
 
-        vehicle = (
-            vehicle_repository
-            .get_by_id(
-                reconditioning.vehicle_id
-            )
+        event_service.log(
+            type=EventType.RECONDITIONING_COMPLETED,
+            message="Reconditioning terminé",
+            vehicle_id=vehicle.id,
+            user_id=admin_id,
+            event_metadata={
+                "reconditioning_id": reconditioning.id
+            }
         )
 
 

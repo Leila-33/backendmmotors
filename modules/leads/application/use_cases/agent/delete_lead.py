@@ -4,6 +4,9 @@ from modules.leads.domain.exceptions import (
 
 )
 from modules.leads.domain.enums import LeadStatus
+from modules.applications.domain.enums import (
+    EventType
+)
 
 class DeleteLeadUseCase:
 
@@ -12,11 +15,13 @@ class DeleteLeadUseCase:
         lead_repository,
         quote_repository,
         lead_authorization,
+        event_service,
         unit_of_work,
     ):
         self.lead_repository = lead_repository
         self.quote_repository = quote_repository
         self.lead_authorization = lead_authorization
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
     def execute(
@@ -52,6 +57,16 @@ class DeleteLeadUseCase:
             ):
                 raise LeadCannotBeDeleted()
 
+            self.event_service.log(
+                type=EventType.LEAD_DELETED,
+                message="Lead supprimé",
+                user_id=agent_id,
+                lead_id=lead.id,
+                event_metadata={
+                    "email": lead.email,
+                    "status": lead.status.value,
+                }
+            )
             self.lead_repository.delete(
                 lead.id
             )

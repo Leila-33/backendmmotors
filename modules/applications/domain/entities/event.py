@@ -35,3 +35,7 @@ class Event:
     test_drive_id: Optional[str] = None
 
     user_id: Optional[str] = None
+
+    vehicle_id: Optional[str] = None
+
+    quote_id: Optional[str] = None

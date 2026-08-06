@@ -3,13 +3,13 @@ from modules.applications.domain.enums import EventType
 from modules.notifications.domain.enums import NotificationType
 from modules.quotes.api.schemas import AcceptQuoteResponse
 from modules.applications.domain.entities.application import Application
-from uuid import uuid4
-from datetime import datetime, timezone
-from modules.applications.domain.entities.event import Event
 from modules.applications.infrastructure.mappers.application_mapper import ApplicationMapper
 from modules.applications.domain.entities.application_financing import ApplicationFinancing
 from modules.applications.api.schemas import TradeInSnapshot
 from modules.leads.domain.exceptions import LeadNotFound
+from modules.applications.domain.enums import (
+    EventType
+)
 
 class AcceptQuoteUseCase:
 
@@ -22,6 +22,7 @@ class AcceptQuoteUseCase:
         event_repository,
         notification_service,
         email_service,
+        event_service,
         unit_of_work
     ):
 
@@ -31,6 +32,7 @@ class AcceptQuoteUseCase:
         self.event_repository = event_repository
         self.notification_service = notification_service
         self.email_service = email_service
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
@@ -79,7 +81,13 @@ class AcceptQuoteUseCase:
                 quote
             )
 
-
+            self.event_service.log(
+    type=EventType.QUOTE_ACCEPTED,
+    message="Devis accepté",
+    quote_id=quote.id,
+    application_id=application.id,
+    user_id=customer_id
+)
             # =========================
             # CREATE APPLICATION
             # =========================
@@ -154,9 +162,7 @@ class AcceptQuoteUseCase:
             # EVENT
             # =========================
 
-            event = Event(
-
-                id=str(uuid4()),
+            self.event_service.log(
 
                 application_id=application.id,
 
@@ -167,15 +173,7 @@ class AcceptQuoteUseCase:
                     "suite à l'acceptation de l'offre."
                 ),
 
-                user_id=customer_id,
-
-                created_at=datetime.now(
-                    timezone.utc
-                ),
-            )
-
-            self.event_repository.save(
-                event
+                user_id=customer_id
             )
 
             # =========================

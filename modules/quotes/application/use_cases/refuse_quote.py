@@ -3,6 +3,7 @@ from modules.notifications.domain.enums import NotificationType, NotificationEnt
 from modules.quotes.api.schemas import QuoteActionResponse
 from modules.leads.domain.exceptions import LeadNotFound
 from modules.leads.domain.enums import LeadStatus
+from modules.applications.domain.enums import EventType
 
 class RefuseQuoteUseCase:
 
@@ -13,13 +14,14 @@ class RefuseQuoteUseCase:
         quote_repository,
         lead_repository,
         notification_service,
+        event_service,
         unit_of_work
-
     ):
 
         self.quote_repository = quote_repository
         self.lead_repository = lead_repository
         self.notification_service = notification_service
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
@@ -73,7 +75,17 @@ class RefuseQuoteUseCase:
             self.quote_repository.update(
                 quote
             )
-
+            
+            self.event_service.log(
+    type=EventType.QUOTE_REFUSED,
+    message="Devis refusé par le client",
+    quote_id=quote.id,
+    user_id=customer_id,
+    event_metadata={
+        "quote_id": quote.id,
+        "reason": quote.refusal_reason
+    }
+)
             lead.change_status(LeadStatus.LOST)
 
             self.lead_repository.update(

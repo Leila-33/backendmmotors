@@ -7,24 +7,22 @@ from modules.reservations.domain.exceptions import (
     ReservationAlreadyStarted,
     CannotCancelReservation
 ) 
-from uuid import uuid4
-from modules.applications.domain.entities.event import Event
 from modules.auth.domain.enums import UserRole
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
-from modules.applications.domain.repositories.event_repository import EventRepository
 from core.database.unit_of_work import UnitOfWork
 from modules.reservations.domain.entities.reservation import Reservation
+from modules.applications.application.services.event_service import EventService
 
 class CancelReservationUseCase:
 
     def __init__(
         self,
         reservation_repository: ReservationRepository,
-        event_repository: EventRepository,
+        event_service: EventService,
         unit_of_work: UnitOfWork,
     ):
         self.reservation_repository = reservation_repository
-        self.event_repository = event_repository
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
     def execute(
@@ -85,11 +83,10 @@ class CancelReservationUseCase:
             # =========================
             # EVENT
             # =========================
-            self.event_repository.save(
-                Event(
-                    id=str(uuid4()),
+            self.event_service.log(
                     application_id=reservation.application_id,
                     user_id=user_id,
+                    vehicle_id=reservation.vehicle_id,
                     type=EventType.RENTAL_CANCELLED,
                     message="Réservation annulée avec succès.",
                     event_metadata={
@@ -98,7 +95,6 @@ class CancelReservationUseCase:
                         "role": role,
                     },
                 )
-            )
 
             # =========================
             # COMMIT

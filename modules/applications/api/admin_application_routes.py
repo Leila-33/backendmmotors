@@ -105,7 +105,8 @@ def restore_cancelled_application(
 ):
 
     application = usecase.execute(
-        application_id=application_id
+        application_id=application_id,
+        current_admin=current_admin
     )
 
     return ApplicationRestoreCancelledResponse(
@@ -211,7 +212,8 @@ async def update_application_status(
 
     return await usecase.execute(
         application_id=application_id,
-        dto=dto
+        dto=dto,
+        current_admin=current_admin
     )
 
 # =========================

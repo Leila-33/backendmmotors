@@ -1,5 +1,6 @@
 from modules.auth.domain.exceptions import TokenInvalid
 from modules.auth.api.schemas import VerifyEmailResponse
+from modules.applications.domain.enums import EventType
 
 class VerifyEmail:
 
@@ -7,16 +8,14 @@ class VerifyEmail:
         self,
         user_repo,
         jwt_service,
+        event_service,
         uow
     ):
         self.user_repo = user_repo
         self.jwt = jwt_service
+        self.event_service = event_service
         self.uow = uow
 
-
-    # =========================
-    # EXECUTE
-    # =========================
 
     def execute(
         self,
@@ -24,6 +23,7 @@ class VerifyEmail:
     ) -> VerifyEmailResponse:
 
         try:
+
             # =========================
             # DECODE TOKEN
             # =========================
@@ -40,9 +40,7 @@ class VerifyEmail:
                 raise TokenInvalid()
 
 
-            user_id = payload.get(
-                "sub"
-            )
+            user_id = payload.get("sub")
 
 
             if not user_id:
@@ -85,6 +83,20 @@ class VerifyEmail:
             )
 
 
+            # =========================
+            # EVENT
+            # =========================
+
+            self.event_service.log(
+                type=EventType.USER_EMAIL_VERIFIED,
+                message="Compte utilisateur activé",
+                user_id=user.id,
+                event_metadata={
+                    "email": user.email
+                }
+            )
+
+
             self.uow.commit()
 
 
@@ -92,6 +104,9 @@ class VerifyEmail:
                 message="Email verified"
             )
 
+
         except Exception:
+
             self.uow.rollback()
+
             raise

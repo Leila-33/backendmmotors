@@ -14,6 +14,7 @@ from modules.dependencies.dependencies import (
 from modules.notifications.api.dependencies import (
     get_notification_service,
 )
+from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # CORE
@@ -55,12 +56,14 @@ from modules.test_drives.application.use_cases.get_test_drive_details_client imp
 def get_create_test_drive_usecase(
     test_drive_repository=Depends(get_test_drive_repository),
     vehicle_repository=Depends(get_vehicle_repository),
+    event_service=Depends(get_event_service),
         unit_of_work=Depends(
         get_unit_of_work
     ),):
     return CreateTestDriveUseCase(
         test_drive_repository=test_drive_repository,
         vehicle_repository=vehicle_repository,
+        event_service=event_service,
         unit_of_work=unit_of_work
     )
 
@@ -132,7 +135,7 @@ def get_test_drive_detail_usecase(
 def get_update_test_drive_status_usecase(
     repository=Depends(get_test_drive_repository),
     notification_service=Depends(get_notification_service),
-    event_repository=Depends(get_event_repository),
+    event_service=Depends(get_event_service),
     unit_of_work=Depends(
         get_unit_of_work
     )
@@ -140,7 +143,7 @@ def get_update_test_drive_status_usecase(
     return UpdateTestDriveStatusUseCase(
         repository=repository,
         notification_service=notification_service,
-        event_repository=event_repository,
+        event_service=event_service,
         unit_of_work=unit_of_work
     )
 

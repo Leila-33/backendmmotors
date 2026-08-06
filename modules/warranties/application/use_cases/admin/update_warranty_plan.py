@@ -4,7 +4,7 @@ from modules.warranties.domain.exceptions import (
 )
 from modules.warranties.api.schemas import UpdateWarrantyPlanResponse
 from modules.warranties.infrastructure.mappers.warranty_plan_mapper import WarrantyPlanMapper
-
+from modules.applications.domain.enums import EventType
 
 class UpdateWarrantyPlanUseCase:
 
@@ -12,10 +12,11 @@ class UpdateWarrantyPlanUseCase:
     def __init__(
         self,
         repository,
+        event_service,
         unit_of_work,
     ):
-
         self.repository = repository
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
@@ -24,6 +25,7 @@ class UpdateWarrantyPlanUseCase:
         self,
         plan_id: str,
         dto,
+        current_admin
     ):
 
 
@@ -86,10 +88,18 @@ class UpdateWarrantyPlanUseCase:
             dto,
         )
 
-
         # =========================
         # SAVE
         # =========================
+
+        self.event_service.log(
+    type=EventType.WARRANTY_PLAN_UPDATED,
+    message="Plan de garantie modifié",
+    user_id=current_admin.id,
+    event_metadata={
+        "plan_id": plan.id,
+    }
+)
 
         self.repository.update(plan)
 

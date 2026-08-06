@@ -133,3 +133,8 @@ class QuoteModel(Base):
     back_populates="quote",
     uselist=False
 )
+
+    events = relationship(
+    "EventModel",
+    back_populates="quote"
+)

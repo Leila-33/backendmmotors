@@ -6,8 +6,9 @@ from modules.leads.api.schemas import (
     MarkLeadContactedResponse
 )
 from modules.leads.application.services.LeadAuthorizationService import LeadAuthorizationService
-
-
+from modules.applications.domain.enums import (
+    EventType
+)
 
 class MarkLeadContactedUseCase:
 
@@ -15,6 +16,7 @@ class MarkLeadContactedUseCase:
         self,
         lead_repository,
         authorization,
+        event_service,
         unit_of_work,
     ):
         self.lead_repository = (
@@ -24,7 +26,7 @@ class MarkLeadContactedUseCase:
         self.authorization = (
             authorization
         )
-
+        self.event_service = event_service
         self.unit_of_work = (
             unit_of_work
         )
@@ -81,7 +83,15 @@ class MarkLeadContactedUseCase:
             self.lead_repository.update(
                 lead
             )
-
+            self.event_service.log(
+    type=EventType.LEAD_CONTACTED,
+    message="Prospect contacté",
+    user_id=agent_id,
+    lead_id=lead.id,
+    event_metadata={
+        "status": lead.status.value,
+    }
+)
 
             self.unit_of_work.commit()
 

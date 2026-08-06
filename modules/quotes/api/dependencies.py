@@ -122,13 +122,16 @@ from modules.quotes.domain.repositories.quote_repository import (
 from modules.dependencies.dependencies import (
     get_application_repository,
     get_event_repository,
-    get_financing_service,
     get_lead_repository,
     get_quote_repository,
     get_quote_trade_in_repository,
-    get_trade_in_service,
     get_vehicle_repository,
 )
+from modules.financing.api.dependencies import (
+    get_trade_in_service,
+    get_financing_service
+)
+from modules.applications.api.dependencies import get_event_service
 
 def get_create_quote_usecase(
     quote_repository = Depends(
@@ -158,6 +161,7 @@ def get_create_quote_usecase(
     authorization = Depends(
         get_lead_authorization
     ),
+    event_service=Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 
 ):
@@ -178,6 +182,7 @@ def get_create_quote_usecase(
         trade_in_service=trade_in_service,
 
         authorization=authorization,
+        event_service=event_service,
         unit_of_work = unit_of_work
     )
 
@@ -209,6 +214,7 @@ def get_update_quote_usecase(
     authorization = Depends(
         get_lead_authorization
     ),
+    event_service=Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 
 ):
@@ -229,6 +235,7 @@ def get_update_quote_usecase(
         trade_in_service=trade_in_service,
 
         authorization=authorization,
+        event_service=event_service,
         unit_of_work = unit_of_work
     )
 
@@ -248,6 +255,7 @@ def get_delete_quote_usecase(
     authorization = Depends(
         get_lead_authorization
     ),
+    event_service=Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 
 ):
@@ -262,6 +270,7 @@ def get_delete_quote_usecase(
         lead_repository=lead_repository,
 
         authorization=authorization,
+        event_service=event_service,
         unit_of_work = unit_of_work
     )
 
@@ -295,6 +304,7 @@ def get_send_quote_usecase(
     notification_service: NotificationService = Depends(
         get_notification_service,
     ),
+    event_service=Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 ):
 
@@ -310,7 +320,7 @@ def get_send_quote_usecase(
         email_service=email_service,
 
         notification_service=notification_service,
-        
+        event_service=event_service,
         unit_of_work = unit_of_work
 
     )
@@ -385,6 +395,7 @@ def get_refuse_quote_usecase(
     ),
         lead_repository : LeadRepository = Depends(get_lead_repository),
         notification_service = Depends(get_notification_service),
+        event_service=Depends(get_event_service),
         unit_of_work = Depends(get_unit_of_work)
 
 ):
@@ -393,5 +404,6 @@ def get_refuse_quote_usecase(
         quote_repository=quote_repository,
         lead_repository=lead_repository,
         notification_service=notification_service,
+        event_service=event_service,
         unit_of_work = unit_of_work
     )

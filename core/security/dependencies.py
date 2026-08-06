@@ -111,7 +111,6 @@ def get_current_sav_agent(
 def get_current_sales_agent(
     current_user=Depends(get_current_user)
 ):
-
     if current_user.role != UserRole.SALES_AGENT:
         raise Forbidden()
     return current_user

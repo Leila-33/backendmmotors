@@ -24,6 +24,7 @@ from modules.dependencies.dependencies import (
     get_ticket_chat_manager,
     get_websocket_manager
 )
+from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # CLIENT
@@ -38,16 +39,28 @@ def get_assignment_service(
     )
 
 def get_create_support_ticket_usecase(
-    ticket_repo = Depends(get_ticket_repository),
-    message_repo = Depends(get_ticket_message_repository),
-    assignment_service = Depends(get_assignment_service),
-    unit_of_work = Depends(get_unit_of_work)
+    ticket_repo=Depends(
+        get_ticket_repository
+    ),
+    message_repo=Depends(
+        get_ticket_message_repository
+    ),
+    assignment_service=Depends(
+        get_assignment_service
+    ),
+    event_service=Depends(
+        get_event_service
+    ),
+    unit_of_work=Depends(
+        get_unit_of_work
+    ),
 ):
     return CreateSupportTicketUseCase(
         repo=ticket_repo,
         message_repo=message_repo,
         assignment_service=assignment_service,
-        unit_of_work = unit_of_work
+        event_service=event_service,
+        unit_of_work=unit_of_work,
     )
 
 def get_get_support_ticket_usecase(
@@ -107,17 +120,6 @@ def get_ticket_chat_usecase(
 # =========================
 # AGENT
 # =========================
-def get_update_support_ticket_status_usecase(
-    repo=Depends(get_ticket_repository),
-    chat_manager=Depends(get_ticket_chat_manager),
-    unit_of_work = Depends(get_unit_of_work)
-):
-    return UpdateSupportTicketStatusUseCase(
-        repo=repo,
-        chat_manager=chat_manager,
-        unit_of_work = unit_of_work
-        )
-
 def get_get_sav_dashboard_usecase(
     repo=Depends(get_ticket_repository),
 ):
@@ -128,13 +130,42 @@ def get_get_sav_statistics_usecase(
 ):
     return GetSavStatisticsUseCase(repo)
 
-def get_archive_support_ticket_usecase(
-    repo=Depends(get_ticket_repository),
-    unit_of_work = Depends(get_unit_of_work)
+def get_update_support_ticket_status_usecase(
+    repo=Depends(
+        get_ticket_repository
+    ),
+    chat_manager=Depends(
+        get_ticket_chat_manager
+    ),
+    event_service=Depends(
+        get_event_service
+    ),
+    unit_of_work=Depends(
+        get_unit_of_work
+    ),
+):
+    return UpdateSupportTicketStatusUseCase(
+        repo=repo,
+        chat_manager=chat_manager,
+        event_service=event_service,
+        unit_of_work=unit_of_work,
+    )
 
+
+def get_archive_support_ticket_usecase(
+    repo=Depends(
+        get_ticket_repository
+    ),
+    event_service=Depends(
+        get_event_service
+    ),
+    unit_of_work=Depends(
+        get_unit_of_work
+    ),
 ):
     return ArchiveSupportTicketUseCase(
         support_ticket_repository=repo,
-        unit_of_work=unit_of_work
+        event_service=event_service,
+        unit_of_work=unit_of_work,
     )
 

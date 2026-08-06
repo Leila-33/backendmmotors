@@ -1,7 +1,5 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-scheduler = AsyncIOScheduler()
-
 from core.scheduler.jobs.complete_rentals_job import (
     run_complete_rentals
 )
@@ -14,14 +12,15 @@ from core.scheduler.jobs.expire_quotes_job import (
 scheduler = AsyncIOScheduler()
 
 
-
 def start_scheduler():
 
     scheduler.add_job(
         run_complete_rentals,
         trigger="interval",
         hours=24,
-        id="complete_rentals"
+        id="complete_rentals",
+        replace_existing=True,
+        max_instances=1,
     )
 
 
@@ -30,7 +29,9 @@ def start_scheduler():
         trigger="cron",
         hour=2,
         minute=0,
-        id="expire_quotes"
+        id="expire_quotes",
+        replace_existing=True,
+        max_instances=1,
     )
 
 
@@ -39,9 +40,9 @@ def start_scheduler():
     print("Scheduler started")
 
 
-
 def stop_scheduler():
 
-    scheduler.shutdown()
+    if scheduler.running:
+        scheduler.shutdown()
 
     print("Scheduler stopped")

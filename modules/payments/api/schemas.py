@@ -60,8 +60,28 @@ class CreateCheckoutSessionResponse(BaseModel):
 
 # handle payment success
 
-class HandlePaymentSuccessResponseDTO(BaseModel):
+class HandlePaymentSuccessResponse(BaseModel):
 
     payment_id: str
 
     status: str
+
+    vehicle_type: str
+
+    application_id: str
+
+    message: str
+
+# complete sale payment 
+
+class CompleteSalePaymentResponse(BaseModel):
+
+    application_id: str
+
+    vehicle_id: str
+
+    warranty_created: bool
+
+    financing_created: bool
+
+    message: str

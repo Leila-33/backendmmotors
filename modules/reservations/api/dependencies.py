@@ -5,12 +5,12 @@ from modules.reservations.application.use_cases.check_availability import CheckR
 from modules.reservations.application.use_cases.complete_expired_rentals import CompleteExpiredRentalsUseCase
 from modules.dependencies.dependencies import (
     get_reservation_repository,
-    get_event_repository,
     get_application_repository
 )
 
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
+from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # CORE
@@ -28,6 +28,7 @@ def get_create_reservation_usecase(
     reservation_repository: ReservationRepository = Depends(
         get_reservation_repository
     ),
+    event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
     ),
@@ -36,13 +37,14 @@ def get_create_reservation_usecase(
     return CreateReservationUseCase(
         application_repository=application_repository,
         reservation_repository=reservation_repository,
+        event_service=event_service,
         unit_of_work=unit_of_work,
     )
 
 
 def get_cancel_reservation_usecase(
     reservation_repo=Depends(get_reservation_repository),
-    event_repo=Depends(get_event_repository),
+    event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
     )
@@ -50,7 +52,7 @@ def get_cancel_reservation_usecase(
 
     return CancelReservationUseCase(
         reservation_repository=reservation_repo,
-        event_repository=event_repo,
+        event_service=event_service,
         unit_of_work=unit_of_work
     )
 
@@ -69,7 +71,7 @@ def get_check_availability_usecase(
 
 def get_complete_rentals_usecase(
     reservation_repo=Depends(get_reservation_repository),
-    event_repo=Depends(get_event_repository),
+    event_service=Depends(get_event_service),
     application_repo=Depends(get_application_repository),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
@@ -77,7 +79,7 @@ def get_complete_rentals_usecase(
 ):
     return CompleteExpiredRentalsUseCase(
         reservation_repository=reservation_repo,
-        event_repository=event_repo,
+        event_service=event_service,
         application_repository=application_repo,
         unit_of_work=unit_of_work
     )

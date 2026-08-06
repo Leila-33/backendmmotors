@@ -23,20 +23,18 @@ from modules.applications.application.use_cases.cancel_application import Cancel
 from modules.reservations.application.use_cases.cancel_reservation import CancelReservationUseCase
 from modules.applications.application.use_cases.admin.soft_delete_application import SoftDeleteApplicationUseCase
 from modules.applications.application.use_cases.admin.restore_cancelled_application import RestoreCancelledApplicationUseCase
+from modules.applications.application.use_cases.admin.get_events import GetEventsUseCase
 
 # =========================
 # REPOSITORIES / SERVICES TYPES
 # =========================
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.applications.domain.repositories.event_repository import EventRepository
-from modules.financing.domain.services.financing_service import FinancingService
-from modules.financing.domain.services.trade_in_service import TradeInService
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 from modules.applications.application.services.document_sync_service import DocumentSyncService
-from modules.applications.domain.repositories.application_financing_repository import ApplicationFinancingRepository
-from modules.applications.domain.repositories.application_trade_in_repository import ApplicationTradeInRepository
-from modules.applications.domain.repositories.application_option_repository import ApplicationOptionRepository
 from modules.financing.domain.repositories.financing_contract_repository import FinancingContractRepository
+from modules.applications.domain.repositories.document_repository import DocumentRepository
+
 # =========================
 # DEPENDENCIES
 # =========================
@@ -48,15 +46,16 @@ from modules.dependencies.dependencies import (
     get_financing_repository,
     get_application_option_repository,
     get_payment_repository,
-    get_trade_in_service,
-    get_financing_service,
     get_reservation_repository,
     get_notification_repository,
     get_trade_in_repository,
     get_financing_repository,
     get_document_sync_service,
 )
-
+from modules.financing.api.dependencies import (
+    get_trade_in_service,
+    get_financing_service
+)
 # =========================
 # EXTERNAL SERVICES
 # =========================
@@ -66,7 +65,7 @@ from modules.storage.api.dependencies import (
 from modules.notifications.api.dependencies import get_notification_service
 from modules.storage.infrastrucure.s3_service import S3Service
 from modules.applications.application.services.restore_application_service import RestoreApplicationService
-from modules.applications.application.services.application_form_service import ApplicationFormService
+
 
 # =========================
 # CORE
@@ -82,9 +81,28 @@ from core.database.unit_of_work import UnitOfWork
 from modules.applications.api.application_response_factory import ApplicationResponseFactory
 from modules.applications.api.application_list_response_factory import ApplicationListResponseFactory
 
-# =========================
-# client
-# =========================
+
+# =====================================================
+# SERVICES
+# =====================================================
+from modules.applications.application.services.application_form_service import ApplicationFormService
+from modules.applications.application.services.event_service import EventService
+from modules.applications.application.services.document_sync_service import DocumentSyncService
+
+def get_document_sync_service(
+    document_repository: DocumentRepository = Depends(
+        get_document_repository
+    ),
+    s3_service: S3Service = Depends(
+        get_s3_service
+    ),
+) -> DocumentSyncService:
+
+    return DocumentSyncService(
+        document_repository=document_repository,
+        s3_service=s3_service,
+    )
+
 def get_application_form_service(
     application_repository=Depends(
         get_application_repository
@@ -92,7 +110,8 @@ def get_application_form_service(
     trade_in_repository=Depends(
         get_trade_in_repository
     ),
-    trade_in_service=Depends(
+    trade_in_service=
+    (
         get_trade_in_service
     ),
     financing_repository=Depends(
@@ -134,13 +153,27 @@ def get_application_form_service(
         ),
     )
 
+
+
+def get_event_service(
+    event_repository = Depends(
+        get_event_repository
+    )
+):
+
+    return EventService(
+        event_repository
+    )
+
+
+# =========================
+# CLIENT
+# =========================
 def get_save_draft_application_usecase(
     application_form_service=Depends(
         get_application_form_service
     ),
-    event_repository=Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
     uow=Depends(
         get_unit_of_work
     ),
@@ -150,9 +183,10 @@ def get_save_draft_application_usecase(
         application_form_service=(
             application_form_service
         ),
-        event_repository=event_repository,
+        event_service=event_service,
         uow=uow,
     )
+
 def get_submit_application_usecase(
     application_form_service=Depends(
         get_application_form_service
@@ -163,9 +197,7 @@ def get_submit_application_usecase(
     reservation_repository=Depends(
         get_reservation_repository
     ),
-    event_repository=Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
     uow: UnitOfWork = Depends(
         get_unit_of_work
     ),
@@ -175,7 +207,7 @@ def get_submit_application_usecase(
         application_form_service=application_form_service,
         application_repository=application_repository,
         reservation_repository=reservation_repository,
-        event_repository=event_repository,
+        event_service=event_service,
         uow=uow,
     )
 
@@ -222,7 +254,7 @@ def get_application_list_response_factory(
 def get_restore_application_service(
     reservation_repository: ReservationRepository = Depends(
         get_reservation_repository
-    ),
+    )
 ) -> RestoreApplicationService:
 
     return RestoreApplicationService(
@@ -242,11 +274,6 @@ def get_get_applications_usecase(
         application_repository=application_repository,
         restore_application_service=restore_application_service,
     )
-
-
-
-
-
 
 def get_delete_application_usecase(
     application_repository=Depends(get_application_repository),
@@ -284,9 +311,7 @@ def get_cancel_application_usecase(
     financing_contract_repo: FinancingContractRepository = Depends(
         get_financing_repository
     ),
-    event_repo: EventRepository = Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
     cancel_reservation_uc: CancelReservationUseCase = Depends(
         get_cancel_reservation_usecase
     ),
@@ -298,13 +323,13 @@ def get_cancel_application_usecase(
     return CancelApplicationUseCase(
         application_repository=application_repo,
         financing_contract_repository=financing_contract_repo,
-        event_repository=event_repo,
+        event_service=event_service,
         cancel_reservation_uc=cancel_reservation_uc,
         unit_of_work=unit_of_work,
     )
 
 # =========================
-# admin
+# ADMIN
 # =========================
 def get_restore_cancelled_usecase(
     application_repository: ApplicationRepository = Depends(
@@ -313,9 +338,7 @@ def get_restore_cancelled_usecase(
     reservation_repository: ReservationRepository = Depends(
         get_reservation_repository
     ),
-    event_repository: EventRepository = Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
     restore_application_service: RestoreApplicationService = Depends(
         get_restore_application_service
     ),
@@ -327,7 +350,7 @@ def get_restore_cancelled_usecase(
     return RestoreCancelledApplicationUseCase(
         application_repository=application_repository,
         reservation_repository=reservation_repository,
-        event_repository=event_repository,
+        event_service=event_service,
         restore_application_service=restore_application_service,
         unit_of_work=unit_of_work,
     )
@@ -336,9 +359,7 @@ def get_archive_application_usecase(
     application_repository: ApplicationRepository = Depends(
         get_application_repository
     ),
-    event_repository: EventRepository = Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
     ),
@@ -346,7 +367,7 @@ def get_archive_application_usecase(
 
     return ArchiveApplicationUseCase(
         application_repository=application_repository,
-        event_repository=event_repository,
+        event_service=event_service,
         unit_of_work=unit_of_work,
     )
 
@@ -354,9 +375,7 @@ def get_unarchive_application_usecase(
     application_repository: ApplicationRepository = Depends(
         get_application_repository
     ),
-    event_repository: EventRepository = Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
     ),
@@ -364,7 +383,7 @@ def get_unarchive_application_usecase(
 
     return UnarchiveApplicationUseCase(
         application_repository=application_repository,
-        event_repository=event_repository,
+        event_service=event_service,
         unit_of_work=unit_of_work,
     )
 
@@ -374,9 +393,7 @@ def get_soft_delete_application_usecase(
     application_repository: ApplicationRepository = Depends(
         get_application_repository
     ),
-    event_repository: EventRepository = Depends(
-        get_event_repository
-    ),
+    event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
     ),
@@ -384,7 +401,7 @@ def get_soft_delete_application_usecase(
 
     return SoftDeleteApplicationUseCase(
         application_repository=application_repository,
-        event_repository=event_repository,
+        event_service=event_service,
         unit_of_work=unit_of_work,
     )
 
@@ -392,7 +409,7 @@ def get_soft_delete_application_usecase(
 def get_update_document_usecase(
     repo=Depends(get_document_repository),
     application_repo=Depends(get_application_repository),
-    event_repo=Depends(get_event_repository),
+    event_service=Depends(get_event_service),
     notification_service=Depends(get_notification_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
@@ -402,7 +419,7 @@ def get_update_document_usecase(
     return UpdateDocumentUseCase(
         document_repository=repo,
         application_repository=application_repo,
-        event_repository=event_repo,
+        event_service=event_service,
         notification_service=notification_service,
         uow=unit_of_work,
     )
@@ -417,7 +434,7 @@ def get_update_application_status_usecase(
     notification_service = Depends(
         get_notification_service
     ),
-    event_repository: EventRepository = Depends(get_event_repository),
+    event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
     ),
@@ -428,12 +445,20 @@ def get_update_application_status_usecase(
     return UpdateApplicationStatusUseCase(
         application_repository=application_repository,
         notification_service=notification_service,
-        event_repository=event_repository,
+        event_service=event_service,
         uow=unit_of_work,
     )
 
 
+def get_events_usecase(
+    event_repository=Depends(
+        get_event_repository
+    )
+):
 
+    return GetEventsUseCase(
+        event_repository
+    )
 
 
 

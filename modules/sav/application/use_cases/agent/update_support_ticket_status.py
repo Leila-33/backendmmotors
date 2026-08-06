@@ -3,17 +3,20 @@ from modules.sav.domain.enums import TicketStatus
 from modules.auth.domain.enums import UserRole
 from modules.sav.application.ticket_chat_manager import TicketChatManager
 from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
+from modules.applications.domain.enums import EventType
 
 class UpdateSupportTicketStatusUseCase:
 
     def __init__(
         self,
         repo,
-        chat_manager : TicketChatManager,
-        unit_of_work
+        chat_manager: TicketChatManager,
+        event_service,
+        unit_of_work,
     ):
         self.repo = repo
         self.chat_manager = chat_manager
+        self.event_service = event_service
         self.uow = unit_of_work
 
 
@@ -75,7 +78,39 @@ class UpdateSupportTicketStatusUseCase:
             )
 
 
+            self.event_service.log(
 
+                type=EventType.SUPPORT_TICKET_STATUS_CHANGED,
+
+                message="Statut du ticket SAV modifié",
+
+                application_id=updated_ticket.application_id,
+
+                user_id=user.id,
+
+                event_metadata={
+
+                    "ticket_id": updated_ticket.id,
+
+                    "old_status": (
+                        old_status.value
+                        if old_status
+                        else None
+                    ),
+
+                    "new_status": (
+                        updated_ticket.status.value
+                    ),
+
+                    "ticket_owner": (
+                        updated_ticket.user_id
+                    ),
+
+                    "assigned_to": (
+                        updated_ticket.assigned_to
+                    ),
+                }
+            )
             # =====================
             # COMMIT DATABASE
             # =====================

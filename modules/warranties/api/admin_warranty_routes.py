@@ -36,7 +36,7 @@ def create_warranty_plan(
 
 ):
 
-    return usecase.execute(dto)
+    return usecase.execute(dto, current_admin)
 # =====================================================
 # GET WARRANTY PLANS
 # =====================================================
@@ -59,13 +59,14 @@ def toggle_warranty_plan(
     plan_id: str,
     request: ToggleWarrantyPlanRequest,
     usecase : ToggleWarrantyPlanUseCase = Depends(get_toggle_warranty_usecase),
-    admin=Depends(get_current_admin)
+    current_admin=Depends(get_current_admin)
 
 ):
 
     return usecase.execute(
         plan_id=plan_id,
-        active=request.active
+        active=request.active,
+        current_admin=current_admin
     )
 
 @router.put(
@@ -76,9 +77,11 @@ def update_warranty_plan(
     plan_id: str,
     request: UpdateWarrantyPlanRequest,
     use_case: UpdateWarrantyPlanUseCase = Depends(get_update_warranty_plan_usecase),
+    current_admin=Depends(get_current_admin)
 ):
 
     return use_case.execute(
         plan_id=plan_id,
-        dto=request
+        dto=request,
+        current_admin=current_admin 
     )

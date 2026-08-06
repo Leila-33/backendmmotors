@@ -21,14 +21,14 @@ class CreateCheckoutSessionUseCase:
         payment_repository,
         stripe_service,
         application_repository,
-        event_repository,
+        event_service,
         uow,
     ):
 
         self.payment_repository = payment_repository
         self.stripe_service = stripe_service
         self.application_repository = application_repository
-        self.event_repository = event_repository
+        self.event_service = event_service
         self.uow = uow
 
 
@@ -187,36 +187,17 @@ class CreateCheckoutSessionUseCase:
             # =========================
             # EVENT
             # =========================
-
-            self.event_repository.save(
-                Event(
-
-                    id=str(uuid4()),
-
-                    application_id=application.id,
-
-                    user_id=dto.user_id,
-
-                    type=EventType.PAYMENT_INITIATED,
-
-                    message="Paiement initialisé.",
-
-                    event_metadata={
-
-                        "payment_id": payment.id,
-
-                        "amount": payment.amount,
-
-                        "stripe_session_id": session.id,
-
-                    },
-
-                    created_at=datetime.now(
-                        timezone.utc
-                    )
-                )
+            self.event_service.log(
+                type=EventType.PAYMENT_INITIATED,
+                message="Paiement initialisé",
+                user_id=dto.user_id,
+                application_id=application.id,
+                event_metadata={
+                    "payment_id": payment.id,
+                    "amount": payment.amount,
+                    "stripe_session_id": session.id,
+                }
             )
-
 
             # =========================
             # COMMIT

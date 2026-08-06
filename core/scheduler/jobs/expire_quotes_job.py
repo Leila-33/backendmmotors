@@ -1,51 +1,35 @@
-from modules.dependencies.dependencies import (
-    get_quote_repository,
+from core.database.session import SessionLocal
+from core.database.unit_of_work import UnitOfWork
+from modules.quotes.infrastructure.repositories.quote_repository_sql import (
+    QuoteRepositorySQL,
 )
+from modules.quotes.application.use_cases.expire_quote import ExpireQuotesUseCase
+from modules.applications.application.services.event_service import EventService
+from modules.applications.infrastructure.repositories.event_repository_sql import EventRepositorySQL
 
-from core.database.dependencies import (
-    get_unit_of_work,
-)
+def create_expire_quotes_usecase():
 
-from modules.quotes.application.services.quote_expiration_service import (
-    QuoteExpirationService,
-)
+    db = SessionLocal()
 
+    return (
+        ExpireQuotesUseCase(
+            quote_repository=QuoteRepositorySQL(db),
+            event_service=EventService(
+                EventRepositorySQL(db)
+            ),
+            unit_of_work=UnitOfWork(db),
+        ),
+        db,
+    )
 
 def run_expire_quotes():
 
-    quote_repository = (
-        get_quote_repository()
-    )
-
-    unit_of_work = (
-        get_unit_of_work()
-    )
-
-    service = QuoteExpirationService()
-
+    usecase, db = create_expire_quotes_usecase()
 
     try:
 
-        quotes = (
-            quote_repository
-            .find_quotes_to_expire()
-        )
+        usecase.execute()
 
+    finally:
 
-        for quote in quotes:
-
-            if service.expire(quote):
-
-                quote_repository.update(
-                    quote
-                )
-
-
-        unit_of_work.commit()
-
-
-    except Exception:
-
-        unit_of_work.rollback()
-
-        raise
+        db.close()

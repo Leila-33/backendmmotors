@@ -258,9 +258,6 @@ class PaginatedUsersResponse(BaseModel):
     total: int
     pages: int
 
-# dto/get_users_response.py
-
-
 
 
 

@@ -1,6 +1,7 @@
 from modules.auth.domain.exceptions import UserNotFound, Forbidden
 from modules.auth.domain.enums import UserRole
 from modules.auth.api.schemas import ToggleUserActiveResponse
+from modules.applications.domain.enums import EventType
 
 class ToggleUserActiveUseCase:
 
@@ -8,11 +9,12 @@ class ToggleUserActiveUseCase:
     def __init__(
         self,
         user_repo,
+        event_service,
         uow,
     ):
 
         self.user_repo = user_repo
-
+        self.event_service = event_service
         self.uow = uow
 
 
@@ -65,7 +67,22 @@ class ToggleUserActiveUseCase:
             )
 
 
+            if is_active:
+                event_type = EventType.USER_ACTIVATED
+                message = "Utilisateur activé"
+            else:
+                event_type = EventType.USER_DEACTIVATED
+                message = "Utilisateur désactivé"
 
+
+            self.event_service.log(
+                type=event_type,
+                message=message,
+                user_id=user.id,
+                event_metadata={
+                    "email": user.email
+                }
+            )
             # =====================
             # COMMIT
             # =====================

@@ -7,6 +7,7 @@ from core.security.password import hash_password
 from datetime import datetime, timezone, timedelta
 from modules.auth.api.schemas import ActivateAccountRequest, ActivateAccountResponse
 from modules.auth.domain.entities.refresh_token import RefreshToken
+from modules.applications.domain.enums import EventType
 
 class ActivateAccountUseCase:
 
@@ -18,6 +19,7 @@ class ActivateAccountUseCase:
         user_repository,
         refresh_repository,
         jwt_service,
+        event_service,
         uow,
     ):
 
@@ -36,6 +38,8 @@ class ActivateAccountUseCase:
         )
 
         self.jwt_service = jwt_service
+
+        self.event_service = event_service
 
         self.uow = uow
 
@@ -125,7 +129,15 @@ class ActivateAccountUseCase:
             self.activation_token_repository.update(
                 activation
             )
-
+            
+            self.event_service.log(
+    type=EventType.USER_ACCOUNT_ACTIVATED,
+    message="Compte utilisateur activé",
+    user_id=user.id,
+    event_metadata={
+        "email": user.email
+    }
+)
 
 
             # =========================

@@ -9,6 +9,7 @@ from modules.inspections.api.admin_inspection_routes import router as admin_insp
 from modules.warranties.api.admin_warranty_routes import router as admin_warranty_router
 from modules.applications.api.application_routes import router as application_router
 from modules.applications.api.admin_application_routes import router as admin_application_router
+from modules.applications.api.admin_event_routes import router as admin_event_router
 from modules.options.api.admin_option_routes import router as admin_option_router
 from modules.storage.api.upload_routes import router as upload_router
 from modules.reservations.api.reservation_routes import router as reservation_router
@@ -40,6 +41,7 @@ api_router.include_router(admin_inspection_router, prefix="/admin/inspections")
 api_router.include_router(application_router, prefix="/applications")
 api_router.include_router(admin_option_router, prefix="/admin/options")
 api_router.include_router(admin_application_router, prefix="/admin/applications")
+api_router.include_router(admin_event_router, prefix="/admin/events")
 api_router.include_router(upload_router, prefix="/uploads")
 api_router.include_router(reservation_router, prefix="/reservations")
 api_router.include_router(trade_in_router, prefix="/trade-in")

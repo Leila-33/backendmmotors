@@ -63,7 +63,7 @@ async def create_vehicle(
     current_admin=Depends(get_current_admin)
 ):
 
-    vehicle = use_case.execute(request)
+    vehicle = use_case.execute(request, current_admin)
 
     return mapper.to_response(vehicle)
 
@@ -82,7 +82,7 @@ def update_vehicle(
         vehicle_id=vehicle_id,
         data=data
     )
-    return mapper.to_response(vehicle)
+    return mapper.to_response(vehicle, current_admin)
 
 
 # =========================
@@ -116,7 +116,7 @@ def delete_vehicle(
     use_case: DeleteVehicle = Depends(get_delete_vehicle_use_case),
     current_admin=Depends(get_current_admin)
 ):
-    return use_case.execute(vehicle_id)
+    return use_case.execute(vehicle_id, current_admin)
 
 
 
@@ -145,7 +145,7 @@ def final_check(
     current_admin=Depends(get_current_admin)
 ):
 
-    return uc.execute(vehicle_id)
+    return uc.execute(vehicle_id, current_admin)
 
 @router.post(
     "/{vehicle_id}/publish"
@@ -175,12 +175,13 @@ def set_availability(
         get_set_availability_uc
     ),
     mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
-
+    current_admin=Depends(get_current_admin)
 ):
 
     vehicle = use_case.execute(
         vehicle_id,
-        request.value
+        request.value,
+        current_admin
     )
 
-    return mapper.to_response(vehicle)
+    return mapper.to_response(vehicle, current_admin)

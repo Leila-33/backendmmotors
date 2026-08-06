@@ -3,7 +3,9 @@ from modules.quotes.domain.enums import QuoteStatus
 from modules.quotes.domain.exceptions import QuoteNotFound, QuoteAlreadySent
 from modules.leads.domain.exceptions import LeadNotFound
 from modules.leads.domain.enums import LeadStatus
-
+from modules.applications.domain.enums import (
+    EventType
+)
 class SendQuoteUseCase:
 
 
@@ -15,6 +17,7 @@ class SendQuoteUseCase:
         customer_account_service,
         email_service,
         notification_service,
+        event_service,
         unit_of_work,
     ):
         self.quote_repository = quote_repository
@@ -23,6 +26,7 @@ class SendQuoteUseCase:
         self.customer_account_service = customer_account_service
         self.email_service = email_service
         self.notification_service = notification_service
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
@@ -107,6 +111,13 @@ class SendQuoteUseCase:
             self.quote_repository.update(
                 quote
             )
+
+            self.event_service.log(
+    type=EventType.QUOTE_SENT,
+    message="Devis envoyé au client",
+    quote_id=quote.id,
+    user_id=customer.id
+)
 
             lead.change_status(LeadStatus.QUOTE_SENT)
 

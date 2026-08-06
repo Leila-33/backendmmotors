@@ -6,15 +6,18 @@ from modules.auth.domain.exceptions import (
 from modules.auth.domain.enums import UserRole
 from modules.auth.api.schemas import ArchiveUsersResponse
 from datetime import datetime, timezone
+from modules.applications.domain.enums import EventType
 
 class ArchiveUsersUseCase:
 
     def __init__(
         self,
         user_repo,
+        event_service,
         uow,
     ):
         self.user_repo = user_repo
+        self.event_service = event_service
         self.uow = uow
 
 
@@ -84,7 +87,16 @@ class ArchiveUsersUseCase:
                 self.user_repo.update(
                     user
                 )
-
+            
+            self.event_service.log(
+    type=EventType.ADMIN_ACTION,
+    message="Archivage de plusieurs utilisateurs",
+    event_metadata={
+        "action": "archive_users",
+        "user_ids": ids,
+        "count": len(ids)
+    }
+)
 
 
             # =====================

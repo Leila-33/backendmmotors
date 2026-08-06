@@ -19,7 +19,7 @@ class CreateSubscriptionUseCase:
         self,
         stripe_service,
         financing_contract_repository,
-        event_repository,
+        event_service,
         uow,
     ):
 
@@ -28,11 +28,7 @@ class CreateSubscriptionUseCase:
         self.financing_contract_repository = (
             financing_contract_repository
         )
-
-        self.event_repository = (
-            event_repository
-        )
-
+        self.event_service = event_service
         self.uow = uow
 
     # =========================
@@ -99,22 +95,17 @@ class CreateSubscriptionUseCase:
             # =========================
             # EVENT
             # =========================
-            self.event_repository.save(
-                Event(
-                    id=str(uuid4()),
-                    application_id=contract.application_id,
-                    user_id=user_id,
-                    type=EventType.SUBSCRIPTION_CREATED,
-                    message=(
-                        "Abonnement de financement créé."
-                    ),
-                    event_metadata={
-                        "contract_id": contract.id,
-                        "stripe_customer_id": customer.id,
-                        "stripe_subscription_id": subscription.id,
-                        "monthly_payment": contract.monthly_payment
-                    }
-                )
+            self.event_service.log(
+                type=EventType.SUBSCRIPTION_CREATED,
+                message="Abonnement de financement créé.",
+                application_id=contract.application_id,
+                user_id=user_id,
+                event_metadata={
+                    "contract_id": contract.id,
+                    "stripe_customer_id": customer.id,
+                    "stripe_subscription_id": subscription.id,
+                    "monthly_payment": contract.monthly_payment,
+                }
             )
 
             self.uow.commit()

@@ -8,6 +8,7 @@ from modules.leads.application.use_cases.agent.mark_lead_contacted import MarkLe
 from modules.leads.application.use_cases.agent.delete_lead import DeleteLeadUseCase
 from modules.leads.domain.repositories.lead_repository import LeadRepository
 from modules.quotes.domain.repositories.quote_repository import QuoteRepository
+from modules.applications.api.dependencies import get_event_service
 
 from modules.dependencies.dependencies import (
     get_lead_repository,
@@ -24,15 +25,14 @@ def get_create_lead_use_case(
     lead_repository = Depends(
         get_lead_repository
     ),
-
+    event_service=Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
-
 ):
 
     return CreateLeadUseCase(
 
         lead_repository=lead_repository,
-
+        event_service=event_service,
         unit_of_work = unit_of_work
     )
 
@@ -46,12 +46,14 @@ def get_sales_leads_usecase(
 
 def get_assign_lead_usecase(
     lead_repository=Depends(get_lead_repository),
+    event_service=Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 
 ):
 
     return AssignLeadUseCase(
         lead_repository=lead_repository,
+        event_service=event_service,
         unit_of_work = unit_of_work
     )
 
@@ -68,6 +70,7 @@ def get_lead_detail_usecase(
 def get_mark_lead_contacted_usecase(
     lead_repository=Depends(get_lead_repository),
     authorization=Depends(get_lead_authorization),
+    event_service=Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 
 ):
@@ -75,6 +78,7 @@ def get_mark_lead_contacted_usecase(
     return MarkLeadContactedUseCase(
         lead_repository=lead_repository,
         authorization=authorization,
+        event_service=event_service,
         unit_of_work = unit_of_work
     )
 
@@ -90,6 +94,7 @@ def get_delete_lead_usecase(
     authorization = Depends(
         get_lead_authorization
     ),
+    event_service=Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 
 ):
@@ -101,5 +106,6 @@ def get_delete_lead_usecase(
         lead_repository=lead_repository,
 
         lead_authorization=authorization,
+        event_service=event_service,
         unit_of_work = unit_of_work
     )

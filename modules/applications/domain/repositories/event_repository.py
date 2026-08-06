@@ -41,3 +41,15 @@ class EventRepository(ABC):
         application_id: str
     ):
         pass
+
+
+    @abstractmethod
+    def find_all(
+        self,
+        page: int,
+        limit: int,
+        search: str | None = None,
+        category: str | None = None,
+        date: str | None = None,
+    ):
+        pass

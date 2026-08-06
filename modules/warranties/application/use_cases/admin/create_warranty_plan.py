@@ -6,6 +6,7 @@ from modules.warranties.api.schemas import (
     CreateWarrantyPlanRequest,
     CreateWarrantyPlanResponse
 )
+from modules.applications.domain.enums import EventType
 
 
 
@@ -16,16 +17,19 @@ class CreateWarrantyPlanUseCase:
     def __init__(
         self,
         repository,
+        event_service,
         unit_of_work
     ):
         self.repository = repository
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
 
     def execute(
         self,
-        dto: CreateWarrantyPlanRequest
+        dto: CreateWarrantyPlanRequest,
+        current_admin
     ):
 
 
@@ -125,11 +129,18 @@ class CreateWarrantyPlanUseCase:
             .save(plan)
         )
 
-
+        self.event_service.log(
+            type=EventType.WARRANTY_PLAN_CREATED,
+            message="Plan de garantie créé",
+            user_id=current_admin.id,
+            event_metadata={
+                "plan_id": plan.id,
+                "plan_name": plan.name,
+                "plan_type": plan.plan_type.value,
+            },
+        )
 
         self.unit_of_work.commit()
-
-
 
         # =========================
         # RESPONSE

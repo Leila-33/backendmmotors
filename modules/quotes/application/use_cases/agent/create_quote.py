@@ -15,7 +15,9 @@ from modules.leads.domain.exceptions import (
     LeadHasActiveQuote
 )
 from modules.vehicles.domain.exceptions import VehicleNotFound
-
+from modules.applications.domain.enums import (
+    EventType
+)
 
 class CreateQuoteUseCase:
 
@@ -28,6 +30,7 @@ class CreateQuoteUseCase:
         financing_service,
         trade_in_service,
         authorization,
+        event_service,
         unit_of_work
     ):
 
@@ -41,6 +44,7 @@ class CreateQuoteUseCase:
         self.trade_in_service = trade_in_service
 
         self.authorization = authorization
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
@@ -199,7 +203,16 @@ class CreateQuoteUseCase:
                 quote
             )
 
-
+            self.event_service.log(
+    type=EventType.QUOTE_CREATED,
+    message="Devis créé",
+    vehicle_id=vehicle.id,
+    quote_id=quote.id,
+    user_id=agent_id,
+    event_metadata={
+        "amount": quote.total_amount
+    }
+)
 
             # =====================================
             # SAVE TRADE IN DETAILS

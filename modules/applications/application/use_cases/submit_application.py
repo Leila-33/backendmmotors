@@ -1,12 +1,8 @@
-
-from datetime import datetime, timezone
-from uuid import uuid4
 from modules.applications.domain.enums import ApplicationStatus, EventType
 from modules.reservations.domain.enums import ReservationStatus
 from modules.applications.api.schemas import SubmitApplicationDTO
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.domain.repositories.event_repository import EventRepository
-from modules.applications.domain.entities.event import Event
+from modules.applications.application.services.event_service import EventService
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 from modules.applications.domain.policies.submit_application_policy import SubmitApplicationPolicy
 from core.database.unit_of_work import UnitOfWork
@@ -20,7 +16,7 @@ class SubmitApplicationUseCase:
         application_form_service: ApplicationFormService,
         application_repository: ApplicationRepository,
         reservation_repository: ReservationRepository,
-        event_repository: EventRepository,
+        event_service: EventService,
         uow: UnitOfWork,
     ):
         self.application_form_service = (
@@ -35,8 +31,8 @@ class SubmitApplicationUseCase:
             reservation_repository
         )
 
-        self.event_repository = (
-            event_repository
+        self.event_service = (
+            event_service
         )
 
         self.uow = uow
@@ -109,19 +105,13 @@ class SubmitApplicationUseCase:
             # =========================
             # EVENT
             # =========================
-
-            self.event_repository.save(
-                Event(
-                    id=str(uuid4()),
+            self.event_service.log(
                     application_id=application.id,
                     user_id=current_user.id,
                     type=EventType.APPLICATION_SUBMITTED,
-                    message="Dossier soumis.",
-                    created_at=datetime.now(
-                        timezone.utc
-                    ),
+                    message="Dossier soumis."
                 )
-            )
+            
 
 
             # =========================

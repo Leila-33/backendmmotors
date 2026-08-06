@@ -13,6 +13,7 @@ from modules.storage.infrastrucure.s3_service import S3Service
 from modules.warranties.domain.repositories.vehicle_warranty_respository import VehicleWarrantyRepository
 from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
 from uuid import uuid4
+from modules.applications.domain.enums import EventType
 
 class UpdateVehicle:
 
@@ -21,6 +22,7 @@ class UpdateVehicle:
         repo: VehicleRepository,
         vehicle_warranty_repository: VehicleWarrantyRepository,
         assign_options_uc: AssignOptionsToVehicleUseCase,
+        event_service,
         unit_of_work: UnitOfWork,
         s3_service: S3Service,
     ):
@@ -28,12 +30,14 @@ class UpdateVehicle:
         self.vehicle_warranty_repository = vehicle_warranty_repository
         self.assign_options_uc = assign_options_uc
         self.unit_of_work = unit_of_work
+        self.event_service = event_service
         self.s3_service = s3_service
 
     def execute(
         self,
         vehicle_id: str,
-        data: UpdateVehicleRequest
+        data: UpdateVehicleRequest,
+        current_admin
     ):
 
         # =========================
@@ -159,16 +163,30 @@ class UpdateVehicle:
             "license_plate",
         }
 
+        updated_fields = []
+
         for key, value in update_data.items():
 
             if key in allowed_fields:
+
                 setattr(vehicle, key, value)
+
+                updated_fields.append(key)
 
         # =========================
         # 6. SAVE VEHICLE
         # =========================
         self.repo.update(vehicle)
-
+        
+        self.event_service.log(
+            type=EventType.VEHICLE_UPDATED,
+            message="Informations véhicule mises à jour",
+            vehicle_id=vehicle.id,
+            user_id=current_admin.id,
+            event_metadata={
+                "updated_fields": updated_fields,
+            }
+        )
         # =========================
         # 7. UPDATE OPTIONS
         # =========================

@@ -1,7 +1,7 @@
 from uuid import uuid4
 from datetime import datetime, timezone
 from modules.applications.domain.entities.event import Event
-from modules.applications.domain.repositories.event_repository import EventRepository
+from modules.applications.application.services.event_service import EventService
 from modules.applications.api.schemas import (
     UpdateApplicationStatusDTO,
     UpdateApplicationStatusResponseDTO,
@@ -22,7 +22,7 @@ from modules.applications.domain.builders.application_notification_builder impor
 from modules.applications.domain.exceptions import (
     ApplicationNotFound,
 )
-
+from modules.auth.domain.entities.user import User
 from core.database.unit_of_work import UnitOfWork
 
 
@@ -32,13 +32,13 @@ class UpdateApplicationStatusUseCase:
         self,
         application_repository,
         notification_service,
-        event_repository,
+        event_service,
         uow: UnitOfWork,
     ):
 
         self.application_repository = application_repository
         self.notification_service = notification_service
-        self.event_repository = event_repository
+        self.event_service = event_service
         self.uow = uow
 
 
@@ -46,6 +46,7 @@ class UpdateApplicationStatusUseCase:
         self,
         application_id: str,
         dto: UpdateApplicationStatusDTO,
+        current_admin: User
     ):
 
         # =========================
@@ -124,9 +125,7 @@ class UpdateApplicationStatusUseCase:
         # EVENT
         # =========================
 
-        event = Event(
-
-            id=str(uuid4()),
+        self.event_service.log(
 
             application_id=application.id,
 
@@ -136,7 +135,7 @@ class UpdateApplicationStatusUseCase:
 
             message=notification.message,
 
-            user_id=application.user_id,
+            user_id=current_admin.id,
 
             event_metadata={
 
@@ -150,17 +149,7 @@ class UpdateApplicationStatusUseCase:
 
                 "reason": dto.reason,
             },
-
-            created_at=datetime.now(
-                timezone.utc
-            ),
         )
-
-
-        self.event_repository.save(
-            event
-        )
-
 
         # =========================
         # COMMIT

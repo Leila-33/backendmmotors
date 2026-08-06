@@ -15,6 +15,7 @@ from modules.vehicles.domain.entities.vehicle_option import VehicleOption
 from modules.vehicles.domain.exceptions import VehicleNotFound, VehicleAlreadyExists
 from modules.options.domain.exceptions import OptionNotFound
 from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
+from modules.applications.domain.enums import EventType
 
 class CreateVehicle:
 
@@ -22,16 +23,19 @@ class CreateVehicle:
         self,
         repo,
         assign_options_uc,
+        event_service,
         unit_of_work
     ):
         self.repo = repo
         self.assign_options_uc = assign_options_uc
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
     def execute(
         self,
-        request: CreateVehicleRequest
+        request: CreateVehicleRequest,
+        current_admin
     ):
 
         try:
@@ -130,7 +134,16 @@ class CreateVehicle:
 
             vehicle = self.repo.save(vehicle)
 
-
+            self.event_service.log(
+    type=EventType.VEHICLE_CREATED,
+    message="Véhicule créé",
+    vehicle_id=vehicle.id,
+    user_id=current_admin.id,
+    event_metadata={
+        "brand": vehicle.brand,
+        "model": vehicle.model,
+    }
+)
             # =========================
             # ASSIGN OPTIONS
             # =========================

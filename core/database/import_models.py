@@ -2,7 +2,6 @@
 
 # Users
 from modules.auth.infrastructure.db.user_model import UserModel
-
 # Auth (refresh + blacklist)
 from modules.auth.infrastructure.db.refresh_token_model import RefreshTokenModel
 from modules.auth.infrastructure.db.token_blacklist_model import TokenBlacklistModel

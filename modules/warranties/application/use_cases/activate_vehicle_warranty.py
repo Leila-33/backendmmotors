@@ -15,15 +15,17 @@ from modules.warranties.domain.exceptions import (
     VehicleWarrantyNotAssigned,
     WarrantyPlanNotFound,
 )
+from modules.applications.domain.enums import EventType
 
 
 class ActivateVehicleWarrantyUseCase:
 
     def __init__(
         self,
+        event_service,
         warranty_plan_repo,
     ):
-
+        self.event_service = event_service
         self.warranty_plan_repo = (
             warranty_plan_repo
         )
@@ -31,6 +33,7 @@ class ActivateVehicleWarrantyUseCase:
     def execute(
         self,
         vehicle,
+        user_id,
         mileage: int | None = None,
     ):
 
@@ -84,5 +87,24 @@ class ActivateVehicleWarrantyUseCase:
             current_mileage=current_mileage,
             max_mileage=plan.mileage_limit,
         )
+
+        self.event_service.log(
+
+                    vehicle_id=warranty.vehicle_id,
+
+                    user_id=user_id,
+
+                    type=EventType.WARRANTY_ACTIVATED,
+
+                    message="Garantie activée.",
+
+                    event_metadata={
+                        "warranty_id": warranty.id
+                    }
+                )
+
+        self.warranty_repository.update(
+                warranty
+            )
 
         return warranty

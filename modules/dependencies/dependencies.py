@@ -32,7 +32,6 @@ from modules.applications.infrastructure.repositories.application_option_reposit
     ApplicationOptionRepositorySQL,
 )
 from modules.applications.domain.repositories.document_repository import DocumentRepository
-from modules.applications.application.services.document_sync_service import DocumentSyncService
 from modules.storage.infrastrucure.s3_service import S3Service
 from modules.storage.api.dependencies import get_s3_service
 
@@ -53,19 +52,7 @@ def get_document_repository(
 ):
     return DocumentRepositorySQL(db)
 
-def get_document_sync_service(
-    document_repository: DocumentRepository = Depends(
-        get_document_repository
-    ),
-    s3_service: S3Service = Depends(
-        get_s3_service
-    ),
-) -> DocumentSyncService:
 
-    return DocumentSyncService(
-        document_repository=document_repository,
-        s3_service=s3_service,
-    )
 
 def get_trade_in_repository(
     db: Session = Depends(get_db),
@@ -92,9 +79,6 @@ def get_application_option_repository(
 from modules.payments.infrastructure.repositories.payment_repository_sql import (
     PaymentRepositorySQL,
 )
-from modules.payments.infrastructure.services.stripe_service import (
-    StripeService,
-)
 
 
 def get_payment_repository(
@@ -103,29 +87,9 @@ def get_payment_repository(
     return PaymentRepositorySQL(db)
 
 
-def get_stripe_service():
-    return StripeService()
-
-
 # =====================================================
 # FINANCING 
 # =====================================================
-
-from modules.financing.domain.services.trade_in_service import (
-    TradeInService,
-)
-from modules.financing.domain.services.financing_service import (
-    FinancingService,
-)
-
-
-def get_trade_in_service():
-    return TradeInService()
-
-
-def get_financing_service():
-    return FinancingService()
-
 from modules.financing.infrastructure.repositories.financing_contract_repository_sql import SqlFinancingContractRepository
 from modules.financing.infrastructure.repositories.installment_repository_sql import InstallmentRepositorySQL
 
@@ -399,3 +363,4 @@ from modules.notifications.application.services.websocket_manager import manager
 
 def get_websocket_manager():
     return manager
+

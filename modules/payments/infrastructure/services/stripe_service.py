@@ -41,7 +41,7 @@ class StripeService:
             success_url=success_url,
             cancel_url=cancel_url,
 
-            metadata={
+            event_metadata={
                 "application_id": application_id
             }
         )
@@ -110,7 +110,7 @@ class StripeService:
             items=[{
                 "price": price.id
             }],
-            metadata={
+            event_metadata={
                 "application_id": application_id
             },
             expand=["latest_invoice.payment_intent"]

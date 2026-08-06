@@ -2,7 +2,7 @@ from modules.sav.domain.enums import TicketStatus
 from modules.sav.domain.exceptions import SupportTicketNotFound, TicketAccessDenied, InvalidTicketState
 from datetime import datetime, timezone
 from modules.auth.domain.enums import UserRole
-
+from modules.applications.domain.enums import EventType
 from datetime import datetime, timezone
 
 
@@ -11,9 +11,11 @@ class ArchiveSupportTicketUseCase:
     def __init__(
         self,
         support_ticket_repository,
+        event_service,
         unit_of_work,
     ):
         self.support_ticket_repository = support_ticket_repository
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
     def execute(self, ticket_id: str, user):
@@ -45,6 +47,28 @@ class ArchiveSupportTicketUseCase:
             updated_ticket = self.support_ticket_repository.update(
                 ticket
             )
+            self.event_service.log(
+
+    type=EventType.SUPPORT_TICKET_ARCHIVED,
+
+    message="Ticket SAV archivé",
+
+    application_id=ticket.application_id,
+
+    user_id=user.id,
+
+    event_metadata={
+
+        "ticket_id": ticket.id,
+
+        "status": ticket.status.value,
+
+        "assigned_to": ticket.assigned_to,
+
+        "ticket_owner": ticket.user_id,
+
+    }
+)
 
             self.unit_of_work.commit()
 

@@ -3,10 +3,6 @@ from datetime import datetime, timezone
 from modules.test_drives.domain.entities.test_drive import TestDrive
 from modules.test_drives.domain.enums import TestDriveStatus
 from modules.test_drives.domain.exceptions import TestDriveSlotUnavailable, TestDrivePastDate
-
-from uuid import uuid4
-from datetime import datetime, timezone
-
 from modules.test_drives.domain.entities.test_drive import (
     TestDrive,
 )
@@ -20,7 +16,7 @@ from modules.vehicles.domain.exceptions import (
     VehicleNotFound,
     VehicleNotAvailableForTestDrive,
 )
-
+from modules.applications.domain.enums import EventType
 
 class CreateTestDriveUseCase:
 
@@ -28,17 +24,13 @@ class CreateTestDriveUseCase:
         self,
         test_drive_repository,
         vehicle_repository,
+        event_service,
         unit_of_work,
     ):
-        self.test_drive_repository = (
-            test_drive_repository
-        )
-        self.vehicle_repository = (
-            vehicle_repository
-        )
-        self.unit_of_work = (
-            unit_of_work
-        )
+        self.test_drive_repository = test_drive_repository
+        self.vehicle_repository = vehicle_repository
+        self.event_service = event_service
+        self.unit_of_work = unit_of_work
 
     def execute(
         self,
@@ -96,7 +88,19 @@ class CreateTestDriveUseCase:
         self.test_drive_repository.create(
             test_drive
         )
-
+        self.event_service.log(
+    type=EventType.TEST_DRIVE_CREATED,
+    message="Demande d'essai véhicule créée",
+    user_id=current_user.id,
+    vehicle_id=vehicle.id,
+    test_drive_id=test_drive.id,
+    event_metadata={
+        "appointment_date": (
+            test_drive.appointment_date.isoformat()
+        ),
+        "status": test_drive.status.value,
+    }
+)
         self.unit_of_work.commit()
 
         return test_drive

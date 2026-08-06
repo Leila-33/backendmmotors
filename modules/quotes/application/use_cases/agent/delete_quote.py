@@ -3,7 +3,9 @@ from modules.quotes.domain.exceptions import (
     QuoteNotFound,
     QuoteCannotBeDeleted
 )
-
+from modules.applications.domain.enums import (
+    EventType
+)
 class DeleteQuoteUseCase:
 
 
@@ -13,6 +15,7 @@ class DeleteQuoteUseCase:
         quote_trade_in_repository,
         lead_repository,
         authorization,
+        event_service,
         unit_of_work,
     ):
 
@@ -25,7 +28,7 @@ class DeleteQuoteUseCase:
         self.lead_repository = lead_repository
 
         self.authorization = authorization
-
+        self.event_service = event_service
         self.unit_of_work = unit_of_work
 
 
@@ -121,7 +124,16 @@ class DeleteQuoteUseCase:
                 quote.id
             )
 
-
+            self.event_service.log(
+    type=EventType.QUOTE_DELETED,
+    message="Devis supprimé",
+    quote_id=quote.id,
+    user_id=agent_id,
+    event_metadata={
+        "quote_id": quote.id,
+        "customer_email": quote.lead.customer.email,
+    }
+)
 
             self.unit_of_work.commit()
 
