@@ -1,5 +1,8 @@
 from modules.auth.api.schemas import RegisterResponse
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RegisterUser:
 
@@ -64,7 +67,15 @@ class RegisterUser:
             )
 
             self.uow.commit()
-
+            
+            logger.info(
+                "Nouvelle inscription utilisateur",
+                extra={
+                    "user_id": user.id,
+                    "email": user.email,
+                }
+            )
+            
             self.email_service.send_verification_email(
                 email=user.email,
                 token=token,
@@ -79,5 +90,12 @@ class RegisterUser:
         except Exception:
 
             self.uow.rollback()
+
+            logger.exception(
+                "Erreur lors de l'inscription utilisateur",
+                extra={
+                    "email": data.email
+                }
+            )
 
             raise

@@ -6,6 +6,9 @@ from modules.applications.domain.entities.application import Application
 from modules.auth.domain.entities.user import User
 from modules.applications.domain.policies.archive_application_policy import ArchiveApplicationPolicy
 from modules.applications.application.services.event_service import EventService
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ArchiveApplicationUseCase:
 
@@ -20,55 +23,57 @@ class ArchiveApplicationUseCase:
         self.unit_of_work = unit_of_work
 
 
-    # =========================
-    # EXECUTE
-    # =========================
     def execute(
         self,
         application_id: str,
         current_admin: User,
     ) -> Application:
 
+        try:
 
-        # =========================
-        # GET APPLICATION
-        # =========================
-        application = (
-            self.application_repository.get_by_id(
-                application_id
+            # =========================
+            # GET APPLICATION
+            # =========================
+
+            application = (
+                self.application_repository
+                .get_by_id(application_id)
             )
-        )
 
 
-        if not application:
-            raise ApplicationNotFound()
-
-
-        # =========================
-        # VALIDATION
-        # =========================
-        ArchiveApplicationPolicy.validate(
-            application
-        )
+            if not application:
+                raise ApplicationNotFound()
 
 
 
+            # =========================
+            # VALIDATION
+            # =========================
 
-        # =========================
-        # ARCHIVE
-        # =========================
-        application.is_archived = True
-
-
-        self.application_repository.update(
-            application
-        )
+            ArchiveApplicationPolicy.validate(
+                application
+            )
 
 
-        # =========================
-        # EVENT AUDIT
-        # =========================
-        self.event_service.log(
+
+            # =========================
+            # ARCHIVE
+            # =========================
+
+            application.is_archived = True
+
+
+            self.application_repository.update(
+                application
+            )
+
+
+
+            # =========================
+            # EVENT AUDIT
+            # =========================
+
+            self.event_service.log(
 
                 application_id=application.id,
 
@@ -89,13 +94,37 @@ class ArchiveApplicationUseCase:
                         else None
                     ),
                 },
-        )
+            )
 
 
-        # =========================
-        # COMMIT
-        # =========================
-        self.unit_of_work.commit()
+
+            # =========================
+            # COMMIT
+            # =========================
+
+            self.unit_of_work.commit()
+
+            logger.info(
+                "Application archivée",
+                extra={
+                    "application_id": application.id,
+                    "admin_id": current_admin.id,
+                }
+            )
+
+            return application
 
 
-        return application
+
+        except Exception:
+
+            self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur archivage application",
+                extra={
+                    "application_id": application_id
+                }
+            )
+
+            raise

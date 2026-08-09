@@ -7,7 +7,9 @@ from modules.warranties.api.schemas import (
     CreateWarrantyPlanResponse
 )
 from modules.applications.domain.enums import EventType
+import logging
 
+logger = logging.getLogger(__name__)
 
 
 
@@ -32,116 +34,167 @@ class CreateWarrantyPlanUseCase:
         current_admin
     ):
 
-
-        # =========================
-        # CHECK DUPLICATE NAME
-        # =========================
-        name = (
-    " ".join(
-        dto.name
-        .strip()
-        .split()
+        try:
+            # =========================
+            # CHECK DUPLICATE NAME
+            # =========================
+            name = (
+        " ".join(
+            dto.name
+            .strip()
+            .split()
+        )
     )
-)
 
 
-        existing = (
-            self.repository
-            .find_by_name(
-                name
-            )
-        )
-
-
-        if existing:
-
-            raise WarrantyPlanAlreadyExists(
-                "Un plan avec ce nom existe déjà"
+            existing = (
+                self.repository
+                .find_by_name(
+                    name
+                )
             )
 
 
+            if existing:
 
-        # =========================
-        # CHECK DUPLICATE TYPE
-        # =========================
+                raise WarrantyPlanAlreadyExists(
+                    "Un plan avec ce nom existe déjà"
+                )
 
-        existing = (
-            self.repository
-            .find_by_plan_type(
-                dto.plan_type
+
+
+            # =========================
+            # CHECK DUPLICATE TYPE
+            # =========================
+
+            existing = (
+                self.repository
+                .find_by_plan_type(
+                    dto.plan_type
+                )
             )
-        )
 
 
-        if existing:
+            if existing:
 
-            raise WarrantyPlanAlreadyExists(
-                "Un plan existe déjà pour ce type"
+                raise WarrantyPlanAlreadyExists(
+                    "Un plan existe déjà pour ce type"
+                )
+
+
+
+            # =========================
+            # CREATE DOMAIN
+            # =========================
+
+            plan = WarrantyPlan(
+
+                id=str(uuid4()),
+
+                name=dto.name.strip(),
+
+                description=dto.description,
+
+
+                plan_type=dto.plan_type,
+
+
+                duration_months=dto.duration_months,
+
+                mileage_limit=dto.mileage_limit,
+
+
+                covers_engine=dto.covers_engine,
+
+                covers_transmission=dto.covers_transmission,
+
+                covers_electronics=dto.covers_electronics,
+
+                covers_assistance=dto.covers_assistance,
+
+                covers_wear_parts=dto.covers_wear_parts,
+
+                price=dto.price,
+
+
+                active=True
             )
 
 
 
-        # =========================
-        # CREATE DOMAIN
-        # =========================
+            # =========================
+            # SAVE
+            # =========================
 
-        plan = WarrantyPlan(
+            plan = (
+                self.repository
+                .save(plan)
+            )
 
-            id=str(uuid4()),
+            self.event_service.log(
+                type=EventType.WARRANTY_PLAN_CREATED,
 
-            name=dto.name.strip(),
+                message="Plan de garantie créé",
 
-            description=dto.description,
+                user_id=current_admin.id,
 
+                event_metadata={
+                    "plan_id": plan.id,
 
-            plan_type=dto.plan_type,
+                    "name": plan.name,
 
+                    "plan_type": (
+                        plan.plan_type.value
+                    ),
 
-            duration_months=dto.duration_months,
+                    "duration_months": (
+                        plan.duration_months
+                    ),
 
-            mileage_limit=dto.mileage_limit,
+                    "mileage_limit": (
+                        plan.mileage_limit
+                    ),
 
+                    "price": plan.price,
 
-            covers_engine=dto.covers_engine,
+                    "coverage": {
+                        "engine": plan.covers_engine,
+                        "transmission": plan.covers_transmission,
+                        "electronics": plan.covers_electronics,
+                        "assistance": plan.covers_assistance,
+                        "wear_parts": plan.covers_wear_parts,
+                    },
 
-            covers_transmission=dto.covers_transmission,
+                    "active": plan.active,
+                },
+            )
 
-            covers_electronics=dto.covers_electronics,
+            self.unit_of_work.commit()
 
-            covers_assistance=dto.covers_assistance,
+            logger.info(
+                "Plan de garantie créé",
+                extra={
+                    "plan_id": plan.id,
+                    "plan_type": plan.plan_type.value,
+                },
+            )
+        except Exception:
 
-            covers_wear_parts=dto.covers_wear_parts,
+            self.unit_of_work.rollback()
 
-            price=dto.price,
+            logger.exception(
+                "Erreur création plan de garantie",
+                extra={
+                    "plan_name": dto.name,
+                    "plan_type": (
+                        dto.plan_type.value
+                        if dto.plan_type
+                        else None
+                    ),
+                },
+            )
 
-
-            active=True
-        )
-
-
-
-        # =========================
-        # SAVE
-        # =========================
-
-        plan = (
-            self.repository
-            .save(plan)
-        )
-
-        self.event_service.log(
-            type=EventType.WARRANTY_PLAN_CREATED,
-            message="Plan de garantie créé",
-            user_id=current_admin.id,
-            event_metadata={
-                "plan_id": plan.id,
-                "plan_name": plan.name,
-                "plan_type": plan.plan_type.value,
-            },
-        )
-
-        self.unit_of_work.commit()
-
+            raise
         # =========================
         # RESPONSE
         # =========================

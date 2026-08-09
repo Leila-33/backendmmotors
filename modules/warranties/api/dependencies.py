@@ -9,9 +9,11 @@ from modules.warranties.application.use_cases.admin.update_warranty_plan import 
 from modules.warranties.application.use_cases.activate_vehicle_warranty import ActivateVehicleWarrantyUseCase
 
 from core.database.dependencies import (
-    get_unit_of_work
+    get_unit_of_work,
 )
-from modules.applications.api.dependencies import get_event_service
+from modules.dependencies.dependencies import (
+    get_event_service
+)
 # =====================================================
 # DEPENDENCY: USECASE
 # =====================================================

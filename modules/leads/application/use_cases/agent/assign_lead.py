@@ -6,6 +6,9 @@ from modules.leads.domain.exceptions import (
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AssignLeadUseCase:
@@ -66,6 +69,7 @@ class AssignLeadUseCase:
             self.lead_repository.update(
                 lead
             )
+            
             self.event_service.log(
     type=EventType.LEAD_ASSIGNED,
     message="Lead assigné à un agent",
@@ -79,10 +83,26 @@ class AssignLeadUseCase:
 
             self.unit_of_work.commit()
 
+            logger.info(
+    "Lead attribué à un agent",
+    extra={
+        "lead_id": lead.id,
+        "agent_id": agent_id,
+    }
+)
+
 
         except Exception:
 
             self.unit_of_work.rollback()
+
+            logger.exception(
+        "Erreur attribution lead",
+        extra={
+            "lead_id": lead_id,
+            "agent_id": agent_id,
+        }
+    )
 
             raise
 

@@ -2,6 +2,9 @@ from modules.auth.domain.exceptions import UserNotFound, CannotArchiveAdmin
 from modules.auth.domain.enums import UserRole
 from modules.auth.api.schemas import ArchiveUserResponse
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ArchiveUserUseCase:
 
@@ -18,7 +21,8 @@ class ArchiveUserUseCase:
 
     def execute(
         self,
-        user_id: str
+        user_id: str,
+        current_admin
     ):
 
         try:
@@ -45,7 +49,7 @@ class ArchiveUserUseCase:
             self.event_service.log(
                 type=EventType.USER_ARCHIVED,
                 message="Utilisateur archivé",
-                user_id=user.id,
+                user_id=current_admin.id,
                 event_metadata={
                     "email": user.email,
                     "role": user.role.value
@@ -54,7 +58,14 @@ class ArchiveUserUseCase:
 
             self.uow.commit()
 
-
+            logger.info(
+    "Utilisateur archivé",
+    extra={
+        "user_id": user.id,
+        "admin_id": current_admin.id,
+    }
+)
+            
             return ArchiveUserResponse(
     message="Utilisateur archivé"
 )
@@ -64,4 +75,10 @@ class ArchiveUserUseCase:
 
             self.uow.rollback()
 
+            logger.exception(
+    "Erreur archivage utilisateur",
+    extra={
+        "user_id": user_id
+    }
+)
             raise

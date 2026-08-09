@@ -10,6 +10,9 @@ from modules.applications.domain.enums import (
 from modules.payments.api.schemas import (
     CompleteRentalPaymentResponse
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CompleteRentalPaymentUseCase:
 
@@ -33,53 +36,61 @@ class CompleteRentalPaymentUseCase:
         payment,
     ):
 
-
-        vehicle = application.vehicle
-
-
-
-        # =========================
-        # RENTAL START
-        # =========================
-
-        vehicle.status = (
-            VehicleStatus.IN_RENTAL
-        )
-
-        vehicle.is_available = False
-
-
-        self.vehicle_repository.update(
-            vehicle
-        )
+        try:
+            vehicle = application.vehicle
 
 
 
-        # =========================
-        # APPLICATION
-        # =========================
+            # =========================
+            # RENTAL START
+            # =========================
 
-        application.status = (
-            ApplicationStatus.COMPLETED
-        )
-
-
-        self.application_repository.update(
-            application
-        )
+            vehicle.status = (
+                VehicleStatus.IN_RENTAL
+            )
 
 
+            self.vehicle_repository.update(
+                vehicle
+            )
 
-        self.event_service.log(
-            type=EventType.RENTAL_PAYMENT_PAID,
-            application_id=application.id,
-            user_id=application.user_id,
-            message="Paiement location confirmé",
-            event_metadata={
-                "payment_id": payment.id,
-                "vehicle_id": vehicle.id,
-            }
-        )
+
+
+            # =========================
+            # APPLICATION
+            # =========================
+
+            application.status = (
+                ApplicationStatus.COMPLETED
+            )
+
+
+            self.application_repository.update(
+                application
+            )
+
+
+
+            self.event_service.log(
+                type=EventType.RENTAL_PAYMENT_PAID,
+                application_id=application.id,
+                user_id=application.user_id,
+                message="Paiement location confirmé",
+                event_metadata={
+                    "payment_id": payment.id,
+                    "vehicle_id": vehicle.id,
+                }
+            )
+
+        except Exception:
+            logger.exception(
+                "Erreur finalisation location",
+                extra={
+                    "application_id": application.id
+                }
+            )
+            raise
+
 
         return CompleteRentalPaymentResponse(
 

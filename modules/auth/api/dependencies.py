@@ -8,7 +8,8 @@ from modules.dependencies.dependencies import (
     get_user_repository,
     get_refresh_repository,
     get_user_activation_token_repository,
-    get_lead_repository
+    get_lead_repository,
+    get_event_service
 )
 from modules.auth.application.use_cases.register_user import RegisterUser
 from modules.auth.application.use_cases.login_user import LoginUser
@@ -40,7 +41,6 @@ from modules.auth.application.services.user_creation_service import UserCreation
 from modules.auth.application.services.activation_token_service import ActivationTokenService
 from modules.auth.application.services.activation_token_validator import ActivationTokenValidator
 from core.security.jwt_service import JwtService
-from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # REPOSITORY

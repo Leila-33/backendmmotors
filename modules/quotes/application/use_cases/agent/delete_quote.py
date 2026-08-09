@@ -6,6 +6,10 @@ from modules.quotes.domain.exceptions import (
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
+
 class DeleteQuoteUseCase:
 
 
@@ -142,5 +146,12 @@ class DeleteQuoteUseCase:
         except Exception:
 
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur suppression devis",
+                extra={
+                    "quote_id": quote_id
+                }
+            )
 
             raise

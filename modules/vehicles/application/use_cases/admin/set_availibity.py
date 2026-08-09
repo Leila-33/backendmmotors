@@ -2,6 +2,9 @@ from modules.vehicles.domain.exceptions import VehicleAvailabilityAlreadySet, Ve
 from modules.vehicles.domain.repositories.vehicle_repository import VehicleRepository
 from core.database.unit_of_work import UnitOfWork
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SetAvailabilityUseCase:
 
@@ -67,8 +70,28 @@ class SetAvailabilityUseCase:
 
             self.unit_of_work.commit()
 
+            logger.info(
+    "Disponibilité véhicule modifiée",
+    extra={
+        "vehicle_id": vehicle.id,
+        "admin_id": current_admin.id,
+        "old_value": old_value,
+        "new_value": value,
+    },
+)
+
         except Exception:
+
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur modification disponibilité véhicule",
+                extra={
+                    "vehicle_id": vehicle_id,
+                    "admin_id": current_admin.id,
+                },
+            )
+
             raise
 
 

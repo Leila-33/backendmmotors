@@ -16,119 +16,69 @@ from modules.financing.domain.exceptions import (
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CreateFinancingContractUseCase:
-
 
     def __init__(
         self,
         application_repository,
         financing_contract_repository,
         event_service,
-        uow
     ):
-
-        self.application_repository = (
-            application_repository
-        )
-
-        self.financing_contract_repository = (
-            financing_contract_repository
-        )
-
+        self.application_repository = application_repository
+        self.financing_contract_repository = financing_contract_repository
         self.event_service = event_service
 
-        self.uow = uow
-
-
-    # =====================================================
-    # EXECUTE
-    # =====================================================
 
     def execute(
         self,
         application_id: str
     ) -> FinancingContract:
 
+        application = (
+            self.application_repository
+            .get_by_id(application_id)
+        )
+
+        if not application:
+            raise ApplicationNotFound()
+
+
+        if not application.financing:
+            raise FinancingDataNotFound()
+
+
+        financing = application.financing
+
+
+        if financing.financed_amount <= 0:
+            raise FinancingDataNotFound()
+
+
+        existing = (
+            self.financing_contract_repository
+            .find_by_application_id(application_id)
+        )
+
+
+        if existing:
+            return existing
+
+
         try:
-            # =================================================
-            # APPLICATION
-            # =================================================
-
-            application = (
-                self.application_repository
-                .get_by_id(application_id)
-            )
-
-
-            if not application:
-                raise ApplicationNotFound()
-
-
-            # =================================================
-            # FINANCING DATA
-            # =================================================
-
-            if not application.financing:
-                raise FinancingDataNotFound()
-
-
-            financing = application.financing
-
-
-            if financing.financed_amount <= 0:
-                raise FinancingDataNotFound()
-
-
-
-            # =================================================
-            # ALREADY EXISTS
-            # =================================================
-
-            existing_contract = (
-                self.financing_contract_repository
-                .find_by_application_id(
-                    application_id
-                )
-            )
-
-
-            if existing_contract:
-                return existing_contract
-
-
-
-            # =================================================
-            # CREATE
-            # =================================================
 
             contract = FinancingContract(
-
                 id=str(uuid4()),
-
                 application_id=application.id,
-
-                financed_amount=(
-                    financing.financed_amount
-                ),
-
-                monthly_payment=(
-                    financing.monthly_payment
-                ),
-
-                duration_months=(
-                    financing.duration_months
-                ),
-
-                remaining_balance=(
-                    financing.financed_amount
-                ),
-
-                created_at=datetime.now(
-                    timezone.utc
-                ),
-
+                financed_amount=financing.financed_amount,
+                monthly_payment=financing.monthly_payment,
+                duration_months=financing.duration_months,
+                remaining_balance=financing.financed_amount,
+                created_at=datetime.now(timezone.utc),
             )
 
 
@@ -138,55 +88,37 @@ class CreateFinancingContractUseCase:
             )
 
 
-            # =================================================
-            # EVENT
-            # =================================================
-
             self.event_service.log(
-
-                    application_id=application.id,
-
-                    user_id=application.user_id,
-
-                    type=(
-                        EventType
-                        .FINANCING_CONTRACT_CREATED
-                    ),
-
-                    message=(
-                        "Contrat de financement créé."
-                    ),
-
-                    event_metadata={
-
-                        "contract_id": contract.id,
-
-                        "financed_amount": (
-                            contract.financed_amount
-                        ),
-
-                        "duration_months": (
-                            contract.duration_months
-                        ),
-
-                        "monthly_payment": (
-                            contract.monthly_payment
-                        )
-
-                    }
-                    )
-                
+                application_id=application.id,
+                user_id=application.user_id,
+                type=EventType.FINANCING_CONTRACT_CREATED,
+                message="Contrat de financement créé.",
+                event_metadata={
+                    "contract_id": contract.id,
+                    "financed_amount": contract.financed_amount,
+                },
+            )
 
 
-            # =================================================
-            # COMMIT
-            # =================================================
-
-            self.uow.commit()
+            logger.info(
+                "Contrat financement créé",
+                extra={
+                    "application_id": application.id,
+                    "contract_id": contract.id,
+                },
+            )
 
 
             return contract
 
+
         except Exception:
-            self.uow.rollback()
+
+            logger.exception(
+                "Erreur création contrat financement",
+                extra={
+                    "application_id": application_id,
+                },
+            )
+
             raise

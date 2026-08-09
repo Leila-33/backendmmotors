@@ -4,6 +4,9 @@ from modules.quotes.api.schemas import QuoteActionResponse
 from modules.leads.domain.exceptions import LeadNotFound
 from modules.leads.domain.enums import LeadStatus
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RefuseQuoteUseCase:
 
@@ -112,14 +115,26 @@ class RefuseQuoteUseCase:
             )
             self.unit_of_work.commit()
 
-
+            logger.info(
+    "Devis refusé",
+    extra={
+        "quote_id": quote.id
+    }
+)
+            return QuoteActionResponse(
+        message="Offre refusée avec succès."
+    )
         except Exception:
 
             self.unit_of_work.rollback()
+       
+            logger.exception(
+                "Erreur refus devis",
+                extra={
+                    "quote_id": quote_id
+                }
+            )
 
             raise
 
 
-        return QuoteActionResponse(
-    message="Offre refusée avec succès."
-)

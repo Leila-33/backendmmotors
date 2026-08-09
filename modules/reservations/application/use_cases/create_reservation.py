@@ -9,6 +9,9 @@ from modules.reservations.domain.repositories.reservation_repository import Rese
 from core.database.unit_of_work import UnitOfWork
 from modules.applications.domain.enums import EventType
 from modules.applications.application.services.event_service import EventService
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreateReservationUseCase:
 
@@ -86,8 +89,26 @@ class CreateReservationUseCase:
 
             self.unit_of_work.commit()
 
+            logger.info(
+    "Réservation créée",
+    extra={
+        "reservation_id": reservation.id,
+        "user_id": application.user_id,
+        "vehicle_id": reservation.vehicle_id,
+    }
+)
             return reservation
 
         except Exception:
+
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur création réservation",
+                extra={
+                    "user_id": application.user_id,
+                    "vehicle_id": reservation.vehicle_id,
+                }
+            )
+
             raise

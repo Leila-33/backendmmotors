@@ -34,9 +34,9 @@ router = APIRouter(tags=["Admin - Options"])
 def create_option(
     request: CreateOptionRequest,
     uc: CreateOptionUseCase = Depends(get_create_option_usecase),
-    admin=Depends(get_current_admin)
+    current_admin=Depends(get_current_admin)
 ):
-    return uc.execute(request)
+    return uc.execute(request, current_admin)
 
 
 # =========================
@@ -69,9 +69,9 @@ def update_option(
     option_id: str,
     request: UpdateOptionRequest,
     uc: UpdateOptionUseCase = Depends(get_update_option_uc),
-    admin=Depends(get_current_admin)
+    current_admin=Depends(get_current_admin)
 ):
-    return uc.execute(option_id, request)
+    return uc.execute(option_id, request, current_admin)
 
 
 # =========================
@@ -86,10 +86,12 @@ def toggle_option_status(
     request: ToggleOptionStatusRequest,
     usecase: ToggleOptionStatusUseCase = Depends(
         get_toggle_option_status_usecase
-    )
+    ),
+    current_admin=Depends(get_current_admin)
 ):
 
     return usecase.execute(
         option_id,
-        request
+        request,
+        current_admin
     )

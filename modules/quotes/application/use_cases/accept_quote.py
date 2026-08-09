@@ -10,6 +10,10 @@ from modules.leads.domain.exceptions import LeadNotFound
 from modules.applications.domain.enums import (
     EventType
 )
+from modules.applications.domain.entities.application_trade_in import ApplicationTradeIn
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AcceptQuoteUseCase:
 
@@ -18,6 +22,8 @@ class AcceptQuoteUseCase:
         self,
         quote_repository,
         application_repository,
+        trade_in_repository,
+        financing_repository,
         lead_repository,
         event_repository,
         notification_service,
@@ -28,6 +34,8 @@ class AcceptQuoteUseCase:
 
         self.quote_repository = quote_repository
         self.application_repository = application_repository
+        self.trade_in_repository = trade_in_repository
+        self.financing_repository = financing_repository
         self.lead_repository = lead_repository
         self.event_repository = event_repository
         self.notification_service = notification_service
@@ -107,57 +115,37 @@ class AcceptQuoteUseCase:
 
 
             # =========================
-            # FINANCING SNAPSHOT
+            # FINANCING
             # =========================
 
-            financing_snapshot = ApplicationFinancing(
-
-                down_payment=quote.down_payment,
-
-                duration_months=quote.duration_months,
-
-                financed_amount=quote.financed_amount,
-
-                monthly_payment=quote.monthly_payment,
-            )
-
-            self.application_repository.save_financing(
-
-                application_id=application.id,
-
-                data=financing_snapshot,
-            )
+            self.financing_repository.save(
+                        ApplicationFinancing(
+                            application_id=application.id,
+                            down_payment=quote.financing.down_payment,
+                            duration_months=quote.financing.duration_months,
+                            financed_amount=quote.financed_amount,
+                            monthly_payment=quote.monthly_payment,
+                        )
+                    )
 
 
             # =========================
-            # TRADE-IN SNAPSHOT
+            # TRADE-IN
             # =========================
 
             if quote.trade_in:
 
-                trade_in_snapshot = TradeInSnapshot(
-
-                    brand=quote.trade_in.brand,
-
-                    model=quote.trade_in.model,
-
-                    year=quote.trade_in.year,
-
-                    mileage=quote.trade_in.mileage,
-
-                    condition=quote.trade_in.condition,
-                )
-
-                self.application_repository.save_trade_in(
-
-                    application_id=application.id,
-
-                    trade_in_value=quote.trade_in_value,
-
-                    data=trade_in_snapshot,
-                )
-
-
+                self.trade_in_repository.save(
+                            ApplicationTradeIn(
+                                application_id=application.id,
+                                brand=quote.trade_in.brand,
+                                model=quote.trade_in.model,
+                                year=quote.trade_in.year,
+                                mileage=quote.trade_in.mileage,
+                                condition=quote.trade_in.condition,
+                                estimated_value=quote.trade_in_value,
+                            )
+                        )
             # =========================
             # EVENT
             # =========================
@@ -204,19 +192,34 @@ class AcceptQuoteUseCase:
             self.unit_of_work.commit()
 
 
+            logger.info(
+                "Devis accepté",
+                extra={
+                    "quote_id": quote.id
+                }
+            )
+
+            return AcceptQuoteResponse(
+
+                message=(
+                    "Votre offre a été acceptée. "
+                    "Votre dossier est maintenant créé."
+                ),
+
+                application_id=application.id,
+            )
+        
         except Exception:
 
-            self.unit_of_work.rollback()
+            self.uow.rollback()
+
+            logger.exception(
+                "Erreur acceptation devis",
+                extra={
+                    "quote_id": quote_id
+                }
+            )
 
             raise
 
 
-        return AcceptQuoteResponse(
-
-            message=(
-                "Votre offre a été acceptée. "
-                "Votre dossier est maintenant créé."
-            ),
-
-            application_id=application.id,
-        )

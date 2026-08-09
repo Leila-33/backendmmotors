@@ -44,10 +44,13 @@ def create_user(
     use_case: CreateUserUseCase = Depends(
         get_create_user_usecase
     ),
+    current_admin: User = Depends(get_current_admin)
+
 ):
 
     return use_case.execute(
-        payload=request
+        payload=request,
+        current_admin=current_admin
     )
 
 
@@ -91,7 +94,8 @@ def update_role(
 
     return uc.execute(
         user_id=user_id,
-        new_role=request.role
+        new_role=request.role,
+        current_admin=current_admin
     )
 
 @router.patch(
@@ -103,12 +107,14 @@ def toggle_user_active(
     request: ToggleUserActiveRequest,
     uc: ToggleUserActiveUseCase = Depends(
         get_toggle_user_active_usecase
-    )
+    ),
+    current_admin: User = Depends(get_current_admin)
 ):
 
     return uc.execute(
         user_id=user_id,
-        is_active=request.is_active
+        is_active=request.is_active,
+        current_admin=current_admin
     )
 
 
@@ -119,7 +125,7 @@ def archive_user(
     usecase: ArchiveUserUseCase = Depends(get_archive_user_usecase),
     current_admin: User = Depends(get_current_admin)
 ):
-    return usecase.execute(user_id)
+    return usecase.execute(user_id, current_admin)
 
 @router.post(
     "/archive",
@@ -134,5 +140,6 @@ def archive_users(
 ):
 
     return use_case.execute(
-        ids=request.user_ids
+        ids=request.user_ids,
+        current_admin=current_admin
     )

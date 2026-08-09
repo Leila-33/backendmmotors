@@ -28,7 +28,9 @@ from modules.notifications.domain.enums import (
 )
 
 from core.database.unit_of_work import UnitOfWork
+import logging
 
+logger = logging.getLogger(__name__)
 
 class UpdateDocumentUseCase:
 
@@ -51,70 +53,91 @@ class UpdateDocumentUseCase:
         dto: UpdateDocumentDTO,
         current_admin,
     ):
+        try:
+            document = self.document_repository.get_by_id(
+                dto.document_id
+            )
 
-        document = self.document_repository.get_by_id(
-            dto.document_id
-        )
-
-        if not document:
-            raise DocumentNotFound()
+            if not document:
+                raise DocumentNotFound()
 
 
-        application = self.application_repository.get_by_id(
-            document.application_id
-        )
+            application = self.application_repository.get_by_id(
+                document.application_id
+            )
 
-        if not application:
-            raise ApplicationNotFound()
+            if not application:
+                raise ApplicationNotFound()
 
-        document.update_status(
-            status=dto.status,
-            comment=dto.comment,
-        )
+            document.update_status(
+                status=dto.status,
+                comment=dto.comment,
+            )
 
-        self.document_repository.save(document)
+            self.document_repository.save(document)
 
-        message = DocumentMessageBuilder.build(
-            document_type=document.type,
-            status=dto.status,
-            comment=dto.comment,
-        )
+            message = DocumentMessageBuilder.build(
+                document_type=document.type,
+                status=dto.status,
+                comment=dto.comment,
+            )
 
-        self.event_service.log(
-            application_id=document.application_id,
-            type=DOCUMENT_EVENT_MAP[dto.status],
-            message=message,
-            user_id=current_admin.id,
-            event_metadata={
-                "document_id": document.id,
-                "document_type": document.type,
-                "status": dto.status.value,
-            },
-        )
+            self.event_service.log(
+                application_id=document.application_id,
+                type=DOCUMENT_EVENT_MAP[dto.status],
+                message=message,
+                user_id=current_admin.id,
+                event_metadata={
+                    "document_id": document.id,
+                    "document_type": document.type,
+                    "status": dto.status.value,
+                },
+            )
 
-        if dto.status == DocumentStatus.REJECTED:
+            if dto.status == DocumentStatus.REJECTED:
 
-            notification = (
-                DocumentNotificationBuilder.build_rejected(
-                    document_type=document.type,
-                    comment=dto.comment,
+                notification = (
+                    DocumentNotificationBuilder.build_rejected(
+                        document_type=document.type,
+                        comment=dto.comment,
+                    )
                 )
+
+                await self.notification_service.send(
+                    user_id=application.user_id,
+                    email=application.user.email,
+                    entity_type=NotificationEntityType.APPLICATION,
+                    entity_id=document.application_id,
+                    title=notification.title,
+                    message=notification.message,
+                    notif_type=NotificationType.DOCUMENT_REJECTED,
+                )
+
+            self.uow.commit()
+
+            logger.info(
+    "Document application mis à jour",
+    extra={
+        "application_id": application.id,
+        "document_id": document.id,
+        "admin_id": current_admin.id,
+    }
+)
+            return UpdateDocumentResponseDTO(
+                document_id=document.id,
+                status=document.status,
+                comment=document.comment,
             )
+        
+        except Exception:
 
-            await self.notification_service.send(
-                user_id=application.user_id,
-                email=application.user.email,
-                entity_type=NotificationEntityType.APPLICATION,
-                entity_id=document.application_id,
-                title=notification.title,
-                message=notification.message,
-                notif_type=NotificationType.DOCUMENT_REJECTED,
-            )
+            self.uow.rollback()
 
-        self.uow.commit()
-
-        return UpdateDocumentResponseDTO(
-            document_id=document.id,
-            status=document.status,
-            comment=document.comment,
-        )
+            logger.exception(
+    "Erreur lors de la mise à jour d'un document",
+    extra={
+        "application_id": application.id,
+        "document_id": document.id
+    }
+)
+            raise

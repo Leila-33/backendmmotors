@@ -1,5 +1,8 @@
 from modules.auth.api.schemas import CreateUserResponse
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreateUserUseCase:
 
@@ -21,6 +24,7 @@ class CreateUserUseCase:
     def execute(
         self,
         payload,
+        current_admin
     ) -> CreateUserResponse:
 
         try:
@@ -38,14 +42,22 @@ class CreateUserUseCase:
             self.event_service.log(
                 type=EventType.USER_CREATED,
                 message="Utilisateur créé par un administrateur",
-                user_id=user.id,
+                user_id=current_admin,
                 event_metadata={
                     "email": user.email,
                     "role": user.role.value
                 }
             )
+
             self.uow.commit()
 
+            logger.info(
+    "Utilisateur créé",
+    extra={
+        "user_id": user.id,
+        "role": user.role.value,
+    }
+)
             return CreateUserResponse(
                 id=user.id,
                 email=user.email,
@@ -57,4 +69,10 @@ class CreateUserUseCase:
 
             self.uow.rollback()
 
+            logger.exception(
+    "Erreur création utilisateur",
+    extra={
+        "email": user.email
+    }
+)
             raise

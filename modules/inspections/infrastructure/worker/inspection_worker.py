@@ -10,12 +10,11 @@ from modules.vehicles.domain.exceptions import VehicleNotFound
 import json
 from modules.vehicles.infrastructure.queue.redis_connection import redis_conn
 from core.database.unit_of_work import UnitOfWork
-from modules.applications.domain.enums import (
-    EventType
-)
-
+from modules.applications.domain.enums import EventType
+import logging
 from modules.applications.infrastructure.repositories.event_repository_sql import EventRepositorySQL
 from modules.applications.application.services.event_service import EventService
+logger = logging.getLogger(__name__)
 
 def run_inspection(
     vehicle_id: str,
@@ -81,7 +80,12 @@ def run_inspection(
         "inspection_id": inspection.id
     }
 )
-
+        logger.info(
+                "Début inspection véhicule",
+                extra={
+                    "vehicle_id": vehicle_id
+                }
+            )
         unit_of_work.commit()
 
         # =====================================
@@ -142,7 +146,15 @@ def run_inspection(
         vehicle_repository.update(
             vehicle
         )
-
+        logger.info(
+    "Inspection véhicule terminée",
+    extra={
+        "vehicle_id": vehicle_id,
+        "admin_id": admin_id,
+        "status": inspection.status.value,
+        "overall_score": inspection.overall_score,
+    }
+)
         unit_of_work.commit()
 
         # =====================================
@@ -186,6 +198,13 @@ def run_inspection(
             ),
         )
 
+        logger.exception(
+            "Inspection échouée",
+            extra={
+                "vehicle_id": vehicle_id,
+                "admin_id": admin_id
+            }
+        )
         raise
 
     finally:

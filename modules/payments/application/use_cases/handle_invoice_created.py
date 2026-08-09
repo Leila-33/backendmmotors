@@ -1,4 +1,7 @@
 from modules.financing.domain.exceptions import FinancingContractNotFound
+import logging
+
+logger = logging.getLogger(__name__)
 
 class HandleInvoiceCreatedUseCase:
 
@@ -26,9 +29,12 @@ class HandleInvoiceCreatedUseCase:
         self,
         event: dict
     ):
+        invoice_id = None
+
         try:
 
             invoice = event["data"]["object"]
+            invoice_id = invoice.id
 
 
             subscription_id = invoice.subscription
@@ -88,10 +94,24 @@ class HandleInvoiceCreatedUseCase:
 
             self.uow.commit()
 
-
+            logger.info(
+                "Facture Stripe associée à une échéance",
+                extra={
+                    "invoice_id": invoice_id,
+                    "subscription_id": subscription_id,
+                    "contract_id": contract.id,
+                    "installment_id": installment.id,
+                }
+            )
             return installment
 
         except Exception:
-            self.uow.rollback()
+
+            logger.exception(
+                "Erreur traitement facture Stripe",
+                extra={
+                    "invoice_id": invoice_id,
+                }
+            )
+
             raise
-        

@@ -1,8 +1,9 @@
 from modules.warranties.domain.exceptions import WarrantyPlanNotFound
-
 from modules.warranties.api.schemas import UpdateWarrantyPlanResponse
 from modules.applications.domain.enums import EventType
+import logging
 
+logger = logging.getLogger(__name__)
 
 class ToggleWarrantyPlanUseCase:
 
@@ -26,80 +27,101 @@ class ToggleWarrantyPlanUseCase:
         current_admin
     ):
 
+        try:
 
-        # =========================
-        # GET PLAN
-        # =========================
+            # =========================
+            # GET PLAN
+            # =========================
 
-        plan = (
-            self.repository
-            .get_by_id(plan_id)
-        )
-
-
-        if not plan:
-            raise WarrantyPlanNotFound()
+            plan = (
+                self.repository
+                .get_by_id(plan_id)
+            )
 
 
-        # =========================
-        # TOGGLE STATUS
-        # =========================
-
-        old_status = plan.active
-
-        plan.active = active
-
-        self.repository.update(plan)
+            if not plan:
+                raise WarrantyPlanNotFound()
 
 
-        self.event_service.log(
-            type=(
-                EventType.WARRANTY_PLAN_ACTIVATED
-                if active
-                else
-                EventType.WARRANTY_PLAN_DEACTIVATED
-            ),
-            message=(
-                "Plan de garantie activé"
-                if active
-                else
-                "Plan de garantie désactivé"
-            ),
-            user_id=current_admin.id,
-            event_metadata={
-                "plan_id": plan.id,
-                "name": plan.name,
-                "old_status": old_status,
-                "new_status": active,
-            }
-        )
+            # =========================
+            # TOGGLE STATUS
+            # =========================
+
+            old_status = plan.active
+
+            if active:
+                plan.activate()
+            else:
+                plan.deactivate()
+
+            self.repository.update(plan)
 
 
-        self.unit_of_work.commit()
+            self.event_service.log(
+                type=(
+                    EventType.WARRANTY_PLAN_ACTIVATED
+                    if active
+                    else
+                    EventType.WARRANTY_PLAN_DEACTIVATED
+                ),
+                message=(
+                    "Plan de garantie activé"
+                    if active
+                    else
+                    "Plan de garantie désactivé"
+                ),
+                user_id=current_admin.id,
+                event_metadata={
+                    "plan_id": plan.id,
+                    "name": plan.name,
+                    "old_status": old_status,
+                    "new_status": active,
+                }
+            )
 
 
-        # =========================
-        # UPDATE
-        # =========================
+            # =========================
+            # UPDATE
+            # =========================
 
-        self.repository.update(plan)
+            self.repository.update(plan)
 
-        self.unit_of_work.commit()
+            self.unit_of_work.commit()
+            
+            logger.info(
+    "Statut plan de garantie modifié",
+    extra={
+        "plan_id": plan.id,
+        "old_active": old_status,
+        "new_active": active,
+    },
+)
+        except Exception:
 
+            self.unit_of_work.rollback()
 
+            logger.exception(
+                "Erreur modification statut plan de garantie",
+                extra={
+                    "plan_id": plan_id,
+                    "active": active,
+                },
+            )
+
+            raise
         # =========================
         # RESPONSE
         # =========================
 
         return UpdateWarrantyPlanResponse(
 
-            id=plan.id,
+                id=plan.id,
 
-            message=(
-                "Plan activé avec succès"
-                if active
-                else
-                "Plan désactivé avec succès"
+                message=(
+                    "Plan activé avec succès"
+                    if active
+                    else
+                    "Plan désactivé avec succès"
+                )
+
             )
-
-        )

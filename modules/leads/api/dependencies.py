@@ -8,13 +8,12 @@ from modules.leads.application.use_cases.agent.mark_lead_contacted import MarkLe
 from modules.leads.application.use_cases.agent.delete_lead import DeleteLeadUseCase
 from modules.leads.domain.repositories.lead_repository import LeadRepository
 from modules.quotes.domain.repositories.quote_repository import QuoteRepository
-from modules.applications.api.dependencies import get_event_service
 
 from modules.dependencies.dependencies import (
     get_lead_repository,
     get_lead_authorization,
     get_quote_repository,
-
+    get_event_service
 )
 from core.database.dependencies import (
     get_unit_of_work,

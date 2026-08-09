@@ -6,6 +6,10 @@ from modules.leads.domain.enums import LeadStatus
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
+
 class SendQuoteUseCase:
 
 
@@ -163,22 +167,34 @@ class SendQuoteUseCase:
 
             self.unit_of_work.commit()
 
+            # =========================
+            # EMAIL
+            # =========================
+
+            self.email_service.send_quote_email(
+        quote=quote,
+        customer=customer,
+        vehicle=vehicle,
+        activation_token=activation_token,
+    )
+            logger.info(
+        "Devis envoyé",
+        extra={
+            "quote_id": quote.id
+        }
+    )
+            return quote
+
 
         except Exception:
 
             self.unit_of_work.rollback()
 
-            raise
+            logger.exception(
+                "Erreur envoi devis",
+                extra={
+                    "quote_id": quote_id
+                }
+            )
 
 
-        # =========================
-        # EMAIL
-        # =========================
-
-        self.email_service.send_quote_email(
-    quote=quote,
-    customer=customer,
-    vehicle=vehicle,
-    activation_token=activation_token,
-)
-        return quote

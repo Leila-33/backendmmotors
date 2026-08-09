@@ -10,7 +10,9 @@ from modules.applications.domain.enums import (
 from modules.payments.api.schemas import (
     HandlePaymentSuccessResponse
 )
+import logging
 
+logger = logging.getLogger(__name__)
 
 class HandlePaymentSuccessUseCase:
 
@@ -79,7 +81,13 @@ class HandlePaymentSuccessUseCase:
                         payment.application_id
                     )
                 )
-
+                logger.info(
+        "Webhook Stripe déjà traité",
+        extra={
+            "payment_id": payment.id,
+            "stripe_session_id": stripe_session_id,
+        }
+    )
                 return HandlePaymentSuccessResponse(
 
                     payment_id=payment.id,
@@ -167,30 +175,40 @@ class HandlePaymentSuccessUseCase:
             self.uow.commit()
 
 
-
-            return HandlePaymentSuccessResponse(
-
-                payment_id=payment.id,
-
-                status=payment.status.value,
-
-                vehicle_type=(
-                    vehicle.type.value
-                ),
-
-                application_id=(
-                    application.id
-                ),
-
-                message=(
-                    "Paiement traité avec succès"
-                )
+            logger.info(
+                "Paiement Stripe traité avec succès",
+                extra={
+                    "payment_id": payment.id,
+                    "stripe_session_id": stripe_session_id,
+                    "application_id": application.id,
+                    "vehicle_id": vehicle.id,
+                }
             )
 
+
+            return HandlePaymentSuccessResponse(
+                payment_id=payment.id,
+                status=payment.status.value,
+                vehicle_type=vehicle.type.value,
+                application_id=application.id,
+                message="Paiement traité avec succès"
+            )
 
 
         except Exception:
 
             self.uow.rollback()
+
+            logger.exception(
+                "Erreur traitement paiement Stripe",
+                extra={
+                    "stripe_session_id": stripe_session_id,
+                    "payment_id": (
+                        payment.id
+                        if payment
+                        else None
+                    ),
+                }
+            )
 
             raise

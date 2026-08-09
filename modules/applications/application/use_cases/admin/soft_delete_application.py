@@ -7,6 +7,9 @@ from modules.applications.domain.entities.application import Application
 from datetime import datetime, timezone
 from modules.auth.domain.entities.user import User
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SoftDeleteApplicationUseCase:
 
@@ -30,71 +33,90 @@ class SoftDeleteApplicationUseCase:
         current_admin: User,
     ) -> Application:
 
-
-        # =========================
-        # GET APPLICATION
-        # =========================
-        application = (
-            self.application_repository.get_by_id(
-                application_id
+        try:
+            # =========================
+            # GET APPLICATION
+            # =========================
+            application = (
+                self.application_repository.get_by_id(
+                    application_id
+                )
             )
-        )
 
-        if not application:
-            raise ApplicationNotFound()
-
-
-        # =========================
-        # VALIDATION
-        # =========================
-        SoftDeleteApplicationPolicy.validate(
-            application
-        )
+            if not application:
+                raise ApplicationNotFound()
 
 
-        # =========================
-        # SOFT DELETE
-        # =========================
-        application.deleted_at = datetime.now(
-            timezone.utc
-        )
-
-        self.application_repository.update(
-            application
-        )
+            # =========================
+            # VALIDATION
+            # =========================
+            SoftDeleteApplicationPolicy.validate(
+                application
+            )
 
 
-        # =========================
-        # EVENT
-        # =========================
-        self.event_service.log(
+            # =========================
+            # SOFT DELETE
+            # =========================
+            application.deleted_at = datetime.now(
+                timezone.utc
+            )
 
-                application_id=application.id,
+            self.application_repository.update(
+                application
+            )
 
-                user_id=current_admin.id,
 
-                type=EventType.APPLICATION_DELETED,
+            # =========================
+            # EVENT
+            # =========================
+            self.event_service.log(
 
-                message=(
-                    "Dossier supprimé par administrateur."
-                ),
+                    application_id=application.id,
 
-                event_metadata={
-                    "deleted_by": current_admin.id,
-                    "vehicle_id": application.vehicle_id,
-                    "status": (
-                        application.status.value
-                        if application.status
-                        else None
+                    user_id=current_admin.id,
+
+                    type=EventType.APPLICATION_SOFT_DELETED,
+
+                    message=(
+                        "Dossier supprimé par administrateur."
                     ),
-                },
-            )
+
+                    event_metadata={
+                        "deleted_by": current_admin.id,
+                        "vehicle_id": application.vehicle_id,
+                        "status": (
+                            application.status.value
+                            if application.status
+                            else None
+                        ),
+                    },
+                )
 
 
-        # =========================
-        # COMMIT
-        # =========================
-        self.unit_of_work.commit()
+            # =========================
+            # COMMIT
+            # =========================
+            self.unit_of_work.commit()
 
+            logger.info(
+    "Application supprimée logiquement",
+    extra={
+        "application_id": application.id,
+        "user_id": current_admin.id,
+    }
+)
 
-        return application
+            return application
+
+        except Exception:
+
+            self.unit_of_work.rollback()
+
+            logger.exception(
+    "Erreur soft delete application",
+    extra={
+        "application_id": application_id
+    }
+)
+            raise

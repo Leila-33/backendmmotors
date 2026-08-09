@@ -1,6 +1,14 @@
 from modules.auth.domain.exceptions import TokenInvalid
 from modules.auth.api.schemas import VerifyEmailResponse
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class VerifyEmail:
 
@@ -21,6 +29,8 @@ class VerifyEmail:
         self,
         token: str
     ) -> VerifyEmailResponse:
+
+        payload = None
 
         try:
 
@@ -47,8 +57,9 @@ class VerifyEmail:
                 raise TokenInvalid()
 
 
+
             # =========================
-            # GET USER
+            # USER
             # =========================
 
             user = (
@@ -61,26 +72,37 @@ class VerifyEmail:
                 raise TokenInvalid()
 
 
+
             # =========================
             # IDEMPOTENCE
             # =========================
 
             if user.is_verified:
 
+                logger.info(
+                    "Email déjà vérifié",
+                    extra={
+                        "user_id": user.id
+                    }
+                )
+
                 return VerifyEmailResponse(
                     message="Email already verified"
                 )
 
 
+
             # =========================
-            # VERIFY USER
+            # VERIFY
             # =========================
 
             user.is_verified = True
 
+
             self.user_repo.update(
                 user
             )
+
 
 
             # =========================
@@ -88,16 +110,30 @@ class VerifyEmail:
             # =========================
 
             self.event_service.log(
+
                 type=EventType.USER_EMAIL_VERIFIED,
-                message="Compte utilisateur activé",
+
+                message="Email utilisateur vérifié",
+
                 user_id=user.id,
+
                 event_metadata={
-                    "email": user.email
+                    "action": "email_verified"
                 }
             )
 
 
+
             self.uow.commit()
+
+
+
+            logger.info(
+                "Email utilisateur vérifié",
+                extra={
+                    "user_id": user.id
+                }
+            )
 
 
             return VerifyEmailResponse(
@@ -105,8 +141,37 @@ class VerifyEmail:
             )
 
 
+
+        except TokenInvalid:
+
+            logger.warning(
+                "Tentative validation email avec token invalide",
+                extra={
+                    "token_type": (
+                        payload.get("type")
+                        if payload
+                        else None
+                    )
+                }
+            )
+
+            raise
+
+
+
         except Exception:
 
             self.uow.rollback()
+
+            logger.exception(
+                "Erreur technique vérification email",
+                extra={
+                    "user_id": (
+                        payload.get("sub")
+                        if payload
+                        else None
+                    )
+                }
+            )
 
             raise

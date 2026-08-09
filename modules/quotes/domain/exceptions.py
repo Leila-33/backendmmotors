@@ -18,14 +18,6 @@ class QuoteCannotBeSent(DomainException):
             status_code=400,
         )
 
-class ActiveQuoteAlreadyExists(DomainException):
-
-    def __init__(self):
-        super().__init__(
-            message="Une offre est déjà en cours pour ce prospect.",
-            status_code=409,
-        )
-
 class QuoteAlreadySent(DomainException):
 
     def __init__(self):

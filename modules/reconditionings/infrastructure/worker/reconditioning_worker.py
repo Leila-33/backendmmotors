@@ -9,6 +9,7 @@ from modules.inspections.infrastructure.repositories.inspection_repository_sql i
 from modules.reconditionings.application.services.perform_reconditioning_analysis import (
     perform_reconditioning_analysis
 )
+from modules.vehicles.domain.exceptions import VehicleNotFound
 from modules.inspections.domain.exceptions import InspectionNotFound
 from modules.reconditionings.domain.exceptions import ReconditioningNotFound
 import json
@@ -19,7 +20,10 @@ from core.database.unit_of_work import UnitOfWork
 from modules.applications.domain.enums import EventType
 from modules.applications.infrastructure.repositories.event_repository_sql import EventRepositorySQL
 from modules.applications.application.services.event_service import EventService
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 
 def run_reconditioning(
@@ -90,11 +94,14 @@ def run_reconditioning(
             reconditioning
         )
         vehicle = (
-                    vehicle_repository
-                    .get_by_id(
-                        reconditioning.vehicle_id
-                    )
-                )
+    vehicle_repository
+    .get_by_id(
+        reconditioning.vehicle_id
+    )
+)
+
+        if not vehicle:
+            raise VehicleNotFound()
         
         event_service.log(
     type=EventType.RECONDITIONING_STARTED,
@@ -127,7 +134,14 @@ def run_reconditioning(
         )
 
 
-
+        logger.info(
+    "Reconditionnement démarré",
+    extra={
+        "reconditioning_id": reconditioning.id,
+        "vehicle_id": vehicle.id,
+        "admin_id": admin_id,
+    }
+)
         # =========================
         # 4. ANALYSIS
         # =========================
@@ -187,7 +201,16 @@ def run_reconditioning(
 
         unit_of_work.commit()
 
-
+        logger.info(
+            "Reconditionnement terminé",
+            extra={
+                "reconditioning_id": reconditioning.id,
+                "vehicle_id": vehicle.id,
+                "cost": reconditioning.cost,
+                "duration_days": reconditioning.duration_days,
+                "tasks_count": len(reconditioning.tasks),
+            }
+        )
 
         # =========================
         # 7. REALTIME UPDATE
@@ -238,6 +261,14 @@ def run_reconditioning(
     except Exception:
 
         unit_of_work.rollback()
+
+        logger.exception(
+            "Erreur pendant le reconditionnement véhicule",
+            extra={
+                "reconditioning_id": reconditioning_id,
+                "admin_id": admin_id,
+            }
+        )
 
         raise
 

@@ -32,8 +32,8 @@ from modules.applications.infrastructure.repositories.application_option_reposit
     ApplicationOptionRepositorySQL,
 )
 from modules.applications.domain.repositories.document_repository import DocumentRepository
-from modules.storage.infrastrucure.s3_service import S3Service
 from modules.storage.api.dependencies import get_s3_service
+from modules.applications.application.services.event_service import EventService
 
 def get_application_repository(
     db: Session = Depends(get_db),
@@ -46,6 +46,15 @@ def get_event_repository(
 ):
     return EventRepositorySQL(db)
 
+def get_event_service(
+    event_repository = Depends(
+        get_event_repository
+    )
+):
+
+    return EventService(
+        event_repository
+    )
 
 def get_document_repository(
     db: Session = Depends(get_db),

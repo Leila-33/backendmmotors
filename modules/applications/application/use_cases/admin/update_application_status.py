@@ -24,7 +24,9 @@ from modules.applications.domain.exceptions import (
 )
 from modules.auth.domain.entities.user import User
 from core.database.unit_of_work import UnitOfWork
+import logging
 
+logger = logging.getLogger(__name__)
 
 class UpdateApplicationStatusUseCase:
 
@@ -52,121 +54,143 @@ class UpdateApplicationStatusUseCase:
         # =========================
         # GET APPLICATION
         # =========================
-
-        application = (
-            self.application_repository.get_by_id(
-                application_id
+        try:
+            application = (
+                self.application_repository.get_by_id(
+                    application_id
+                )
             )
-        )
 
-        if not application:
-            raise ApplicationNotFound()
-
-
-        old_status = application.status
+            if not application:
+                raise ApplicationNotFound()
 
 
-        # =========================
-        # UPDATE STATUS
-        # =========================
-
-        application.change_status(
-            dto.status
-        )
-
-        self.application_repository.update(
-            application
-        )
+            old_status = application.status
 
 
-        # =========================
-        # GET USER
-        # =========================
+            # =========================
+            # UPDATE STATUS
+            # =========================
 
-        user = application.user
-
-
-        user_first_name = user.first_name
-
-
-        # =========================
-        # NOTIFICATION
-        # =========================
-
-        notification = (
-            ApplicationNotificationBuilder.build(
-                application=application,
-                status=dto.status,
-                reason=dto.reason,
-                user_first_name=user_first_name,
-            )
-        )
-
-
-        await self.notification_service.send(
-
-            user_id=application.user_id,
-
-            email=user.email,
-
-            entity_type=NotificationEntityType.APPLICATION,
-
-            entity_id=application.id,
-
-            title=notification.title,
-
-            message=notification.message,
-
-            notif_type=notification.type,
-        )
-
-
-        # =========================
-        # EVENT
-        # =========================
-
-        self.event_service.log(
-
-            application_id=application.id,
-
-            type=APPLICATION_EVENT_MAP.get(
+            application.change_status(
                 dto.status
-            ),
+            )
 
-            message=notification.message,
+            self.application_repository.update(
+                application
+            )
 
-            user_id=current_admin.id,
 
-            event_metadata={
+            # =========================
+            # GET USER
+            # =========================
 
-                "old_status": (
-                    old_status.value
-                    if old_status
-                    else None
+            user = application.user
+
+
+            user_first_name = user.first_name
+
+
+            # =========================
+            # NOTIFICATION
+            # =========================
+
+            notification = (
+                ApplicationNotificationBuilder.build(
+                    application=application,
+                    status=dto.status,
+                    reason=dto.reason,
+                    user_first_name=user_first_name,
+                )
+            )
+
+
+            await self.notification_service.send(
+
+                user_id=application.user_id,
+
+                email=user.email,
+
+                entity_type=NotificationEntityType.APPLICATION,
+
+                entity_id=application.id,
+
+                title=notification.title,
+
+                message=notification.message,
+
+                notif_type=notification.type,
+            )
+
+
+            # =========================
+            # EVENT
+            # =========================
+
+            self.event_service.log(
+
+                application_id=application.id,
+
+                type=APPLICATION_EVENT_MAP.get(
+                    dto.status
                 ),
 
-                "new_status": dto.status.value,
+                message=notification.message,
 
-                "reason": dto.reason,
-            },
-        )
+                user_id=current_admin.id,
 
-        # =========================
-        # COMMIT
-        # =========================
+                event_metadata={
 
-        self.uow.commit()
+                    "old_status": (
+                        old_status.value
+                        if old_status
+                        else None
+                    ),
 
+                    "new_status": dto.status.value,
 
-        # =========================
-        # RESPONSE
-        # =========================
+                    "reason": dto.reason,
+                },
+            )
 
-        return UpdateApplicationStatusResponseDTO(
+            # =========================
+            # COMMIT
+            # =========================
 
-            application_id=application.id,
+            self.uow.commit()
 
-            status=application.status.value,
+            logger.info(
+    "Statut application modifié",
+    extra={
+        "application_id": application.id,
+        "old_status": old_status.value,
+        "new_status": application.status.value,
+        "admin_id": current_admin.id,
+    }
+)
+            # =========================
+            # RESPONSE
+            # =========================
 
-            message=notification.message,
-        )
+            return UpdateApplicationStatusResponseDTO(
+
+                application_id=application.id,
+
+                status=application.status.value,
+
+                message=notification.message,
+            )
+
+        except Exception:
+
+            self.uow.rollback()
+
+            logger.exception(
+    "Erreur lors de la mise à jour du statut application",
+    extra={
+        "application_id": application.id,
+        "new_status":  dto.status.value
+    }
+)
+     
+            raise

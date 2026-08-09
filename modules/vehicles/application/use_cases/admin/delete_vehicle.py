@@ -3,6 +3,9 @@ from modules.vehicles.domain.exceptions import VehicleNotFound
 from modules.storage.infrastrucure.s3_service import S3Service
 from core.database.unit_of_work import UnitOfWork
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DeleteVehicle:
 
@@ -60,9 +63,26 @@ class DeleteVehicle:
             # =========================
             self.unit_of_work.commit()
 
+            logger.info(
+    "Véhicule supprimé",
+    extra={
+        "vehicle_id": vehicle.id,
+        "admin_id": current_admin.id,
+    },
+)
 
         except Exception:
+
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur suppression véhicule",
+                extra={
+                    "vehicle_id": vehicle_id,
+                    "admin_id": current_admin.id,
+                },
+            )
+
             raise
 
 

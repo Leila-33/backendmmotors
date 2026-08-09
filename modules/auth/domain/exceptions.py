@@ -164,3 +164,11 @@ class InvalidUserRole(DomainException):
             message="Le rôle utilisateur fourni est invalide",
             status_code=400
         )
+
+class InvalidRefreshToken(DomainException):
+
+    def __init__(self):
+        super().__init__(
+            message="Le refresh token est invalide ou expiré",
+            status_code=401
+        )

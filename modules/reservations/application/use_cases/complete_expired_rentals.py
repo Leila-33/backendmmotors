@@ -5,6 +5,9 @@ from modules.applications.domain.repositories.application_repository import Appl
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 from core.database.unit_of_work import UnitOfWork
 from modules.applications.application.services.event_service import EventService
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CompleteExpiredRentalsUseCase:
 
@@ -67,18 +70,33 @@ class CompleteExpiredRentalsUseCase:
                     # =========================
                 self.event_service.log(
                                 application_id=application.id,
-                                user_id=application.user_id,
+                                user_id=None,
                                 vehicle_id=reservation.vehicle_id,
                                 type=EventType.RENTAL_COMPLETED,
                                 message="Location terminée automatiquement.",
                                 event_metadata={
-                                    "reservation_id": reservation.id
-                                },
+                                    "reservation_id": reservation.id,
+                                    "completed_by": "SYSTEM",
+                                    "user_id": application.user_id,
+                                }
                             )
                     
 
             self.unit_of_work.commit()
 
+            logger.info(
+                "Locations expirées complétées",
+                extra={
+                    "count": len(reservations)
+                }
+            )
+
         except Exception:
+
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur lors de la clôture automatique des locations"
+            )
+
             raise

@@ -4,6 +4,10 @@ from datetime import datetime, timezone
 from modules.auth.domain.enums import UserRole
 from modules.applications.domain.enums import EventType
 from datetime import datetime, timezone
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class ArchiveSupportTicketUseCase:
@@ -71,11 +75,26 @@ class ArchiveSupportTicketUseCase:
 )
 
             self.unit_of_work.commit()
-
+            
+            logger.info(
+    "Ticket SAV archivé",
+    extra={
+        "ticket_id": ticket.id,
+        "admin_id": user.id,
+    },
+)
             return updated_ticket
 
         except Exception:
 
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur archivage ticket SAV",
+                extra={
+                    "ticket_id": ticket_id,
+                    "actor_id": user.id,
+                },
+            )
 
             raise

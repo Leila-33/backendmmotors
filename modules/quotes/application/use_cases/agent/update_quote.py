@@ -8,6 +8,10 @@ from modules.quotes.domain.exceptions import QuoteNotFound
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
+
 class UpdateQuoteUseCase:
 
 
@@ -104,16 +108,7 @@ class UpdateQuoteUseCase:
             # VEHICLE
             # =========================
 
-            vehicle = (
-                self.vehicle_repository
-                .get_by_id(
-                    lead.vehicle_id
-                )
-            )
-
-
-            if vehicle is None:
-                raise VehicleNotFound()
+            vehicle = lead.vehicle
 
 
 
@@ -325,14 +320,12 @@ class UpdateQuoteUseCase:
 
                     )
 
-
             else:
-
 
                 if existing_trade_in:
 
                     self.quote_trade_in_repository.delete(
-                        existing_trade_in.id
+                        existing_trade_in.quote_id
                     )
 
             self.event_service.log(
@@ -341,7 +334,8 @@ class UpdateQuoteUseCase:
     quote_id=quote.id,
     user_id=agent_id,
     event_metadata={
-        "quote_id": quote.id,
+        "financed_amount": financing.financed_amount,
+        "trade_in_value": trade_in_value,
     }
 )
 
@@ -353,13 +347,25 @@ class UpdateQuoteUseCase:
 
 
 
-        except Exception:
+            logger.info(
+                "Devis mis à jour avec succès",
+                extra={
+                    "quote_id": quote.id,
+                    "agent_id": agent_id,
+                }
+            )
 
+
+        except Exception:
 
             self.unit_of_work.rollback()
 
+            logger.exception(
+                "Erreur lors de la mise à jour du devis",
+                extra={
+                    "quote_id": quote_id,
+                    "agent_id": agent_id,
+                }
+            )
+
             raise
-
-
-
-        return quote

@@ -2,6 +2,9 @@ from modules.auth.domain.exceptions import UserNotFound, Forbidden
 from modules.auth.domain.enums import UserRole
 from modules.auth.api.schemas import ToggleUserActiveResponse
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ToggleUserActiveUseCase:
 
@@ -17,12 +20,11 @@ class ToggleUserActiveUseCase:
         self.event_service = event_service
         self.uow = uow
 
-
-
     def execute(
         self,
         user_id: str,
         is_active: bool,
+        current_admin
     ) -> ToggleUserActiveResponse:
 
 
@@ -58,7 +60,7 @@ class ToggleUserActiveUseCase:
             # =====================
             # UPDATE STATUS
             # =====================
-
+            old_status = user.is_active
             user.is_active = is_active
 
 
@@ -78,7 +80,7 @@ class ToggleUserActiveUseCase:
             self.event_service.log(
                 type=event_type,
                 message=message,
-                user_id=user.id,
+                user_id=current_admin.id,
                 event_metadata={
                     "email": user.email
                 }
@@ -89,7 +91,15 @@ class ToggleUserActiveUseCase:
 
             self.uow.commit()
 
-
+            logger.info(
+    "Statut utilisateur modifié",
+    extra={
+        "user_id": user.id,
+        "old_status": old_status,
+        "new_status": user.is_active,
+        "admin_id": current_admin.id,
+    }
+)
 
             return ToggleUserActiveResponse(
 
@@ -108,4 +118,10 @@ class ToggleUserActiveUseCase:
 
             self.uow.rollback()
 
+            logger.exception(
+    "Erreur activation compte",
+    extra={
+        "user_id": user_id
+    }
+)
             raise

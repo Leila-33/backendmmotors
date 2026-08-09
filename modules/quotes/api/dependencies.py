@@ -67,7 +67,8 @@ from modules.notifications.application.services.notification_service import (
 from modules.applications.domain.repositories.application_repository import (
     ApplicationRepository,
 )
-
+from modules.applications.domain.repositories.application_financing_repository import ApplicationFinancingRepository
+from modules.applications.domain.repositories.application_trade_in_repository import ApplicationTradeInRepository
 
 # =========================
 # QUOTES
@@ -121,17 +122,18 @@ from modules.quotes.domain.repositories.quote_repository import (
 
 from modules.dependencies.dependencies import (
     get_application_repository,
-    get_event_repository,
     get_lead_repository,
     get_quote_repository,
     get_quote_trade_in_repository,
     get_vehicle_repository,
+    get_event_service,
+    get_trade_in_repository,
+    get_financing_repository
 )
 from modules.financing.api.dependencies import (
     get_trade_in_service,
     get_financing_service
 )
-from modules.applications.api.dependencies import get_event_service
 
 def get_create_quote_usecase(
     quote_repository = Depends(
@@ -372,19 +374,23 @@ def get_client_quote_action_required_count_usecase(
 def get_accept_quote_usecase(
     quote_repository: QuoteRepository = Depends(get_quote_repository),
     application_repository : ApplicationRepository = Depends(get_application_repository),
+    trade_in_repository : ApplicationTradeInRepository = Depends(get_trade_in_repository),
+    financing_repository : ApplicationFinancingRepository = Depends(get_financing_repository),
     lead_repository : LeadRepository = Depends(get_lead_repository),
     notification_service = Depends(get_notification_service),
     email_service = Depends(get_email_service),
-    event_repository = Depends(get_event_repository),
+    event_service = Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 ):
     return AcceptQuoteUseCase(
         quote_repository=quote_repository,
         application_repository=application_repository,
+        trade_in_repository=trade_in_repository,
+        financing_repository=financing_repository,
         lead_repository=lead_repository,
         notification_service=notification_service,
         email_service=email_service,    
-        event_repository = event_repository,
+        event_service = event_service,
         unit_of_work = unit_of_work
     )
 

@@ -7,6 +7,9 @@ from modules.auth.domain.enums import UserRole
 from modules.auth.api.schemas import ArchiveUsersResponse
 from datetime import datetime, timezone
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ArchiveUsersUseCase:
 
@@ -23,7 +26,8 @@ class ArchiveUsersUseCase:
 
     def execute(
         self,
-        ids: list[str]
+        ids: list[str],
+        current_admin
     ) -> ArchiveUsersResponse:
 
         try:
@@ -99,12 +103,15 @@ class ArchiveUsersUseCase:
 )
 
 
-            # =====================
-            # COMMIT
-            # =====================
-
             self.uow.commit()
 
+            logger.info(
+    "Archivage utilisateurs en masse effectué",
+    extra={
+        "count": len(users),
+        "admin_id": current_admin.id,
+    }
+)
 
 
             return ArchiveUsersResponse(
@@ -126,4 +133,7 @@ class ArchiveUsersUseCase:
 
             self.uow.rollback()
 
+            logger.exception(
+    "Erreur archivage utilisateurs en masse"
+)
             raise

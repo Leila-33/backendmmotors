@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
 
@@ -61,6 +61,22 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
 
+    # =========================
+    # SENTRY
+    # =========================
 
+    sentry_dsn: str | None = None
+
+    sentry_environment: str = "development"
+
+    sentry_traces_sample_rate: float = 0.1
+
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )
+
+    
 # instance globale
 settings = Settings()

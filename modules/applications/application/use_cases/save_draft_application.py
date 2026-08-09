@@ -3,7 +3,9 @@ from modules.applications.domain.repositories.application_repository import Appl
 from modules.applications.application.services.event_service import EventService
 from modules.auth.domain.entities.user import User
 from core.database.unit_of_work import UnitOfWork
+import logging
 
+logger = logging.getLogger(__name__)
 
 
 class SaveDraftApplicationUseCase:
@@ -46,9 +48,26 @@ class SaveDraftApplicationUseCase:
 
             self.uow.commit()
 
-
+            logger.info(
+    "Brouillon application sauvegardé",
+    extra={
+        "application_id": result.application.id,
+        "user_id": current_user.id,
+        "status": result.application.status.value,
+    }
+)
             return result.application
 
         except Exception:
+
             self.uow.rollback()
+
+            logger.exception(
+                "Erreur sauvegarde brouillon application",
+                extra={
+                    "user_id": current_user.id,
+                    "application_id": result.application.id,
+                }
+            )
+
             raise

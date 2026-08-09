@@ -8,7 +8,6 @@ from modules.financing.application.use_cases.create_financing_contract import Cr
 from modules.financing.domain.services.trade_in_service import (
     TradeInService
 )
-from modules.applications.api.dependencies import get_event_service
 from modules.dependencies.dependencies import (
     get_application_repository,
     get_financing_contract_repository,
@@ -65,13 +64,11 @@ def get_estimate_trade_in_use_case(
 def get_create_financing_contract_usecase(
     application_repository=Depends(get_application_repository),
     financing_contract_repository=Depends(get_financing_contract_repository),
-    event_service=Depends(get_event_service),
     uow=Depends(get_unit_of_work),
 ):
     return CreateFinancingContractUseCase(
         application_repository=application_repository,
         financing_contract_repository=financing_contract_repository,
-        event_service=event_service,
         uow=uow,
     )
 
@@ -87,10 +84,7 @@ def get_create_installments_usecase(
 
     installment_repository=Depends(
         get_installment_repository
-    ),
-
-    uow=Depends(get_unit_of_work),
-
+    )
 
 ):
 
@@ -99,5 +93,4 @@ def get_create_installments_usecase(
             financing_contract_repository
         ),
         installment_repository=installment_repository,
-        uow=uow,
     )

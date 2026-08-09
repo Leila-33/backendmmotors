@@ -12,6 +12,14 @@ from modules.applications.domain.entities.event import Event
 from modules.payments.domain.subscription_status_mapper import (
     SubscriptionStatusMapper
 )
+import logging
+
+logger = logging.getLogger(__name__)
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class CreateSubscriptionUseCase:
 
@@ -20,61 +28,93 @@ class CreateSubscriptionUseCase:
         stripe_service,
         financing_contract_repository,
         event_service,
-        uow,
     ):
-
         self.stripe_service = stripe_service
 
         self.financing_contract_repository = (
             financing_contract_repository
         )
+
         self.event_service = event_service
-        self.uow = uow
+
 
     # =========================
     # EXECUTE
     # =========================
+
     def execute(
         self,
         contract,
         customer_email: str,
         customer_name: str,
-        user_id: str
+        user_id: str,
     ):
+
         try:
+
+            # =========================
+            # CONTRACT
+            # =========================
+
             if not contract:
                 raise FinancingContractNotFound()
+
 
             # =========================
             # IDEMPOTENCE
             # =========================
+
             if contract.stripe_subscription_id:
+
+                logger.info(
+                    "Abonnement Stripe déjà existant",
+                    extra={
+                        "contract_id": contract.id,
+                        "stripe_subscription_id": (
+                            contract.stripe_subscription_id
+                        ),
+                        "user_id": user_id,
+                    }
+                )
+
                 return contract
+
 
             # =========================
             # CREATE CUSTOMER
             # =========================
+
             customer = (
-                self.stripe_service.create_customer(
+                self.stripe_service
+                .create_customer(
                     email=customer_email,
-                    name=customer_name
+                    name=customer_name,
                 )
             )
+
 
             # =========================
             # CREATE SUBSCRIPTION
             # =========================
+
             subscription = (
-                self.stripe_service.create_subscription(
+                self.stripe_service
+                .create_subscription(
                     customer_id=customer.id,
-                    monthly_amount=contract.monthly_payment,
-                    application_id=contract.application_id
+                    monthly_amount=(
+                        contract.monthly_payment
+                    ),
+                    application_id=(
+                        contract.application_id
+                    ),
                 )
             )
+
 
             # =========================
             # SAVE STRIPE IDS
             # =========================
+
             contract.stripe_customer_id = (
                 customer.id
             )
@@ -84,35 +124,79 @@ class CreateSubscriptionUseCase:
             )
 
             contract.subscription_status = (
-        SubscriptionStatusMapper.from_stripe(
-            subscription.status
-        ))
+                SubscriptionStatusMapper
+                .from_stripe(
+                    subscription.status
+                )
+            )
+
 
             self.financing_contract_repository.update(
                 contract
             )
 
+
             # =========================
             # EVENT
             # =========================
+
             self.event_service.log(
                 type=EventType.SUBSCRIPTION_CREATED,
-                message="Abonnement de financement créé.",
-                application_id=contract.application_id,
+                message=(
+                    "Abonnement de financement créé."
+                ),
+                application_id=(
+                    contract.application_id
+                ),
                 user_id=user_id,
                 event_metadata={
                     "contract_id": contract.id,
                     "stripe_customer_id": customer.id,
-                    "stripe_subscription_id": subscription.id,
-                    "monthly_payment": contract.monthly_payment,
+                    "stripe_subscription_id": (
+                        subscription.id
+                    ),
+                    "monthly_payment": (
+                        contract.monthly_payment
+                    ),
                 }
             )
 
-            self.uow.commit()
+
+            # =========================
+            # LOG SUCCESS
+            # =========================
+
+            logger.info(
+                "Abonnement Stripe créé",
+                extra={
+                    "contract_id": contract.id,
+                    "application_id": (
+                        contract.application_id
+                    ),
+                    "stripe_customer_id": customer.id,
+                    "stripe_subscription_id": (
+                        subscription.id
+                    ),
+                    "user_id": user_id,
+                }
+            )
+
 
             return contract
-        
+
+
         except Exception:
-            self.uow.rollback()
+
+            logger.exception(
+                "Erreur création abonnement Stripe",
+                extra={
+                    "contract_id": (
+                        contract.id
+                        if contract
+                        else None
+                    ),
+                    "user_id": user_id,
+                }
+            )
+
             raise
-        

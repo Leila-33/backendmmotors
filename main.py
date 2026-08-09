@@ -4,22 +4,38 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
-
+from core.logging_config import setup_logging
 import core.database.import_models
-
 from sqlalchemy.orm import configure_mappers
-
-configure_mappers()
-
-
-
 from core.exception_handlers import register_exception_handlers
 from api.routes import api_router
-
 from dotenv import load_dotenv
+import sentry_sdk
+from core.config import settings
+
+configure_mappers()
+setup_logging()
 load_dotenv()
 
 
+# =========================
+# SENTRY INITIALIZATION
+# =========================
+
+if settings.sentry_dsn:
+
+    sentry_sdk.init(
+
+        dsn=settings.sentry_dsn,
+
+        environment=(
+            settings.sentry_environment
+        ),
+
+        traces_sample_rate=(
+            settings.sentry_traces_sample_rate
+        ),
+    )
 
 # =========================
 # APP INIT (ONLY ONCE)

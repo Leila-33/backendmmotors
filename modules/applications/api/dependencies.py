@@ -50,7 +50,7 @@ from modules.dependencies.dependencies import (
     get_notification_repository,
     get_trade_in_repository,
     get_financing_repository,
-    get_document_sync_service,
+    get_event_service
 )
 from modules.financing.api.dependencies import (
     get_trade_in_service,
@@ -86,7 +86,6 @@ from modules.applications.api.application_list_response_factory import Applicati
 # SERVICES
 # =====================================================
 from modules.applications.application.services.application_form_service import ApplicationFormService
-from modules.applications.application.services.event_service import EventService
 from modules.applications.application.services.document_sync_service import DocumentSyncService
 
 def get_document_sync_service(
@@ -151,18 +150,6 @@ def get_application_form_service(
         reservation_repository=(
             reservation_repository
         ),
-    )
-
-
-
-def get_event_service(
-    event_repository = Depends(
-        get_event_repository
-    )
-):
-
-    return EventService(
-        event_repository
     )
 
 

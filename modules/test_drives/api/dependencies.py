@@ -6,7 +6,8 @@ from fastapi import Depends
 from modules.dependencies.dependencies import (
     get_test_drive_repository,
     get_event_repository,
-    get_vehicle_repository
+    get_vehicle_repository,
+    get_event_service
 )
 # =========================
 # SERVICE
@@ -14,12 +15,10 @@ from modules.dependencies.dependencies import (
 from modules.notifications.api.dependencies import (
     get_notification_service,
 )
-from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # CORE
 # =========================
-from core.database.unit_of_work import UnitOfWork
 from core.database.dependencies import (
     get_unit_of_work
 )

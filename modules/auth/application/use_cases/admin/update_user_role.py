@@ -2,6 +2,9 @@ from modules.auth.domain.exceptions import Forbidden, UserNotFound, InvalidUserR
 from modules.auth.domain.enums import UserRole
 from modules.auth.api.schemas import UpdateUserRoleResponse
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UpdateUserRoleUseCase:
 
@@ -23,6 +26,7 @@ class UpdateUserRoleUseCase:
         self,
         user_id: str,
         new_role: UserRole,
+        current_admin
     ) -> UpdateUserRoleResponse:
 
 
@@ -68,6 +72,7 @@ class UpdateUserRoleUseCase:
             # =====================
             # UPDATE ROLE
             # =====================
+            old_role = user.role
 
             user.role = new_role
 
@@ -76,27 +81,28 @@ class UpdateUserRoleUseCase:
                 user
             )
 
-            old_role = user.role
-
-            user.role = new_role
-
             self.event_service.log(
     type=EventType.USER_ROLE_UPDATED,
     message="Rôle utilisateur modifié",
-    user_id=user.id,
+    user_id=current_admin,
     event_metadata={
         "email": user.email,
         "old_role": old_role.value,
         "new_role": user.role.value
     }
 )
-            # =====================
-            # COMMIT
-            # =====================
 
             self.uow.commit()
 
-
+            logger.warning(
+    "Rôle utilisateur modifié",
+    extra={
+        "user_id": user.id,
+        "old_role": old_role.value,
+        "new_role": user.role.value,
+        "admin_id": current_admin.id,
+    }
+)
 
             return UpdateUserRoleResponse(
 
@@ -115,4 +121,10 @@ class UpdateUserRoleUseCase:
 
             self.uow.rollback()
 
+            logger.exception(
+    "Erreur modification role",
+    extra={
+        "user_id": user_id
+    }
+)
             raise

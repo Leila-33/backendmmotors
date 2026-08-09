@@ -12,6 +12,9 @@ from modules.reservations.domain.repositories.reservation_repository import Rese
 from core.database.unit_of_work import UnitOfWork
 from modules.reservations.domain.entities.reservation import Reservation
 from modules.applications.application.services.event_service import EventService
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CancelReservationUseCase:
 
@@ -50,10 +53,7 @@ class CancelReservationUseCase:
             if reservation.status == ReservationStatus.CANCELLED:
                 raise ReservationAlreadyCancelled()
 
-            if reservation.status in (
-                ReservationStatus.COMPLETED,
-                ReservationStatus.CANCELLED,
-            ):
+            if reservation.status == ReservationStatus.COMPLETED:
                 raise CannotCancelReservation()
 
             if (
@@ -101,8 +101,25 @@ class CancelReservationUseCase:
             # =========================
             self.unit_of_work.commit()
 
+            logger.info(
+    "Réservation annulée",
+    extra={
+        "reservation_id": reservation.id,
+        "actor_id": user_id,
+    }
+)
             return reservation
 
         except Exception:
+
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur annulation réservation",
+                extra={
+                    "reservation_id": reservation_id,
+                    "actor_id": user_id,
+                }
+            )
+
             raise

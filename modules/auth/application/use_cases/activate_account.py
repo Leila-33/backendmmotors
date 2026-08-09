@@ -8,6 +8,9 @@ from datetime import datetime, timezone, timedelta
 from modules.auth.api.schemas import ActivateAccountRequest, ActivateAccountResponse
 from modules.auth.domain.entities.refresh_token import RefreshToken
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ActivateAccountUseCase:
 
@@ -129,7 +132,7 @@ class ActivateAccountUseCase:
             self.activation_token_repository.update(
                 activation
             )
-            
+
             self.event_service.log(
     type=EventType.USER_ACCOUNT_ACTIVATED,
     message="Compte utilisateur activé",
@@ -206,7 +209,12 @@ class ActivateAccountUseCase:
 
             self.uow.commit()
 
-
+            logger.info(
+                "Compte utilisateur activé",
+                extra={
+                    "user_id": user.id,
+                }
+            )
 
             return ActivateAccountResponse(
 
@@ -230,4 +238,10 @@ class ActivateAccountUseCase:
 
             self.uow.rollback()
 
+            logger.exception(
+    "Erreur activation compte",
+    extra={
+        "user_id": user.id
+    }
+)
             raise

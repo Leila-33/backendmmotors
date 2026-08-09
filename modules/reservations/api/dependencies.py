@@ -5,12 +5,12 @@ from modules.reservations.application.use_cases.check_availability import CheckR
 from modules.reservations.application.use_cases.complete_expired_rentals import CompleteExpiredRentalsUseCase
 from modules.dependencies.dependencies import (
     get_reservation_repository,
-    get_application_repository
+    get_application_repository,
+    get_event_service
 )
 
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
-from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # CORE

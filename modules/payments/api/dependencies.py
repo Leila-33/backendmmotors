@@ -8,7 +8,7 @@ from modules.dependencies.dependencies import (
     get_financing_contract_repository,
     get_installment_repository,
     get_vehicle_repository,
-    get_vehicle_warranty_repository,
+    get_event_service,
     get_lead_repository
 )
 from modules.financing.api.dependencies import (
@@ -48,7 +48,6 @@ from modules.payments.infrastructure.services.stripe_service import (
 
 def get_stripe_service():
     return StripeService()
-from modules.applications.api.dependencies import get_event_service
 
 # =====================================================
 # CREATE CHECKOUT SESSION
@@ -96,11 +95,7 @@ def get_create_subscription_usecase(
         get_financing_contract_repository
     ),
 
-    event_service=Depends(get_event_service),
-
-    uow=Depends(
-        get_unit_of_work
-    ),
+    event_service=Depends(get_event_service)
 
 ):
 
@@ -110,7 +105,6 @@ def get_create_subscription_usecase(
             financing_contract_repository
         ),
         event_service=event_service,
-        uow=uow,
     )
 
 # =====================================================

@@ -7,7 +7,9 @@ from modules.auth.domain.exceptions import (
 from core.security.password import verify_password
 from datetime import datetime, timezone
 from modules.auth.domain.entities.refresh_token import RefreshToken
+import logging
 
+logger = logging.getLogger(__name__)
 
 
 
@@ -52,6 +54,12 @@ class LoginUser:
                     user.password
                 )
             ):
+                logger.warning(
+        "Échec tentative connexion",
+        extra={
+            "email": data.email,
+        }
+    )
                 raise InvalidCredentials()
 
 
@@ -134,6 +142,13 @@ class LoginUser:
             # =========================
 
             self.uow.commit()
+
+            logger.info(
+    "Connexion utilisateur réussie",
+    extra={
+        "user_id": user.id,
+    }
+)
             # =========================
             # RETURN
             # =========================
@@ -144,5 +159,9 @@ class LoginUser:
             }
 
         except Exception:
+
+            logger.exception(
+    "Erreur authentification utilisateur"
+)
             self.uow.rollback()
             raise

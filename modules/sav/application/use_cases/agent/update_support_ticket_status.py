@@ -4,6 +4,10 @@ from modules.auth.domain.enums import UserRole
 from modules.sav.application.ticket_chat_manager import TicketChatManager
 from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 from modules.applications.domain.enums import EventType
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class UpdateSupportTicketStatusUseCase:
 
@@ -53,8 +57,6 @@ class UpdateSupportTicketStatusUseCase:
             # =====================
 
             if ticket.status == status:
-
-                self.uow.rollback()
 
                 return SupportTicketMapper.to_response(
                     ticket
@@ -117,38 +119,52 @@ class UpdateSupportTicketStatusUseCase:
 
             self.uow.commit()
 
+            logger.info(
+    "Statut ticket SAV modifié",
+    extra={
+        "ticket_id": ticket.id,
+        "actor_id": user.id,
+        "old_status": old_status.value,
+        "new_status": status.value,
+    },
+)
 
+            # =====================
+            # WEBSOCKET AFTER COMMIT
+            # =====================
+
+            await self.chat_manager.broadcast(
+                ticket_id=updated_ticket.id,
+                payload={
+                    "type": "STATUS_UPDATED",
+
+                    "data": {
+                        "ticket_id": updated_ticket.id,
+
+                        "old_status": (
+                            old_status.value
+                            if old_status
+                            else None
+                        ),
+
+                        "status": updated_ticket.status.value,
+                    }
+                }
+            )
+
+
+            return updated_ticket
 
         except Exception:
 
             self.uow.rollback()
 
+            logger.exception(
+                "Erreur modification statut ticket SAV",
+                extra={
+                    "ticket_id": ticket_id,
+                    "actor_id": user.id,
+                },
+            )
+
             raise
-
-
-
-        # =====================
-        # WEBSOCKET AFTER COMMIT
-        # =====================
-
-        await self.chat_manager.broadcast(
-            ticket_id=updated_ticket.id,
-            payload={
-                "type": "STATUS_UPDATED",
-
-                "data": {
-                    "ticket_id": updated_ticket.id,
-
-                    "old_status": (
-                        old_status.value
-                        if old_status
-                        else None
-                    ),
-
-                    "status": updated_ticket.status.value,
-                }
-            }
-        )
-
-
-        return updated_ticket

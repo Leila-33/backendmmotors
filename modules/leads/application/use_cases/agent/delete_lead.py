@@ -7,6 +7,9 @@ from modules.leads.domain.enums import LeadStatus
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DeleteLeadUseCase:
 
@@ -57,25 +60,42 @@ class DeleteLeadUseCase:
             ):
                 raise LeadCannotBeDeleted()
 
-            self.event_service.log(
-                type=EventType.LEAD_DELETED,
-                message="Lead supprimé",
-                user_id=agent_id,
-                lead_id=lead.id,
-                event_metadata={
-                    "email": lead.email,
-                    "status": lead.status.value,
-                }
-            )
+            
             self.lead_repository.delete(
                 lead.id
             )
 
+            self.event_service.log(
+                            type=EventType.LEAD_DELETED,
+                            message="Lead supprimé",
+                            user_id=agent_id,
+                            lead_id=lead.id,
+                            event_metadata={
+                                "email": lead.email,
+                                "status": lead.status.value,
+                            }
+                        )
+            
             self.unit_of_work.commit()
+
+            logger.info(
+    "Lead supprimé",
+    extra={
+        "lead_id": lead.id,
+        "user_id": agent_id,
+    }
+)
 
 
         except Exception:
 
             self.unit_of_work.rollback()
+
+            logger.exception(
+        "Erreur suppression lead",
+        extra={
+            "lead_id": lead_id,
+        }
+    )
 
             raise

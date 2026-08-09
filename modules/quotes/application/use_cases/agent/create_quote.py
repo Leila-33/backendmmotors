@@ -8,8 +8,6 @@ from modules.quotes.domain.entities.quote_trade_in import QuoteTradeIn
 from modules.quotes.domain.enums import QuoteStatus
 from modules.financing.api.schemas import FinancingRequest
 from modules.financing.domain.entities.trade_in_input import TradeInInput
-
-from modules.quotes.domain.exceptions import ActiveQuoteAlreadyExists
 from modules.leads.domain.exceptions import (
     LeadNotFound,
     LeadHasActiveQuote
@@ -18,6 +16,9 @@ from modules.vehicles.domain.exceptions import VehicleNotFound
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreateQuoteUseCase:
 
@@ -83,12 +84,6 @@ class CreateQuoteUseCase:
             # BUSINESS RULE
             # =====================================
 
-            if self.quote_repository.has_active_quote(
-    lead.id
-):
-                raise LeadHasActiveQuote()
-
-
             existing_quote = (
                 self.quote_repository.find_active_by_lead(
                     lead.id
@@ -96,7 +91,7 @@ class CreateQuoteUseCase:
             )
 
             if existing_quote:
-                raise ActiveQuoteAlreadyExists()
+                raise LeadHasActiveQuote()
 
 
 
@@ -243,14 +238,29 @@ class CreateQuoteUseCase:
                 self.quote_trade_in_repository.save(
                     quote_trade_in
                 )
+
             self.unit_of_work.commit()
+
+            logger.info(
+                "Devis créé",
+                extra={
+                    "quote_id": quote.id
+                }
+            )
+
+
+            return quote
 
 
         except Exception:
 
             self.unit_of_work.rollback()
 
+            logger.exception(
+                "Erreur création devis",
+                extra={
+                    "lead_id": lead.id
+                }
+            )
+
             raise
-
-
-        return quote

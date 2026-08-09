@@ -9,7 +9,9 @@ from modules.applications.application.services.event_service import EventService
 from modules.applications.application.services.restore_application_service import RestoreApplicationService
 from core.database.unit_of_work import UnitOfWork
 from modules.applications.domain.entities.application import Application
+import logging
 
+logger = logging.getLogger(__name__)
 
 class RestoreCancelledApplicationUseCase:
 
@@ -39,85 +41,103 @@ class RestoreCancelledApplicationUseCase:
         current_admin: User,
     ) -> Application:
 
-
-        # =========================
-        # LOAD APPLICATION
-        # =========================
-        application = (
-            self.application_repository.get_by_id(
-                application_id
-            )
-        )
-
-        if not application:
-            raise ApplicationNotFound()
-
-
-        # =========================
-        # POLICY
-        # =========================
-        RestoreApplicationPolicy.validate(
-            application
-        )
-
-
-        # =========================
-        # RENTAL VALIDATION
-        # =========================
-        self.restore_application_service.validate_rental(
-            application
-        )
-
-
-        # =========================
-        # RESTORE RESERVATION
-        # =========================
-        if application.reservation:
-
-            application.reservation.status = (
-                ReservationStatus.ACTIVE
+        try:
+            # =========================
+            # LOAD APPLICATION
+            # =========================
+            application = (
+                self.application_repository.get_by_id(
+                    application_id
+                )
             )
 
-            self.reservation_repository.update(
-                application.reservation
+            if not application:
+                raise ApplicationNotFound()
+
+
+            # =========================
+            # POLICY
+            # =========================
+            RestoreApplicationPolicy.validate(
+                application
             )
 
 
-        # =========================
-        # RESTORE APPLICATION
-        # =========================
-        application.status = (
-            application.previous_status
-        )
-
-        application.previous_status = None
+            # =========================
+            # RENTAL VALIDATION
+            # =========================
+            self.restore_application_service.validate_rental(
+                application
+            )
 
 
-        self.application_repository.update(
-            application
-        )
+            # =========================
+            # RESTORE RESERVATION
+            # =========================
+            if application.reservation:
+
+                application.reservation.status = (
+                    ReservationStatus.ACTIVE
+                )
+
+                self.reservation_repository.update(
+                    application.reservation
+                )
 
 
-        # =========================
-        # EVENT
-        # =========================
-        self.event_service.log(
-    application_id=application.id,
-    user_id=current_admin.id,
-    type=EventType.APPLICATION_RESTORED,
-    message="Dossier restauré par administrateur.",
-    event_metadata={
-        "application_user_id": application.user_id,
-        "action": "restore",
-    },
+            # =========================
+            # RESTORE APPLICATION
+            # =========================
+            application.status = (
+                application.previous_status
+            )
+
+            application.previous_status = None
+
+
+            self.application_repository.update(
+                application
+            )
+
+
+            # =========================
+            # EVENT
+            # =========================
+            self.event_service.log(
+        application_id=application.id,
+        user_id=current_admin.id,
+        type=EventType.APPLICATION_RESTORED,
+        message="Dossier restauré par administrateur.",
+        event_metadata={
+            "application_user_id": application.user_id,
+            "action": "restore",
+        },
+    )
+            
+
+
+            # =========================
+            # COMMIT
+            # =========================
+            self.unit_of_work.commit()
+
+            logger.info(
+    "Application restaurée",
+    extra={
+        "application_id": application.id,
+        "admin_id": current_admin.id,
+    }
 )
+            return application
         
-
-
-        # =========================
-        # COMMIT
-        # =========================
-        self.unit_of_work.commit()
-
-
-        return application
+        except Exception:
+        
+            self.unit_of_work.rollback()
+            
+            logger.exception(
+    "Erreur restauration application",
+    extra={
+        "application_id": application_id
+    }
+)
+            raise

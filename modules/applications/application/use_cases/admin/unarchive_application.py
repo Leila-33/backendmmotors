@@ -8,6 +8,9 @@ from core.database.unit_of_work import UnitOfWork
 from modules.applications.application.services.event_service import EventService
 from modules.auth.domain.entities.user import User
 from modules.applications.domain.exceptions import ApplicationNotArchived
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UnarchiveApplicationUseCase:
 
@@ -31,69 +34,88 @@ class UnarchiveApplicationUseCase:
         current_admin: User,
     ) -> Application:
 
-
-        # =========================
-        # GET APPLICATION
-        # =========================
-        application = (
-            self.application_repository.get_by_id(
-                application_id
+        try:
+            # =========================
+            # GET APPLICATION
+            # =========================
+            application = (
+                self.application_repository.get_by_id(
+                    application_id
+                )
             )
-        )
 
-        if not application:
-            raise ApplicationNotFound()
-
-
-        # =========================
-        # VALIDATION
-        # =========================
-        if not application.is_archived:
-            raise ApplicationNotArchived()
+            if not application:
+                raise ApplicationNotFound()
 
 
-        # =========================
-        # UNARCHIVE
-        # =========================
-        application.is_archived = False
-
-        self.application_repository.update(
-            application
-        )
+            # =========================
+            # VALIDATION
+            # =========================
+            if not application.is_archived:
+                raise ApplicationNotArchived()
 
 
-        # =========================
-        # EVENT
-        # =========================
-        self.event_service.log(
+            # =========================
+            # UNARCHIVE
+            # =========================
+            application.is_archived = False
 
-                application_id=application.id,
+            self.application_repository.update(
+                application
+            )
 
-                user_id=current_admin.id,
 
-                type=EventType.APPLICATION_UNARCHIVED,
+            # =========================
+            # EVENT
+            # =========================
+            self.event_service.log(
 
-                message=(
-                    "Dossier restauré depuis les archives."
-                ),
+                    application_id=application.id,
 
-                event_metadata={
-                    "restored_by": current_admin.id,
-                    "vehicle_id": application.vehicle_id,
-                    "status": (
-                        application.status.value
-                        if application.status
-                        else None
+                    user_id=current_admin.id,
+
+                    type=EventType.APPLICATION_UNARCHIVED,
+
+                    message=(
+                        "Dossier restauré depuis les archives."
                     ),
-                },
-            )
-        
+
+                    event_metadata={
+                        "restored_by": current_admin.id,
+                        "vehicle_id": application.vehicle_id,
+                        "status": (
+                            application.status.value
+                            if application.status
+                            else None
+                        ),
+                    },
+                )
+            
 
 
-        # =========================
-        # COMMIT
-        # =========================
-        self.unit_of_work.commit()
+            # =========================
+            # COMMIT
+            # =========================
+            self.unit_of_work.commit()
 
+            logger.info(
+    "Application désarchivée",
+    extra={
+        "application_id": application.id,
+        "admin_id": current_admin.id,
+    }
+)
 
-        return application
+            return application
+
+        except Exception:
+
+            self.unit_of_work.rollback()
+
+            logger.exception(
+    "Erreur désarchivage application",
+    extra={
+        "application_id": application_id
+    }
+)
+            raise

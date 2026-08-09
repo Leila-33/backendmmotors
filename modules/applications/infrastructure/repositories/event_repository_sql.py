@@ -29,7 +29,6 @@ EVENT_CATEGORIES = {
 
 
     "document": [
-        EventType.DOCUMENT_UPLOADED,
         EventType.DOCUMENT_VALIDATED,
         EventType.DOCUMENT_REJECTED,
     ],

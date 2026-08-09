@@ -11,7 +11,9 @@ from modules.reservations.application.use_cases.cancel_reservation import Cancel
 from modules.financing.domain.repositories.financing_contract_repository import FinancingContractRepository
 from modules.applications.domain.entities.application import Application
 from core.database.unit_of_work import UnitOfWork
+import logging
 
+logger = logging.getLogger(__name__)
 
 class CancelApplicationUseCase:
 
@@ -112,8 +114,24 @@ class CancelApplicationUseCase:
             # =========================
             self.unit_of_work.commit()
 
+            logger.info(
+    "Application annulée",
+    extra={
+        "application_id": application.id,
+        "user_id": user_id,
+        "previous_status": application.previous_status.value,
+    }
+)
             return application
 
         except Exception:
+
             self.unit_of_work.rollback()
+
+            logger.exception(
+    "Erreur annulation application",
+    extra={
+        "application_id": application_id
+    }
+)
             raise

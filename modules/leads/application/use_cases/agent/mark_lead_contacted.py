@@ -9,6 +9,9 @@ from modules.leads.application.services.LeadAuthorizationService import LeadAuth
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 class MarkLeadContactedUseCase:
 
@@ -95,10 +98,25 @@ class MarkLeadContactedUseCase:
 
             self.unit_of_work.commit()
 
+            logger.info(
+    "Lead marqué comme contacté",
+    extra={
+        "lead_id": lead.id,
+        "user_id": agent_id,
+    }
+)
 
         except Exception:
 
             self.unit_of_work.rollback()
+
+            logger.exception(
+        "Erreur lors du marquage du lead comme contacté",
+        extra={
+            "lead_id": lead_id,
+            "user_id": agent_id,
+        }
+    )
 
             raise
 

@@ -5,6 +5,10 @@ from modules.sav.domain.enums import TicketStatus
 from datetime import datetime, timezone
 from modules.auth.domain.enums import UserRole
 from modules.applications.domain.enums import EventType
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class CreateSupportTicketUseCase:
 
@@ -132,15 +136,28 @@ class CreateSupportTicketUseCase:
             # =========================
             self.uow.commit()
 
+            logger.info(
+                "Ticket SAV créé",
+                extra={
+                    "ticket_id": saved_ticket.id,
+                    "user_id": user_id,
+                    "assigned_to": saved_ticket.assigned_to,
+                },
+            )
+
 
             return saved_ticket
 
 
         except Exception:
 
-            # =========================
-            # ROLLBACK
-            # =========================
             self.uow.rollback()
+
+            logger.exception(
+                "Erreur création ticket SAV",
+                extra={
+                    "user_id": user_id,
+                },
+            )
 
             raise

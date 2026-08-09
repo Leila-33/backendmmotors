@@ -16,6 +16,9 @@ from modules.vehicles.domain.exceptions import VehicleNotFound, VehicleAlreadyEx
 from modules.options.domain.exceptions import OptionNotFound
 from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreateVehicle:
 
@@ -160,7 +163,13 @@ class CreateVehicle:
 
             self.unit_of_work.commit()
 
-
+            logger.info(
+    "Véhicule créé",
+    extra={
+        "vehicle_id": vehicle.id,
+        "admin_id": current_admin.id,
+    },
+)
             # =========================
             # RESPONSE
             # =========================
@@ -171,6 +180,13 @@ class CreateVehicle:
         except Exception:
 
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur création véhicule",
+                extra={
+                    "admin_id": current_admin.id,
+                },
+            )
 
             raise
 

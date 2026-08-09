@@ -22,9 +22,9 @@ from modules.dependencies.dependencies import (
     get_ticket_message_repository,
     get_ticket_read_state_repository,
     get_ticket_chat_manager,
-    get_websocket_manager
+    get_websocket_manager,
+    get_event_service
 )
-from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # CLIENT

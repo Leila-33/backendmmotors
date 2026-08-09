@@ -1,5 +1,3 @@
-from sqlalchemy.orm import Session, joinedload
-
 from modules.quotes.domain.entities.quote_trade_in import QuoteTradeIn
 
 from modules.quotes.infrastructure.db.quote_trade_in_model import (
@@ -18,18 +16,18 @@ class QuoteTradeInRepositorySQL(
     QuoteTradeInRepository
 ):
 
-    def __init__(
-        self,
-        db: Session
-    ):
+    def __init__(self, db):
         self.db = db
 
 
+    # =========================
+    # SAVE
+    # =========================
 
     def save(
         self,
-        trade_in: QuoteTradeIn
-    ) -> None:
+        trade_in: QuoteTradeIn,
+    ) -> QuoteTradeIn:
 
         model = (
             QuoteTradeInMapper
@@ -38,31 +36,7 @@ class QuoteTradeInRepositorySQL(
 
         self.db.add(model)
 
-        self.db.commit()
-
-        self.db.refresh(model)
-
-
-
-    def find_by_quote_id(
-        self,
-        quote_id: str
-    ) -> QuoteTradeIn | None:
-
-
-        model = (
-            self.db
-            .query(QuoteTradeInModel)
-            .filter(
-                QuoteTradeInModel.quote_id == quote_id
-            )
-            .first()
-        )
-
-
-        if not model:
-            return None
-
+        self.db.flush()
 
         return (
             QuoteTradeInMapper
@@ -70,12 +44,14 @@ class QuoteTradeInRepositorySQL(
         )
 
 
+    # =========================
+    # FIND BY QUOTE
+    # =========================
 
-    def delete(
+    def find_by_quote_id(
         self,
-        quote_id: str
-    ) -> None:
-
+        quote_id: str,
+    ) -> QuoteTradeIn | None:
 
         model = (
             self.db
@@ -86,29 +62,74 @@ class QuoteTradeInRepositorySQL(
             .first()
         )
 
+        if model is None:
+            return None
 
-        if model:
+        return (
+            QuoteTradeInMapper
+            .to_domain(model)
+        )
 
-            self.db.delete(model)
 
-            self.db.commit()
-        
-    def delete(
-    self,
-    quote_id: str,
-):
+    # =========================
+    # UPDATE
+    # =========================
+
+    def update(
+        self,
+        trade_in: QuoteTradeIn,
+    ) -> QuoteTradeIn:
 
         model = (
-            self.db.query(QuoteTradeInModel)
+            self.db
+            .query(QuoteTradeInModel)
+            .filter(
+                QuoteTradeInModel.quote_id
+                == trade_in.quote_id
+            )
+            .first()
+        )
+
+        if model is None:
+            return None
+
+        (
+            QuoteTradeInMapper
+            .update_model(
+                model,
+                trade_in
+            )
+        )
+
+        self.db.flush()
+
+        return (
+            QuoteTradeInMapper
+            .to_domain(model)
+        )
+
+
+    # =========================
+    # DELETE
+    # =========================
+
+    def delete(
+        self,
+        quote_id: str,
+    ) -> None:
+
+        model = (
+            self.db
+            .query(QuoteTradeInModel)
             .filter(
                 QuoteTradeInModel.quote_id == quote_id
             )
             .first()
         )
 
-
         if model is None:
             return
 
-
         self.db.delete(model)
+
+        self.db.flush()

@@ -24,3 +24,10 @@ class WarrantyPlan:
     price: float = 0.0
 
     active: bool = True
+
+    def activate(self):
+        self.active = True
+
+
+    def deactivate(self):
+        self.active = False

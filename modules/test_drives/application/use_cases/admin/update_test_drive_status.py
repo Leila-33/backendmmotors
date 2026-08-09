@@ -8,6 +8,10 @@ from modules.test_drives.domain.test_drive_messages import (
     TEST_DRIVE_EVENT_MAP,
     TEST_DRIVE_STATUS_LABELS
 )
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -121,6 +125,15 @@ class UpdateTestDriveStatusUseCase:
 
             self.uow.commit()
 
+            logger.info(
+    "Statut essai routier modifié",
+    extra={
+        "test_drive_id": test_drive.id,
+        "actor_id": actor_id,
+        "old_status": old_status.value,
+        "new_status": status.value,
+    },
+)
             if (
                 self.notification_service
                 and test_drive.user
@@ -151,16 +164,23 @@ class UpdateTestDriveStatusUseCase:
                     notif_type=notif["type"]
                 )
 
-
-
+            return test_drive
 
         except Exception:
 
             self.uow.rollback()
 
+            logger.exception(
+                "Erreur modification statut essai routier",
+                extra={
+                    "test_drive_id": test_drive_id,
+                    "actor_id": actor_id,
+                    "new_status": status.value,
+                },
+            )
+
             raise
 
-        return test_drive
 
 
     def _build_notification(self, status, test_drive):

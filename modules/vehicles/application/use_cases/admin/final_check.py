@@ -11,6 +11,9 @@ from modules.reconditionings.domain.enums import ReconditioningStatus
 from modules.vehicles.domain.enums import VehicleStatus
 from modules.vehicles.api.schemas import FinalCheckResponse
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FinalCheckUseCase:
 
@@ -36,120 +39,141 @@ class FinalCheckUseCase:
         current_admin
     ):
 
+        try:
+ 
+            # =========================
+            # LOAD VEHICLE
+            # =========================
 
-        # =========================
-        # LOAD VEHICLE
-        # =========================
-
-        vehicle = (
-            self.vehicle_repository
-            .get_by_id(vehicle_id)
-        )
-
-
-        if not vehicle:
-            raise VehicleNotFound()
+            vehicle = (
+                self.vehicle_repository
+                .get_by_id(vehicle_id)
+            )
 
 
-
-        # =========================
-        # LOAD RECONDITIONING
-        # =========================
-
-        reconditioning = (
-            self.reconditioning_repository
-            .get_by_vehicle_id(vehicle_id)
-        )
-
-
-        if not reconditioning:
-            raise ReconditioningNotFound()
+            if not vehicle:
+                raise VehicleNotFound()
 
 
 
-        # =========================
-        # BUSINESS RULES
-        # =========================
+            # =========================
+            # LOAD RECONDITIONING
+            # =========================
 
-        if (
-            reconditioning.status
-            != ReconditioningStatus.COMPLETED
-        ):
-            raise ReconditioningNotCompleted()
-
+            reconditioning = (
+                self.reconditioning_repository
+                .get_by_vehicle_id(vehicle_id)
+            )
 
 
-        # =========================
-        # CHECK VEHICLE STATE
-        # =========================
-
-        if (
-            vehicle.status
-            != VehicleStatus.RECONDITIONED
-        ):
-            raise VehicleNotReadyForFinalCheck()
+            if not reconditioning:
+                raise ReconditioningNotFound()
 
 
 
-        # =========================
-        # DOMAIN TRANSITION
-        # =========================
+            # =========================
+            # BUSINESS RULES
+            # =========================
 
-        reconditioning.approve()
-
-        vehicle.mark_as_ready()
-
-
-
-        vehicle.final_check_at = (
-            datetime.now(timezone.utc)
-        )
+            if (
+                reconditioning.status
+                != ReconditioningStatus.COMPLETED
+            ):
+                raise ReconditioningNotCompleted()
 
 
 
-        # =========================
-        # PERSISTENCE
-        # =========================
+            # =========================
+            # CHECK VEHICLE STATE
+            # =========================
 
-        self.reconditioning_repository.update(
-            reconditioning
-        )
-
-
-        self.vehicle_repository.update(
-            vehicle
-        )
-
-        self.event_service.log(
-    type=EventType.FINAL_CHECK_COMPLETED,
-    message="Contrôle final terminé",
-    vehicle_id=vehicle.id,
-    user_id=current_admin.id,
-    event_metadata={
-        "final_check_at ": vehicle.final_check_at,
-    }
-)
-        self.unit_of_work.commit()
+            if (
+                vehicle.status
+                != VehicleStatus.RECONDITIONED
+            ):
+                raise VehicleNotReadyForFinalCheck()
 
 
 
+            # =========================
+            # DOMAIN TRANSITION
+            # =========================
+
+            reconditioning.approve()
+
+            vehicle.mark_as_ready()
+
+
+
+            vehicle.final_check_at = (
+                datetime.now(timezone.utc)
+            )
+
+
+
+            # =========================
+            # PERSISTENCE
+            # =========================
+
+            self.reconditioning_repository.update(
+                reconditioning
+            )
+
+
+            self.vehicle_repository.update(
+                vehicle
+            )
+
+            self.event_service.log(
+        type=EventType.FINAL_CHECK_COMPLETED,
+        message="Contrôle final terminé",
+        vehicle_id=vehicle.id,
+        user_id=current_admin.id,
+        event_metadata={
+            "final_check_at ": vehicle.final_check_at,
+        }
+    )
+            self.unit_of_work.commit()
+
+            logger.info(
+                "Contrôle final terminé",
+                extra={
+                    "final_check_at ": vehicle.final_check_at,
+                    "vehicle_id": vehicle.id,
+                    "admin_id": current_admin.id,
+                },
+            )
+
+        except Exception:
+
+            self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur contrôle final",
+                extra={
+                    "final_check_at ": vehicle.final_check_at,
+                    "admin_id": current_admin.id,
+                },
+            )
+
+            raise
         # =========================
         # RESPONSE
         # =========================
 
         return FinalCheckResponse(
 
-            vehicle_id=vehicle.id,
+                vehicle_id=vehicle.id,
 
-            vehicle_status=(
-                vehicle.status.value
-            ),
+                vehicle_status=(
+                    vehicle.status.value
+                ),
 
-            reconditioning_status=(
-                reconditioning.status.value
-            ),
+                reconditioning_status=(
+                    reconditioning.status.value
+                ),
 
-            final_check_at=(
-                vehicle.final_check_at
+                final_check_at=(
+                    vehicle.final_check_at
+                )
             )
-        )

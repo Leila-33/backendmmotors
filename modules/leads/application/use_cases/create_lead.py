@@ -8,6 +8,9 @@ from modules.leads.domain.exceptions import ActiveLeadAlreadyExists
 from modules.applications.domain.enums import (
     EventType
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreateLeadUseCase:
 
@@ -92,9 +95,26 @@ class CreateLeadUseCase:
 
             self.unit_of_work.commit()
 
+            logger.info(
+    "Lead créé",
+    extra={
+        "lead_id": lead.id,
+        "user_id": user_id,
+        "vehicle_id": lead.vehicle_id,
+    }
+)
+
         except Exception:
 
             self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur création lead",
+                extra={
+                    "user_id": user_id,
+                    "vehicle_id": lead.vehicle_id,
+                }
+            )
 
             raise
 

@@ -8,6 +8,9 @@ from modules.applications.domain.policies.submit_application_policy import Submi
 from core.database.unit_of_work import UnitOfWork
 from modules.auth.domain.entities.user import User
 from modules.applications.application.services.application_form_service import ApplicationFormService
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SubmitApplicationUseCase:
 
@@ -120,11 +123,28 @@ class SubmitApplicationUseCase:
 
             self.uow.commit()
 
-
+            logger.info(
+    "Application soumise",
+    extra={
+        "application_id": application.id,
+        "user_id": current_user.id,
+        "vehicle_id": application.vehicle_id,
+        "status": application.status.value,
+    }
+)
             return application
 
 
         except Exception:
 
             self.uow.rollback()
+
+            logger.exception(
+                "Erreur soumission application",
+                extra={
+                    "application_id": application.id,
+                    "user_id": current_user.id,
+                }
+            )
+
             raise

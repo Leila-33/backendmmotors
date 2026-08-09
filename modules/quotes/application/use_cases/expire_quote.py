@@ -1,4 +1,7 @@
 from modules.applications.domain.enums import EventType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ExpireQuotesUseCase:
 
@@ -16,7 +19,9 @@ class ExpireQuotesUseCase:
     def execute(self):
 
         try:
-
+            logger.info(
+    "Début expiration automatique des devis"
+)
             quotes = (
                 self.quote_repository
                 .find_quotes_to_expire()
@@ -55,9 +60,18 @@ class ExpireQuotesUseCase:
 
             self.uow.commit()
 
+            logger.info(
+    "Expiration devis terminée",
+    extra={
+        "expired_count": len(quotes)
+    }
+)
 
         except Exception:
 
             self.uow.rollback()
 
+            logger.exception(
+    "Erreur expiration automatique devis"
+)
             raise

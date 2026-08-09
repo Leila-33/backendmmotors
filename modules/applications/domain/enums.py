@@ -36,132 +36,6 @@ class TradeInVehicleCondition(str, Enum):
     AVERAGE = "average"
     POOR = "poor"
 
-class EventType(str, Enum):
-
-    # =========================
-    # APPLICATION LIFECYCLE
-    # =========================
-    APPLICATION_CREATED = "application_created"
-    APPLICATION_SUBMITTED = "application_submitted"
-    APPLICATION_APPROVED = "application_approved"
-    APPLICATION_REJECTED = "application_rejected"
-
-    APPLICATION_ARCHIVED = "application_archived"
-    APPLICATION_UNARCHIVED = "application_unarchived"
-    APPLICATION_RESTORED = "application_restored"
-    APPLICATION_CANCELLED = "application_cancelled"
-    APPLICATION_DELETED = "application_deleted"
-
-    # =========================
-    # DOCUMENTS
-    # =========================
-    DOCUMENT_UPLOADED = "document_uploaded"
-    DOCUMENT_VALIDATED = "document_validated"
-    DOCUMENT_REJECTED = "document_rejected"
-
-    # =========================
-    # LEADS
-    # =========================
-    LEAD_WON = "lead_won"
-
-    # =========================
-    # PAYMENTS (ACOMPTE)
-    # =========================
-    PAYMENT_INITIATED = "payment_initiated"
-    PAYMENT_SUCCESS = "payment_success"
-    PAYMENT_FAILED = "payment_failed"
-
-    DEPOSIT_PAID = "deposit_paid"
-
-    # =========================
-    # FINANCING
-    # =========================
-    FINANCING_CONTRACT_CREATED = "financing_contract_created"
-
-    FINANCING_COMPLETED = (
-        "financing_completed"
-    )
-
-    # =========================
-    # RENTAL
-    # =========================
-    RENTAL_PAYMENT_PAID = "rental_payment_paid"
-    RENTAL_COMPLETED = "rental_completed"
-    RENTAL_CANCELLED = "rental_cancelled"
-
-    # =========================
-    # SUBSCRIPTION (STRIPE)
-    # =========================
-    SUBSCRIPTION_CREATED = "subscription_created"
-    SUBSCRIPTION_ACTIVE = "subscription_active"
-    SUBSCRIPTION_CANCELLED = "subscription_cancelled"
-
-    # =========================
-    # INSTALLMENTS
-    # =========================
-    INSTALLMENT_PAID = "installment_paid"
-    INSTALLMENT_FAILED = "installment_failed"
-    INSTALLMENT_OVERDUE = "installment_overdue"
-
-    # =========================
-    # TEST DRIVE
-    # =========================
-    TEST_DRIVE_CREATED = "test_drive_created"
-    TEST_DRIVE_CONFIRMED = "test_drive_confirmed"
-    TEST_DRIVE_REJECTED = "test_drive_rejected"
-    TEST_DRIVE_CANCELLED = "test_drive_cancelled"
-    TEST_DRIVE_COMPLETED = "test_drive_completed"
-
-    # =========================
-    # NOTIFICATION SYSTEM
-    # =========================
-    NOTIFICATION_SENT = "notification_sent"
-
-    # =========================
-    # ADMIN ACTIONS
-    # =========================
-    ADMIN_ACTION = "admin_action"
-
-
-    # =========================
-    # WARRANTY
-    # =========================
-    WARRANTY_CREATED = "warranty_created"
-    WARRANTY_ACTIVATED = "warranty_activated"
-    WARRANTY_EXPIRED = "warranty_expired"
-
-    # =========================
-    # USERS / AUTH
-    # =========================
-
-    USER_CREATED = "user_created"
-
-    USER_REGISTERED = "user_registered"
-
-    USER_EMAIL_VERIFIED = "user_email_verified"
-
-    USER_ACCOUNT_ACTIVATED = "user_account_activated"
-
-    USER_ARCHIVED = "user_archived"
-
-    USER_ROLE_UPDATED = "user_role_updated"
-
-    USER_ACTIVATED = "user_activated"
-
-    USER_DEACTIVATED = "user_deactivated"
-
-    # =========================
-    # QUOTES
-    # =========================
-
-    QUOTE_CREATED = "quote_created"
-    QUOTE_UPDATED = "quote_updated"
-    QUOTE_SENT = "quote_sent"
-    QUOTE_ACCEPTED = "quote_accepted"
-    QUOTE_REFUSED = "quote_refused"
-    QUOTE_DELETED = "quote_deleted"
-
-
 
 
 class EventType(str, Enum):
@@ -200,6 +74,18 @@ class EventType(str, Enum):
     QUOTE_EXPIRED = "quote_expired"
 
     # =========================
+    # OPTIONS
+    # =========================
+
+    OPTION_CREATED = "option_created"
+
+    OPTION_UPDATED = "option_updated"
+
+    OPTION_ACTIVATED = "option_activated"
+
+    OPTION_DEACTIVATED = "option_deactivated"
+
+    # =========================
     # APPLICATIONS
     # =========================
     APPLICATION_CREATED = "application_created"
@@ -211,7 +97,7 @@ class EventType(str, Enum):
     APPLICATION_UNARCHIVED = "application_unarchived"
     APPLICATION_RESTORED = "application_restored"
     APPLICATION_CANCELLED = "application_cancelled"
-    APPLICATION_DELETED = "application_deleted"
+    APPLICATION_SOFT_DELETED = "application_soft_deleted"
 
     APPLICATION_STATUS_UPDATED = "application_status_updated"
 

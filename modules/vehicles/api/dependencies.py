@@ -17,7 +17,7 @@ from modules.dependencies.dependencies import (
     get_vehicle_option_repository,
     get_vehicle_repository,
     get_reservation_repository,
-    get_job_queue,
+    get_event_service,
     get_inspection_repository,
     get_reconditioning_repository,
     get_lead_repository,
@@ -46,7 +46,6 @@ from modules.vehicles.application.use_cases.get_vehicle_interest_status import G
 # SERVICE
 # =========================
 from modules.storage.infrastrucure.s3_service import S3Service
-from modules.applications.api.dependencies import get_event_service
 
 # =========================
 # MAPPER

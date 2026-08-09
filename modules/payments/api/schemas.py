@@ -85,3 +85,15 @@ class CompleteSalePaymentResponse(BaseModel):
     financing_created: bool
 
     message: str
+
+# complete rental payment
+
+class CompleteRentalPaymentResponse(BaseModel):
+
+    application_id: str
+
+    vehicle_id: str
+
+    rental_started: bool
+
+    message: str
