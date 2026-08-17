@@ -1,97 +1,199 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
+
+from modules.auth.domain.entities.user import User
 
 from core.security.dependencies import get_current_admin
-from modules.dependencies.dependencies import get_option_repository
-
-from modules.options.application.use_cases.admin.create_option import CreateOptionUseCase
-from modules.options.application.use_cases.admin.get_options import GetOptionsUseCase
-from modules.options.application.use_cases.admin.update_option import UpdateOptionUseCase
-from modules.options.application.use_cases.admin.toggle_options_status import ToggleOptionStatusUseCase
 
 from modules.options.api.schemas import (
     CreateOptionRequest,
     CreateOptionResponse,
     UpdateOptionRequest,
     UpdateOptionResponse,
-    OptionResponse,
-    ToggleOptionStatusRequest
+    ToggleOptionStatusRequest,
+    ToggleOptionStatusResponse,
+    GetOptionsResponse,
 )
+
 from modules.options.api.dependencies import (
     get_create_option_usecase,
-    get_get_options_uc,
-    get_update_option_uc,
-    get_toggle_option_status_usecase
+    get_get_options_usecase,
+    get_get_active_options_usecase,
+    get_update_option_usecase,
+    get_toggle_option_status_usecase,
 )
 
-router = APIRouter(tags=["Admin - Options"])
+from modules.options.application.dtos.admin.create_option_dto import (
+    CreateOptionDTO,
+)
+from modules.options.application.dtos.admin.update_option_dto import (
+    UpdateOptionDTO,
+)
+from modules.options.application.dtos.admin.toggle_option_status_dto import (
+    ToggleOptionStatusDTO,
+)
+
+from modules.options.application.use_cases.admin.create_option import (
+    CreateOptionUseCase,
+)
+from modules.options.application.use_cases.admin.get_options import (
+    GetOptionsUseCase,
+)
+from modules.options.application.use_cases.admin.get_active_options import (
+    GetActiveOptionsUseCase,
+)
+from modules.options.application.use_cases.admin.update_option import (
+    UpdateOptionUseCase,
+)
+from modules.options.application.use_cases.admin.toggle_options_status import (
+    ToggleOptionStatusUseCase,
+)
+
+from modules.options.infrastructure.mapper.option_mapper import (
+    OptionMapper,
+)
 
 
+router = APIRouter(
+    tags=["Admin - Options"]
+)
 
-# =========================
+
+# =====================================================
 # CREATE
-# =========================
-@router.post("", response_model=CreateOptionResponse)
+# =====================================================
+
+@router.post(
+    "",
+    response_model=CreateOptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_option(
     request: CreateOptionRequest,
-    uc: CreateOptionUseCase = Depends(get_create_option_usecase),
-    current_admin=Depends(get_current_admin)
+    current_admin: User = Depends(
+        get_current_admin
+    ),
+    usecase: CreateOptionUseCase = Depends(
+        get_create_option_usecase
+    ),
 ):
-    return uc.execute(request, current_admin)
+
+    dto = CreateOptionDTO(
+        name=request.name,
+        price=request.price,
+        billing_type=request.billing_type,
+        admin_id=current_admin.id,
+    )
+
+    result = usecase.execute(dto)
+
+    return OptionMapper.to_create_response(
+        result
+    )
 
 
-# =========================
+# =====================================================
 # GET ALL
-# =========================
-@router.get("", response_model=list[OptionResponse])
-def get_all_options(
-    uc: GetOptionsUseCase = Depends(get_get_options_uc),
-    admin=Depends(get_current_admin)
+# =====================================================
+
+@router.get(
+    "",
+    response_model=GetOptionsResponse,
+)
+def get_options(
+    current_admin: User = Depends(
+        get_current_admin
+    ),
+    usecase: GetOptionsUseCase = Depends(
+        get_get_options_usecase
+    ),
 ):
-    return uc.execute()
 
+    result = usecase.execute()
 
-# =========================
-# GET ACTIVE (clean)
-# =========================
-@router.get("/active", response_model=list[OptionResponse])
+    return OptionMapper.to_list_response(
+        result
+    )
+
+# =====================================================
+# GET ACTIVE OPTIONS
+# =====================================================
+
+@router.get(
+    "/active",
+    response_model=GetOptionsResponse,
+)
 def get_active_options(
-    repo=Depends(get_option_repository),
-    admin=Depends(get_current_admin)
+    usecase: GetActiveOptionsUseCase = Depends(
+        get_get_active_options_usecase
+    ),
 ):
-    return repo.get_active()
 
+    result = usecase.execute()
 
-# =========================
+    return OptionMapper.to_list_response(
+        result
+    )
+# =====================================================
 # UPDATE
-# =========================
-@router.put("/{option_id}", response_model=UpdateOptionResponse)
+# =====================================================
+
+@router.patch(
+    "/{option_id}",
+    response_model=UpdateOptionResponse,
+)
 def update_option(
     option_id: str,
     request: UpdateOptionRequest,
-    uc: UpdateOptionUseCase = Depends(get_update_option_uc),
-    current_admin=Depends(get_current_admin)
+    current_admin: User = Depends(
+        get_current_admin
+    ),
+    usecase: UpdateOptionUseCase = Depends(
+        get_update_option_usecase
+    ),
 ):
-    return uc.execute(option_id, request, current_admin)
+
+    dto = UpdateOptionDTO(
+        option_id=option_id,
+        name=request.name,
+        price=request.price,
+        billing_type=request.billing_type,
+        admin_id=current_admin.id,
+    )
+
+    result = usecase.execute(dto)
+
+    return OptionMapper.to_update_response(
+        result
+    )
 
 
-# =========================
-# TOGGLE    
-# =========================
+# =====================================================
+# TOGGLE STATUS
+# =====================================================
+
 @router.patch(
     "/{option_id}/status",
-    response_model=UpdateOptionResponse
+    response_model=ToggleOptionStatusResponse,
 )
 def toggle_option_status(
     option_id: str,
     request: ToggleOptionStatusRequest,
+    current_admin: User = Depends(
+        get_current_admin
+    ),
     usecase: ToggleOptionStatusUseCase = Depends(
         get_toggle_option_status_usecase
     ),
-    current_admin=Depends(get_current_admin)
 ):
 
-    return usecase.execute(
-        option_id,
-        request,
-        current_admin
+    dto = ToggleOptionStatusDTO(
+        option_id=option_id,
+        is_active=request.is_active,
+        admin_id=current_admin.id,
+    )
+
+    result = usecase.execute(dto)
+
+    return OptionMapper.to_toggle_status_response(
+        result
     )

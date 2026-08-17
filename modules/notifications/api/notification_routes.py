@@ -1,96 +1,203 @@
 from fastapi import APIRouter, Depends
-from modules.notifications.application.use_cases.get_notifications import (
-    GetNotificationsUseCase
-)
-from modules.notifications.application.use_cases.get_unread_count import (
-    GetUnreadCountUseCase
-)
-from modules.notifications.application.use_cases.mark_notification_read import MarkNotificationReadUseCase
 
-from modules.notifications.api.schemas import (
-    NotificationResponse,
-    UnreadNotificationCountResponse,
-    MarkNotificationReadResponse
-)
-
-
-from modules.notifications.api.schemas import DeleteNotificationResponse
+from modules.auth.domain.entities.user import User
 from core.security.dependencies import get_current_user
+
+# =========================
+# USE CASES
+# =========================
+
+from modules.notifications.application.use_cases.get_notifications import (
+    GetNotificationsUseCase,
+)
+
+from modules.notifications.application.use_cases.get_unread_count import (
+    GetUnreadCountUseCase,
+)
+
+from modules.notifications.application.use_cases.mark_notification_read import (
+    MarkNotificationReadUseCase,
+)
+
+from modules.notifications.application.use_cases.delete_notification import (
+    DeleteNotificationUseCase,
+)
+
+# =========================
+# DTO
+# =========================
+
+from modules.notifications.application.dtos.get_notifications_dto import (
+    GetNotificationsDTO,
+)
+
+from modules.notifications.application.dtos.get_unread_count_dto import (
+    GetUnreadCountDTO,
+)
+
+from modules.notifications.application.dtos.mark_notification_read_dto import (
+    MarkNotificationReadDTO,
+)
+
+from modules.notifications.application.dtos.delete_notification_dto import (
+    DeleteNotificationDTO,
+)
+
+# =========================
+# DEPENDENCIES
+# =========================
+
 from modules.notifications.api.dependencies import (
     get_get_notifications_usecase,
+    get_get_unread_count_usecase,
     get_mark_notification_read_usecase,
-    get_unread_count_usecase,
-    get_delete_notification_usecase
+    get_delete_notification_usecase,
 )
 
-router = APIRouter(
-    tags=["Notifications"]
+# =========================
+# API SCHEMAS
+# =========================
+
+from modules.notifications.api.schemas import (
+    GetNotificationsResponse,
+    UnreadNotificationCountResponse,
+    MarkNotificationReadResponse,
+    DeleteNotificationResponse,
 )
+
 # =========================
+# MAPPER
+# =========================
+
+from modules.notifications.infrastructure.mappers.notification_mapper import (
+    NotificationMapper,
+)
+
+
+router = APIRouter(
+    tags=["Notifications"],
+)
+
+
+# =====================================================
 # GET MY NOTIFICATIONS
-# =========================
+# =====================================================
+
 @router.get(
     "/me",
-    response_model=list[NotificationResponse]
+    response_model=GetNotificationsResponse,
 )
 def get_my_notifications(
-    current_user = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
     usecase: GetNotificationsUseCase = Depends(
         get_get_notifications_usecase
     ),
 ):
 
-    return usecase.execute(
-        user_id=current_user.id
+    dto = GetNotificationsDTO(
+        user_id=current_user.id,
+    )
+
+    result = usecase.execute(
+        dto
+    )
+
+    return NotificationMapper.to_list_response(
+        result
     )
 
 
-# =========================
+# =====================================================
 # MARK AS READ
-# =========================
+# =====================================================
+
 @router.patch(
     "/{notification_id}/read",
-    response_model=MarkNotificationReadResponse
+    response_model=MarkNotificationReadResponse,
 )
 def mark_notification_read(
     notification_id: str,
-    current_user = Depends(get_current_user),
-    use_case: MarkNotificationReadUseCase = Depends(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    usecase: MarkNotificationReadUseCase = Depends(
         get_mark_notification_read_usecase
-    )
+    ),
 ):
 
-    return use_case.execute(
-        notification_id,
-        current_user.id
+    dto = MarkNotificationReadDTO(
+        notification_id=notification_id,
+        user_id=current_user.id,
+    )
+
+    result = usecase.execute(
+        dto
+    )
+
+    return NotificationMapper.to_mark_read_response(
+        result
     )
 
 
-# =========================
+# =====================================================
 # COUNT UNREAD
-# =========================
+# =====================================================
+
 @router.get(
-    "/unread/count",
-    response_model=UnreadNotificationCountResponse
+    "/unread-count",
+    response_model=UnreadNotificationCountResponse,
 )
 def get_unread_count(
-    current_user = Depends(get_current_user),
-    use_case: GetUnreadCountUseCase = Depends(
-        get_unread_count_usecase
-    )
+    current_user: User = Depends(
+        get_current_user
+    ),
+    usecase: GetUnreadCountUseCase = Depends(
+        get_get_unread_count_usecase
+    ),
 ):
 
-    return use_case.execute(
-        current_user.id
+    dto = GetUnreadCountDTO(
+        user_id=current_user.id,
     )
 
-# =========================
+    result = usecase.execute(
+        dto
+    )
+
+    return NotificationMapper.to_unread_count_response(
+        result
+    )
+
+
+# =====================================================
 # DELETE
-# =========================
-@router.delete("/{notification_id}", response_model=DeleteNotificationResponse)
+# =====================================================
+
+@router.delete(
+    "/{notification_id}",
+    response_model=DeleteNotificationResponse,
+)
 def delete_notification(
     notification_id: str,
-    current_user=Depends(get_current_user),
-    usecase=Depends(get_delete_notification_usecase)
+    current_user: User = Depends(
+        get_current_user
+    ),
+    usecase: DeleteNotificationUseCase = Depends(
+        get_delete_notification_usecase
+    ),
 ):
-    return usecase.execute(notification_id, current_user.id)
+
+    dto = DeleteNotificationDTO(
+        notification_id=notification_id,
+        user_id=current_user.id,
+    )
+
+    result = usecase.execute(
+        dto
+    )
+
+    return NotificationMapper.to_delete_response(
+        result
+    )

@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from modules.test_drives.domain.repositories.test_drive_repository import (
     TestDriveRepository
 )
@@ -14,6 +14,7 @@ from core.pagination.paginated_result import PaginatedResult
 from modules.auth.infrastructure.db.user_model import UserModel
 from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
 from modules.test_drives.domain.enums import TestDriveStatus
+from modules.test_drives.domain.entities.test_drive import TestDrive
 
 
 class TestDriveRepositorySQL(TestDriveRepository):
@@ -73,67 +74,63 @@ class TestDriveRepositorySQL(TestDriveRepository):
     def get_day_availability(
         self,
         vehicle_id: str,
-        date
+        selected_date: date,
     ):
+        # =========================
+        # DAY RANGE
+        # =========================
 
-        if isinstance(date, str):
-            day_start = datetime.fromisoformat(date)
-
-        elif isinstance(date, datetime):
-            day_start = date
-
-        else:
-            raise ValueError(
-                "Invalid date format"
-            )
-
-
-        day_start = day_start.replace(
-            hour=0,
-            minute=0,
-            second=0,
-            microsecond=0,
-            tzinfo=timezone.utc
+        day_start = datetime.combine(
+            selected_date,
+            datetime.min.time(),
+            tzinfo=timezone.utc,
         )
 
+        day_end = day_start + timedelta(days=1)
+
+        # =========================
+        # CURRENT TIME
+        # =========================
 
         now = datetime.now(timezone.utc)
 
-        day_end = (
-            day_start + timedelta(days=1)
-        )
-
+        # =========================
+        # BOOKED SLOTS
+        # =========================
 
         booked = (
             self.session.query(TestDriveModel)
             .filter(
                 TestDriveModel.vehicle_id == vehicle_id,
                 TestDriveModel.appointment_date >= day_start,
-                TestDriveModel.appointment_date < day_end
+                TestDriveModel.appointment_date < day_end,
             )
             .all()
         )
 
-
         booked_hours = {
-            b.appointment_date.hour
-            for b in booked
+            appointment.appointment_date.hour
+            for appointment in booked
         }
 
+        # =========================
+        # AVAILABLE SLOTS
+        # =========================
 
         available = []
 
         for hour in range(9, 18):
 
-            if day_start.date() == now.date():
-
-                if hour <= now.hour:
-                    continue
-
+            # Pour aujourd'hui, ne proposer
+            # que les créneaux futurs.
+            if (
+                selected_date == now.date()
+                and hour <= now.hour
+            ):
+                continue
 
             if hour in booked_hours:
                 continue
-
 
             slot = day_start.replace(
                 hour=hour
@@ -143,92 +140,19 @@ class TestDriveRepositorySQL(TestDriveRepository):
                 slot.isoformat()
             )
 
+        # =========================
+        # RESULT
+        # =========================
 
         return {
-            "date": day_start.date().isoformat(),
+            "date": selected_date.isoformat(),
             "timezone": "UTC",
-            "available_slots": available
+            "available_slots": available,
         }
-
-
-    # =========================
-    # COUNT PENDING
-    # =========================
-    def count_pending(self):
-
-        return (
-            self.session
-            .query(TestDriveModel)
-            .filter(
-                TestDriveModel.status == TestDriveStatus.PENDING
-            )
-            .count()
-        )
-
 
     # =========================
     # GET ALL
     # =========================
-    def get_all_admin(
-        self,
-        status: str | None = None,
-        search: str | None = None,
-        page: int = 1,
-        limit: int = 20
-    ):
-
-        query = (
-            self.session.query(TestDriveModel)
-            .options(
-                joinedload(TestDriveModel.user),
-                joinedload(TestDriveModel.vehicle),
-            )
-        )
-
-        if status:
-            query = query.filter(
-                TestDriveModel.status == status
-            )
-
-        if search:
-            query = query.filter(
-                (
-                    UserModel.first_name.ilike(f"%{search}%")
-                )
-                |
-                (
-                    UserModel.last_name.ilike(f"%{search}%")
-                )
-                |
-                (
-                    VehicleModel.brand.ilike(f"%{search}%")
-                )
-                |
-                (
-                    VehicleModel.model.ilike(f"%{search}%")
-                )
-            )
-
-        total = query.with_entities(
-            func.count(TestDriveModel.id)
-        ).scalar()
-
-        items = (
-            query
-            .order_by(TestDriveModel.appointment_date.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
-
-        return PaginatedResult(
-            items=items,
-            total=total,
-            page=page,
-            limit=limit
-        )
-
-
     # =========================
     # GET BY ID
     # =========================
@@ -252,7 +176,140 @@ class TestDriveRepositorySQL(TestDriveRepository):
         return TestDriveMapper.to_domain(
             model
         )
+    # =========================
+    # BY USER
+    # =========================
 
+    def get_by_user_id(
+        self,
+        user_id: str,
+    ) -> list[TestDrive]:
+
+        models = (
+            self.session.query(TestDriveModel)
+            .options(
+                joinedload(TestDriveModel.vehicle)
+            )
+            .filter(
+                TestDriveModel.user_id == user_id
+            )
+            .order_by(
+                TestDriveModel.created_at.desc()
+            )
+            .all()
+        )
+
+        return [
+            TestDriveMapper.to_domain(model)
+            for model in models
+        ]
+
+    # =========================
+    # FULL DETAILS
+    # =========================
+    def get_full_by_id(
+        self,
+        test_drive_id: str
+    ):
+
+        return (
+            self.session.query(TestDriveModel)
+            .filter(
+                TestDriveModel.id == test_drive_id
+            )
+            .options(
+                joinedload(TestDriveModel.user),
+                joinedload(TestDriveModel.vehicle),
+                joinedload(TestDriveModel.events)
+            )
+            .first()
+        )
+
+
+
+    def get_all_admin(
+        self,
+        status: TestDriveStatus | None = None,
+        search: str | None = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> PaginatedResult[TestDriveModel]:
+
+        query = (
+            self.session.query(TestDriveModel)
+            .join(
+                UserModel,
+                UserModel.id == TestDriveModel.user_id
+            )
+            .join(
+                VehicleModel,
+                VehicleModel.id == TestDriveModel.vehicle_id
+            )
+            .options(
+                joinedload(TestDriveModel.user),
+                joinedload(TestDriveModel.vehicle),
+            )
+        )
+
+        # =========================
+        # STATUS
+        # =========================
+
+        if status is not None:
+            query = query.filter(
+                TestDriveModel.status == status
+            )
+
+        # =========================
+        # SEARCH
+        # =========================
+
+        if search:
+            search_pattern = f"%{search}%"
+
+            query = query.filter(
+                or_(
+                    UserModel.first_name.ilike(
+                        search_pattern
+                    ),
+                    UserModel.last_name.ilike(
+                        search_pattern
+                    ),
+                    VehicleModel.brand.ilike(
+                        search_pattern
+                    ),
+                    VehicleModel.model.ilike(
+                        search_pattern
+                    ),
+                )
+            )
+
+        # =========================
+        # TOTAL
+        # =========================
+
+        total = query.count()
+
+        # =========================
+        # PAGINATION
+        # =========================
+
+        items = (
+            query
+            .order_by(
+                TestDriveModel.appointment_date.desc()
+            )
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+
+        return PaginatedResult(
+            items=items,
+            total=total,
+            page=page,
+            limit=limit,
+        )
 
     # =========================
     # UPDATE
@@ -286,46 +343,17 @@ class TestDriveRepositorySQL(TestDriveRepository):
         )
 
 
+
     # =========================
-    # FULL DETAILS
+    # COUNT PENDING
     # =========================
-    def get_full_by_id(
-        self,
-        test_drive_id: str
-    ):
+    def count_pending(self):
 
         return (
-            self.session.query(TestDriveModel)
+            self.session
+            .query(TestDriveModel)
             .filter(
-                TestDriveModel.id == test_drive_id
+                TestDriveModel.status == TestDriveStatus.PENDING
             )
-            .options(
-                joinedload(TestDriveModel.user),
-                joinedload(TestDriveModel.vehicle),
-                joinedload(TestDriveModel.events)
-            )
-            .first()
-        )
-
-
-    # =========================
-    # BY USER
-    # =========================
-    def get_by_user_id(
-        self,
-        user_id: str
-    ):
-
-        return (
-            self.session.query(TestDriveModel)
-            .options(
-                joinedload(TestDriveModel.vehicle)
-            )
-            .filter(
-                TestDriveModel.user_id == user_id
-            )
-            .order_by(
-                TestDriveModel.created_at.desc()
-            )
-            .all()
+            .count()
         )

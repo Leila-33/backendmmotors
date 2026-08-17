@@ -1,18 +1,27 @@
-from modules.financing.domain.exceptions import FinancingContractNotFound
 import logging
+
+from modules.financing.domain.exceptions import (
+    FinancingContractNotFound,
+)
+from modules.payments.application.dtos.handle_invoice_created_dto import (
+    HandleInvoiceCreatedDTO,
+)
+from modules.payments.application.results.handle_invoice_created_result import (
+    HandleInvoiceCreatedResult,
+)
+
 
 logger = logging.getLogger(__name__)
 
-class HandleInvoiceCreatedUseCase:
 
+class HandleInvoiceCreatedUseCase:
 
     def __init__(
         self,
         financing_contract_repository,
         installment_repository,
-        uow
+        unit_of_work,
     ):
-
         self.financing_contract_repository = (
             financing_contract_repository
         )
@@ -21,49 +30,39 @@ class HandleInvoiceCreatedUseCase:
             installment_repository
         )
 
-        self.uow = uow
-
-
+        self.unit_of_work = unit_of_work
 
     def execute(
         self,
-        event: dict
+        dto: HandleInvoiceCreatedDTO,
     ):
-        invoice_id = None
 
         try:
 
-            invoice = event["data"]["object"]
-            invoice_id = invoice.id
+            # =========================
+            # SUBSCRIPTION
+            # =========================
 
-
-            subscription_id = invoice.subscription
-
-
-            if not subscription_id:
+            if not dto.subscription_id:
                 return None
 
-
-            # =============================================
-            # CONTRACT
-            # =============================================
+            # =========================
+            # GET CONTRACT
+            # =========================
 
             contract = (
                 self.financing_contract_repository
                 .get_by_subscription_id(
-                    subscription_id
+                    dto.subscription_id
                 )
             )
 
-
-            if not contract:
+            if contract is None:
                 raise FinancingContractNotFound()
 
-
-
-            # =============================================
+            # =========================
             # FIND INSTALLMENT
-            # =============================================
+            # =========================
 
             installment = (
                 self.installment_repository
@@ -72,46 +71,68 @@ class HandleInvoiceCreatedUseCase:
                 )
             )
 
-
-            if not installment:
+            if installment is None:
                 return None
 
-
-
-            # =============================================
-            # LINK STRIPE INVOICE
-            # =============================================
+            # =========================
+            # LINK INVOICE
+            # =========================
 
             installment.stripe_invoice_id = (
-                invoice.id
+                dto.invoice_id
             )
-
 
             self.installment_repository.update(
                 installment
             )
 
+            # =========================
+            # COMMIT
+            # =========================
 
-            self.uow.commit()
+            self.unit_of_work.commit()
+
+            # =========================
+            # SUCCESS LOG
+            # =========================
 
             logger.info(
                 "Facture Stripe associée à une échéance",
                 extra={
-                    "invoice_id": invoice_id,
-                    "subscription_id": subscription_id,
+                    "invoice_id": dto.invoice_id,
+                    "subscription_id": (
+                        dto.subscription_id
+                    ),
                     "contract_id": contract.id,
                     "installment_id": installment.id,
-                }
+                },
             )
-            return installment
+
+            # =========================
+            # RESULT
+            # =========================
+
+            return HandleInvoiceCreatedResult(
+                installment_id=installment.id,
+                invoice_id=dto.invoice_id,
+                message=(
+                    "Facture Stripe associée "
+                    "à l'échéance"
+                ),
+            )
 
         except Exception:
+
+            self.unit_of_work.rollback()
 
             logger.exception(
                 "Erreur traitement facture Stripe",
                 extra={
-                    "invoice_id": invoice_id,
-                }
+                    "invoice_id": dto.invoice_id,
+                    "subscription_id": (
+                        dto.subscription_id
+                    ),
+                },
             )
 
             raise

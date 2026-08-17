@@ -208,11 +208,6 @@ class EventType(str, Enum):
     ADMIN_ACTION = "admin_action"
 
 
-
-
-
-
-
 class ViewMode(str, Enum):
     ACTIVE = "active"
     CANCELLED = "cancelled"

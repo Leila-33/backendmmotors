@@ -5,3 +5,9 @@ class UserRole(str, Enum):
     CLIENT = "client"
     SAV_AGENT = "sav_agent"
     SALES_AGENT = "sales_agent"
+
+class UserStatusFilter(str, Enum):
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    ARCHIVED = "archived"

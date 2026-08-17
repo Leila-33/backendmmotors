@@ -14,7 +14,8 @@ UpdateVehicleRequest,
 VehicleSearchFilters,
 VehicleListResponse,
 VehicleLifecycleDTO,
-SetAvailabilityRequest
+SetAvailabilityRequest,
+DeleteVehicleResponse
 )
 
 # =========================
@@ -55,17 +56,43 @@ router = APIRouter(tags=["Admin Vehicles"])
 # =========================
 # ROUTE
 # =========================
-@router.post("/", response_model=VehicleResponse)
-async def create_vehicle(
-    request: CreateVehicleRequest,
-    use_case: CreateVehicle = Depends(get_create_vehicle_use_case),
-    mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
-    current_admin=Depends(get_current_admin)
+@router.post(
+    "",
+    response_model=VehicleResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_vehicle(
+    payload: CreateVehicleRequest,
+    current_admin=Depends(get_current_admin),
+    use_case: CreateVehicleUseCase = Depends(
+        get_create_vehicle_usecase
+    ),
 ):
 
-    vehicle = use_case.execute(request, current_admin)
+    dto = CreateVehicleDTO(
+        brand=payload.brand,
+        model=payload.model,
+        price=payload.price,
+        type=payload.type,
+        mileage=payload.mileage,
+        year=payload.year,
+        description=payload.description,
+        engine_type=payload.engine_type,
+        equipments=payload.equipments,
+        condition=payload.condition,
+        images=payload.images,
+        license_plate=payload.license_plate,
+        warranty_plan_id=payload.warranty_plan_id,
+        included_options=payload.included_options,
+        optional_options=payload.optional_options,
+    )
 
-    return mapper.to_response(vehicle)
+    vehicle = use_case.execute(
+        dto=dto,
+        admin_id=current_admin.id,
+    )
+
+    return VehicleMapper.to_response(vehicle)
 
 # =====================================================
 #  UPDATE VEHICLE
@@ -110,7 +137,7 @@ def get_vehicles_admin(
 # =========================
 # DELETE VEHICLE
 # =========================
-@router.delete("/{vehicle_id}")
+@router.delete("/{vehicle_id}", response_model=DeleteVehicleResponse)
 def delete_vehicle(
     vehicle_id: str,
     use_case: DeleteVehicle = Depends(get_delete_vehicle_use_case),

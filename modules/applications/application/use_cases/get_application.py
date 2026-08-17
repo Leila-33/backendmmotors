@@ -1,5 +1,6 @@
 from modules.auth.domain.enums import UserRole
 from modules.applications.domain.exceptions import ApplicationNotFound
+from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
 
 
 class GetApplicationUseCase:

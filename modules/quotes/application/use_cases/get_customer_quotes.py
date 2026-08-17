@@ -1,31 +1,31 @@
-from modules.quotes.infrastructure.mappers.quote_mapper import QuoteMapper
-class GetCustomerQuotesUseCase:
+from modules.quotes.application.dtos.get_customer_quotes_dto import (
+    GetCustomerQuotesDTO
+)
+from modules.quotes.application.results.get_customer_quotes_result import (
+    GetCustomerQuotesResult
+)
 
+
+class GetCustomerQuotesUseCase:
 
     def __init__(
         self,
         quote_repository,
     ):
-        self.quote_repository = (
-            quote_repository
-        )
-
+        self.quote_repository = quote_repository
 
     def execute(
         self,
-        customer_id: str,
-    ):
+        dto: GetCustomerQuotesDTO,
+    ) -> GetCustomerQuotesResult:
 
         quotes = (
             self.quote_repository
             .find_by_customer(
-                customer_id
+                dto.customer_id
             )
         )
 
-        return [
-            QuoteMapper.to_list_response(
-                quote
-            )
-            for quote in quotes
-        ]
+        return GetCustomerQuotesResult(
+            quotes=quotes
+        )

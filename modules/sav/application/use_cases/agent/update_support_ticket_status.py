@@ -1,13 +1,27 @@
-from modules.sav.domain.exceptions import SupportTicketNotFound, TicketAccessDenied
-from modules.sav.domain.enums import TicketStatus
-from modules.auth.domain.enums import UserRole
-from modules.sav.application.ticket_chat_manager import TicketChatManager
-from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
-from modules.applications.domain.enums import EventType
 import logging
+
+from modules.sav.domain.enums import TicketStatus
+from modules.sav.domain.exceptions import (
+    SupportTicketNotFound,
+)
+
+from modules.sav.application.dtos.agent.update_support_ticket_status_dto import (
+    UpdateSupportTicketStatusDTO,
+)
+
+from modules.sav.application.results.agent.update_support_ticket_status_result import (
+    UpdateSupportTicketStatusResult,
+)
+
+from modules.sav.application.ticket_chat_manager import (
+    TicketChatManager,
+)
+
+from modules.applications.domain.enums import EventType
 
 
 logger = logging.getLogger(__name__)
+
 
 class UpdateSupportTicketStatusUseCase:
 
@@ -26,59 +40,58 @@ class UpdateSupportTicketStatusUseCase:
 
     async def execute(
         self,
-        ticket_id: str,
-        status: TicketStatus,
-        user
-    ):
+        dto: UpdateSupportTicketStatusDTO,
+    ) -> UpdateSupportTicketStatusResult:
 
-        # =====================
-        # START TRANSACTION
-        # =====================
+        ticket = None
+
         try:
 
-            ticket = self.repo.get_by_id(ticket_id)
+            # =========================
+            # GET TICKET
+            # =========================
 
+            ticket = self.repo.get_by_id(
+                dto.ticket_id
+            )
 
             if not ticket:
                 raise SupportTicketNotFound()
 
 
-            # =====================
-            # SECURITY
-            # =====================
-
-            if user.role != UserRole.SAV_AGENT:
-                raise TicketAccessDenied()
-
-
-
-            # =====================
+            # =========================
             # NO CHANGE
-            # =====================
+            # =========================
 
-            if ticket.status == status:
+            if ticket.status == dto.status:
 
-                return SupportTicketMapper.to_response(
-                    ticket
+                return UpdateSupportTicketStatusResult(
+                    ticket=ticket,
+                    old_status=ticket.status,
                 )
 
 
+            # =========================
+            # OLD STATUS
+            # =========================
 
             old_status = ticket.status
 
 
-
-            # =====================
+            # =========================
             # UPDATE
-            # =====================
+            # =========================
 
-            ticket.status = status
-
+            ticket.status = dto.status
 
             updated_ticket = self.repo.update(
                 ticket
             )
 
+
+            # =========================
+            # EVENT
+            # =========================
 
             self.event_service.log(
 
@@ -86,18 +99,17 @@ class UpdateSupportTicketStatusUseCase:
 
                 message="Statut du ticket SAV modifié",
 
-                application_id=updated_ticket.application_id,
+                application_id=(
+                    updated_ticket.application_id
+                ),
 
-                user_id=user.id,
+                user_id=dto.user_id,
 
                 event_metadata={
-
                     "ticket_id": updated_ticket.id,
 
                     "old_status": (
                         old_status.value
-                        if old_status
-                        else None
                     ),
 
                     "new_status": (
@@ -111,27 +123,32 @@ class UpdateSupportTicketStatusUseCase:
                     "assigned_to": (
                         updated_ticket.assigned_to
                     ),
-                }
+                },
             )
-            # =====================
-            # COMMIT DATABASE
-            # =====================
+
+
+            # =========================
+            # COMMIT
+            # =========================
 
             self.uow.commit()
 
-            logger.info(
-    "Statut ticket SAV modifié",
-    extra={
-        "ticket_id": ticket.id,
-        "actor_id": user.id,
-        "old_status": old_status.value,
-        "new_status": status.value,
-    },
-)
 
-            # =====================
-            # WEBSOCKET AFTER COMMIT
-            # =====================
+            logger.info(
+                "Statut ticket SAV modifié",
+                extra={
+                    "ticket_id": updated_ticket.id,
+                    "actor_id": dto.user_id,
+                    "old_status": old_status.value,
+                    "new_status": dto.status.value,
+                },
+            )
+
+
+            # =========================
+            # WEBSOCKET
+            # APRÈS COMMIT
+            # =========================
 
             await self.chat_manager.broadcast(
                 ticket_id=updated_ticket.id,
@@ -143,17 +160,21 @@ class UpdateSupportTicketStatusUseCase:
 
                         "old_status": (
                             old_status.value
-                            if old_status
-                            else None
                         ),
 
-                        "status": updated_ticket.status.value,
-                    }
-                }
+                        "status": (
+                            updated_ticket.status.value
+                        ),
+                    },
+                },
             )
 
 
-            return updated_ticket
+            return UpdateSupportTicketStatusResult(
+                ticket=updated_ticket,
+                old_status=old_status,
+            )
+
 
         except Exception:
 
@@ -162,8 +183,8 @@ class UpdateSupportTicketStatusUseCase:
             logger.exception(
                 "Erreur modification statut ticket SAV",
                 extra={
-                    "ticket_id": ticket_id,
-                    "actor_id": user.id,
+                    "ticket_id": dto.ticket_id,
+                    "actor_id": dto.user_id,
                 },
             )
 

@@ -1,15 +1,42 @@
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.applications.domain.enums import EventType
-from modules.reservations.domain.enums import ReservationStatus
-from modules.auth.domain.entities.user import User
-from modules.applications.domain.policies.restore_application_policy import RestoreApplicationPolicy
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
-from modules.applications.application.services.event_service import EventService
-from modules.applications.application.services.restore_application_service import RestoreApplicationService
-from core.database.unit_of_work import UnitOfWork
-from modules.applications.domain.entities.application import Application
 import logging
+
+from core.database.unit_of_work import UnitOfWork
+
+from modules.applications.application.services.event_service import (
+    EventService,
+)
+from modules.applications.application.services.restore_application_service import (
+    RestoreApplicationService,
+)
+
+from modules.applications.domain.entities.application import (
+    Application,
+)
+from modules.applications.domain.enums import (
+    EventType,
+)
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
+)
+from modules.applications.domain.policies.restore_application_policy import (
+    RestoreApplicationPolicy,
+)
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
+from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+
+from modules.auth.domain.entities.user import (
+    User,
+)
+
+from modules.reservations.domain.enums import (
+    ReservationStatus,
+)
+from modules.reservations.domain.repositories.reservation_repository import (
+    ReservationRepository,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +64,7 @@ class RestoreCancelledApplicationUseCase:
     # =========================
     def execute(
         self,
-        application_id: str,
+        dto: ApplicationIdDTO,
         current_admin: User,
     ) -> Application:
 
@@ -47,7 +74,7 @@ class RestoreCancelledApplicationUseCase:
             # =========================
             application = (
                 self.application_repository.get_by_id(
-                    application_id
+                    dto.application_id
                 )
             )
 
@@ -106,6 +133,7 @@ class RestoreCancelledApplicationUseCase:
             self.event_service.log(
         application_id=application.id,
         user_id=current_admin.id,
+        vehicle_id=application.vehicle_id,
         type=EventType.APPLICATION_RESTORED,
         message="Dossier restauré par administrateur.",
         event_metadata={
@@ -137,7 +165,7 @@ class RestoreCancelledApplicationUseCase:
             logger.exception(
     "Erreur restauration application",
     extra={
-        "application_id": application_id
+        "application_id": dto.application_id
     }
 )
             raise

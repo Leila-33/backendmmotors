@@ -1,10 +1,22 @@
-from modules.applications.domain.enums import EventType
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.application.services.event_service import EventService
-from modules.auth.domain.entities.user import User
-from core.database.unit_of_work import UnitOfWork
 import logging
 
+from core.database.unit_of_work import UnitOfWork
+
+from modules.applications.application.services.event_service import (
+    EventService,
+)
+
+from modules.applications.domain.enums import (
+    EventType,
+)
+
+from modules.auth.domain.entities.user import (
+    User,
+)
+
+from modules.applications.api.schemas import (
+    SaveDraftApplicationDTO
+)
 logger = logging.getLogger(__name__)
 
 
@@ -23,7 +35,7 @@ class SaveDraftApplicationUseCase:
 
     def execute(
         self,
-        dto,
+        dto: SaveDraftApplicationDTO,
         current_user: User
     ):
 
@@ -40,6 +52,7 @@ class SaveDraftApplicationUseCase:
                  self.event_service.log(
                         application_id=result.application.id,
                         user_id=current_user.id,
+                        vehicle_id=result.application.vehicle_id,
                         type=EventType.APPLICATION_CREATED,
                         message="Dossier créé.",
                     )

@@ -1,23 +1,50 @@
 from fastapi import APIRouter, Depends, status
-from core.security.dependencies import get_current_user
 
+from core.security.dependencies import get_current_user
+from modules.auth.domain.entities.user import User
+
+from modules.favorites.api.dependencies import (
+    get_add_favorite_usecase,
+    get_remove_favorite_usecase,
+    get_get_favorites_usecase,
+)
+
+from modules.favorites.api.schemas import (
+    AddFavoriteResponse,
+    RemoveFavoriteResponse,
+    GetFavoritesResponse,
+    FavoriteItemResponse,
+    FavoriteVehicleResponse,
+)
+
+from modules.favorites.application.dtos.add_favorite_dto import (
+    AddFavoriteDTO,
+)
+from modules.favorites.application.dtos.remove_favorite_dto import (
+    RemoveFavoriteDTO,
+)
+from modules.favorites.application.dtos.get_favorites_dto import (
+    GetFavoritesDTO,
+)
 from modules.favorites.application.use_cases.add_favorite import (
     AddFavoriteUseCase,
 )
 from modules.favorites.application.use_cases.remove_favorite import (
     RemoveFavoriteUseCase,
 )
-from modules.favorites.api.schemas import (
-    AddFavoriteResponse,
-    GetFavoritesResponse,
-    RemoveFavoriteResponse
+from modules.favorites.application.use_cases.get_favorites import (
+    GetFavoritesUseCase,
 )
-from modules.favorites.api.dependencies import (
-    get_add_favorite_usecase,
-    get_remove_favorite_usecase,
-    get_favorites_usecase
+
+
+router = APIRouter(
+    tags=["favorites"]
 )
-router = APIRouter(tags=["favorites"])
+
+
+# ============================================================
+# ADD FAVORITE
+# ============================================================
 
 @router.post(
     "/{vehicle_id}",
@@ -26,16 +53,29 @@ router = APIRouter(tags=["favorites"])
 )
 def add_favorite(
     vehicle_id: str,
-    current_user=Depends(get_current_user),
-    use_case: AddFavoriteUseCase = Depends(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    usecase: AddFavoriteUseCase = Depends(
         get_add_favorite_usecase
     ),
 ):
-
-    return use_case.execute(
+    dto = AddFavoriteDTO(
         user_id=current_user.id,
         vehicle_id=vehicle_id,
     )
+
+    result = usecase.execute(dto)
+
+    return AddFavoriteResponse(
+        id=result.id,
+        message="Favori ajouté avec succès.",
+    )
+
+
+# ============================================================
+# REMOVE FAVORITE
+# ============================================================
 
 @router.delete(
     "/{vehicle_id}",
@@ -43,25 +83,63 @@ def add_favorite(
 )
 def remove_favorite(
     vehicle_id: str,
-    current_user=Depends(get_current_user),
-    use_case: RemoveFavoriteUseCase = Depends(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    usecase: RemoveFavoriteUseCase = Depends(
         get_remove_favorite_usecase
     ),
 ):
-
-    return use_case.execute(
-
+    dto = RemoveFavoriteDTO(
         user_id=current_user.id,
+        vehicle_id=vehicle_id,
+    )
 
-        vehicle_id=vehicle_id
+    result = usecase.execute(dto)
 
+    return RemoveFavoriteResponse(
+        message=result.message,
     )
 
 
-@router.get("/me", response_model=GetFavoritesResponse)
-def get_favorites(
-    user=Depends(get_current_user),
-    usecase=Depends(get_favorites_usecase)
-):
+# ============================================================
+# GET MY FAVORITES
+# ============================================================
 
-    return usecase.execute(user.id)
+@router.get(
+    "/me",
+    response_model=GetFavoritesResponse,
+)
+def get_favorites(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    usecase: GetFavoritesUseCase = Depends(
+        get_get_favorites_usecase
+    ),
+):
+    dto = GetFavoritesDTO(
+    user_id=current_user.id,
+)
+
+    result = usecase.execute(dto)
+
+    return GetFavoritesResponse(
+        items=[
+            FavoriteItemResponse(
+                id=item.id,
+                created_at=item.created_at,
+                vehicle=FavoriteVehicleResponse(
+                    id=item.vehicle.id,
+                    brand=item.vehicle.brand,
+                    model=item.vehicle.model,
+                    year=item.vehicle.year,
+                    price=item.vehicle.price,
+                    mileage=item.vehicle.mileage,
+                    type=item.vehicle.type,
+                    images=item.vehicle.images,
+                ),
+            )
+            for item in result.items
+        ]
+    )

@@ -1,21 +1,27 @@
-from dataclasses import dataclass, field
-from datetime import date, datetime
-from typing import Optional
+import uuid
 
-from modules.applications.domain.enums import ApplicationStatus
+from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
 
 from modules.applications.domain.entities.application_financing import (
-    ApplicationFinancing
+    ApplicationFinancing,
+)
+from modules.applications.domain.entities.application_trade_in import (
+    ApplicationTradeIn,
+)
+from modules.applications.domain.enums import ApplicationStatus
+
+from modules.auth.domain.entities.user import User
+
+from modules.financing.domain.entities.financing_contract import (
+    FinancingContract,
 )
 
-from modules.applications.domain.entities.application_trade_in import (
-    ApplicationTradeIn
+from modules.reservations.domain.entities.reservation import (
+    Reservation,
 )
-from modules.financing.domain.entities.financing_contract import FinancingContract
+
 from modules.vehicles.domain.entities.vehicle import Vehicle
-from modules.reservations.domain.entities.reservation import Reservation
-import uuid
-from modules.auth.domain.entities.user import User
 
 
 @dataclass
@@ -24,70 +30,72 @@ class Application:
     # =====================================================
     # IDENTIFIERS
     # =====================================================
+
     id: str
-
     user_id: str
-
     vehicle_id: str
 
     # =====================================================
     # OPTIONAL IDENTIFIERS
     # =====================================================
+
     quote_id: str | None = None
 
-
     # =====================================================
-    # SNAPSHOT USER
+    # USER SNAPSHOT
     # =====================================================
-    first_name: Optional[str] = None
 
-    last_name: Optional[str] = None
-
-    email: Optional[str] = None
-
-    phone: Optional[str] = None
-
-    address: Optional[str] = None
-
-    birth_date: Optional[date] = None
-
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    birth_date: date | None = None
 
     # =====================================================
     # FINANCIAL INFO
     # =====================================================
-    monthly_income: Optional[float] = None
 
-    monthly_expenses: Optional[float] = None
-
-    employment_status: Optional[str] = None
-
+    monthly_income: float | None = None
+    monthly_expenses: float | None = None
+    employment_status: str | None = None
 
     # =====================================================
     # STATUS
     # =====================================================
-    status: ApplicationStatus = (
-        ApplicationStatus.DRAFT
-    )
 
-    previous_status: Optional[ApplicationStatus] = None
+    status: ApplicationStatus = ApplicationStatus.DRAFT
 
+    previous_status: ApplicationStatus | None = None
+
+    # =====================================================
+    # DATES
+    # =====================================================
 
     created_at: datetime = field(
-        default_factory=datetime.utcnow
+        default_factory=lambda: datetime.now(timezone.utc)
     )
 
-    submitted_at: Optional[datetime] = None
+    submitted_at: datetime | None = None
+
+    # =====================================================
+    # ARCHIVE / DELETE
+    # =====================================================
 
     is_archived: bool = False
 
-    deleted_at: Optional[datetime] = None
-
-    discount: Optional[str] = None
-
+    deleted_at: datetime | None = None
 
     # =====================================================
-    # RELATIONS OPTIONAL
+    # PRICING
     # =====================================================
+
+    discount: float | None = None
+
+    # =====================================================
+    # RELATIONS
+    # =====================================================
+
     vehicle: Vehicle | None = None
 
     user: User | None = None
@@ -120,12 +128,16 @@ class Application:
         default_factory=list
     )
 
+    # =====================================================
+    # FACTORY
+    # =====================================================
 
     @staticmethod
     def create_draft_from_quote(
         quote,
         lead,
     ):
+
         return Application(
             id=str(uuid.uuid4()),
 
@@ -145,9 +157,14 @@ class Application:
             discount=quote.discount,
         )
 
+    # =====================================================
+    # STATUS
+    # =====================================================
+
     def change_status(
-    self,
-    status: ApplicationStatus
-):
+        self,
+        status: ApplicationStatus,
+    ):
+
         self.previous_status = self.status
         self.status = status

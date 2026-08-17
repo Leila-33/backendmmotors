@@ -17,6 +17,7 @@ from modules.reservations.domain.repositories.reservation_repository import Rese
 # =========================
 from core.database.dependencies import (
     get_unit_of_work
+    
 )
 from core.database.unit_of_work import UnitOfWork
 
@@ -44,6 +45,9 @@ def get_create_reservation_usecase(
 
 def get_cancel_reservation_usecase(
     reservation_repo=Depends(get_reservation_repository),
+    application_repository: ApplicationRepository = Depends(
+        get_application_repository
+    ),
     event_service=Depends(get_event_service),
     unit_of_work: UnitOfWork = Depends(
         get_unit_of_work
@@ -52,6 +56,7 @@ def get_cancel_reservation_usecase(
 
     return CancelReservationUseCase(
         reservation_repository=reservation_repo,
+        application_repository=application_repository,
         event_service=event_service,
         unit_of_work=unit_of_work
     )

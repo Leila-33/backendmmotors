@@ -1,9 +1,27 @@
 from uuid import uuid4
 from dateutil.relativedelta import relativedelta
-from modules.financing.domain.entities.installment import InstallmentPayment
-from modules.financing.domain.exceptions import FinancingContractNotFound
-from modules.payments.domain.enums import InstallmentStatus
 import logging
+
+from modules.financing.domain.entities.installment import (
+    InstallmentPayment,
+)
+
+from modules.financing.domain.exceptions import (
+    FinancingContractNotFound,
+)
+
+from modules.payments.domain.enums import (
+    InstallmentStatus,
+)
+
+from modules.financing.application.dtos.create_installments_dto import (
+    CreateInstallmentsDTO,
+)
+
+from modules.financing.application.results.create_installments_result import (
+    CreateInstallmentsResult,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +43,8 @@ class CreateInstallmentsUseCase:
 
     def execute(
         self,
-        contract_id: str,
-    ) -> list[InstallmentPayment]:
+        dto: CreateInstallmentsDTO,
+    ) -> CreateInstallmentsResult:
 
         try:
 
@@ -36,33 +54,55 @@ class CreateInstallmentsUseCase:
 
             contract = (
                 self.financing_contract_repository
-                .find_by_id(contract_id)
+                .find_by_id(
+                    dto.contract_id
+                )
             )
 
-            if not contract:
+            if contract is None:
                 raise FinancingContractNotFound()
-
 
             # =========================
             # IDEMPOTENCY
             # =========================
 
-            existing = (
+            existing_count = (
                 self.installment_repository
                 .count_by_contract_id(
                     contract.id
                 )
             )
 
-            if existing > 0:
+            if existing_count > 0:
 
-                return (
+                existing_installments = (
                     self.installment_repository
                     .find_all_by_contract_id(
                         contract.id
                     )
                 )
 
+                logger.info(
+                    "Échéances déjà créées",
+                    extra={
+                        "contract_id": contract.id,
+                        "count": len(
+                            existing_installments
+                        ),
+                    },
+                )
+
+                return CreateInstallmentsResult(
+                    contract_id=contract.id,
+                    installment_ids=[
+                        installment.id
+                        for installment
+                        in existing_installments
+                    ],
+                    count=len(
+                        existing_installments
+                    ),
+                )
 
             # =========================
             # CREATE INSTALLMENTS
@@ -74,61 +114,86 @@ class CreateInstallmentsUseCase:
                 contract.duration_months
             ):
 
-                installments.append(
-                    InstallmentPayment(
+                installment = InstallmentPayment(
 
-                        id=str(uuid4()),
+                    id=str(uuid4()),
 
-                        financing_contract_id=(
-                            contract.id
-                        ),
+                    financing_contract_id=(
+                        contract.id
+                    ),
 
-                        installment_number=(
-                            month + 1
-                        ),
+                    installment_number=(
+                        month + 1
+                    ),
 
-                        amount=(
-                            contract.monthly_payment
-                        ),
+                    amount=(
+                        contract.monthly_payment
+                    ),
 
-                        due_date=(
-                            contract.created_at
-                            + relativedelta(
-                                months=month + 1
-                            )
-                        ),
+                    due_date=(
+                        contract.created_at
+                        + relativedelta(
+                            months=month + 1
+                        )
+                    ),
 
-                        status=(
-                            InstallmentStatus.PENDING
-                        ),
-                    )
+                    status=(
+                        InstallmentStatus.PENDING
+                    ),
                 )
 
+                installments.append(
+                    installment
+                )
+
+            # =========================
+            # PERSIST
+            # =========================
 
             installments = (
                 self.installment_repository
-                .save_all(installments)
+                .save_all(
+                    installments
+                )
             )
+
+            # =========================
+            # SUCCESS LOG
+            # =========================
 
             logger.info(
                 "Échéances de financement créées",
                 extra={
                     "contract_id": contract.id,
-                    "count": len(installments),
-                }
+                    "count": len(
+                        installments
+                    ),
+                },
             )
 
+            # =========================
+            # RESULT
+            # =========================
 
-            return installments
-
+            return CreateInstallmentsResult(
+                contract_id=contract.id,
+                installment_ids=[
+                    installment.id
+                    for installment
+                    in installments
+                ],
+                count=len(
+                    installments
+                ),
+            )
 
         except Exception:
 
             logger.exception(
                 "Erreur lors de la création des échéances",
                 extra={
-                    "contract_id": contract_id,
-                }
+                    "contract_id": dto.contract_id,
+                },
             )
 
             raise

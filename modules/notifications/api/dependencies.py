@@ -51,7 +51,7 @@ def get_mark_notification_read_usecase(
         unit_of_work=unit_of_work)
 
 
-def get_unread_count_usecase(
+def get_get_unread_count_usecase(
     repository=Depends(get_notification_repository)
 ):
     return GetUnreadCountUseCase(repository)

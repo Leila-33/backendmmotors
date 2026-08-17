@@ -1,14 +1,30 @@
-from modules.auth.domain.exceptions import Forbidden
-from modules.applications.domain.enums import ApplicationStatus
-from modules.applications.domain.exceptions import (
-    ApplicationNotFound,
-    ApplicationCannotBeDeleted,
-)
-from modules.applications.api.schemas import DeleteApplicationResponseDTO
-from modules.notifications.domain.enums import NotificationEntityType
 import logging
 
+from modules.auth.domain.exceptions import (
+    Forbidden,
+)
+
+from modules.applications.application.results.delete_application_result import (
+    DeleteApplicationResult,
+)
+
+from modules.applications.domain.enums import (
+    ApplicationStatus,
+)
+
+from modules.applications.domain.exceptions import (
+    ApplicationCannotBeDeleted,
+    ApplicationNotFound,
+)
+from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+
+from modules.notifications.domain.enums import (
+    NotificationEntityType,
+)
+
+
 logger = logging.getLogger(__name__)
+
 
 class DeleteApplicationUseCase:
 
@@ -25,7 +41,6 @@ class DeleteApplicationUseCase:
         s3_service,
         uow,
     ):
-
         self.application_repo = application_repo
         self.document_repo = document_repo
         self.trade_in_repo = trade_in_repo
@@ -37,26 +52,22 @@ class DeleteApplicationUseCase:
         self.s3_service = s3_service
         self.uow = uow
 
-
     def execute(
         self,
-        application_id: str,
+        dto: ApplicationIdDTO,
         current_user,
     ):
-
-        # =====================================================
-        # GET APPLICATION
-        # =====================================================
         try:
-            application = (
-                self.application_repo.get_by_id(
-                    application_id
-                )
+            # =====================================================
+            # GET APPLICATION
+            # =====================================================
+
+            application = self.application_repo.get_by_id(
+                dto.application_id
             )
 
             if not application:
                 raise ApplicationNotFound()
-
 
             # =====================================================
             # SECURITY CHECK
@@ -64,7 +75,6 @@ class DeleteApplicationUseCase:
 
             if application.user_id != current_user.id:
                 raise Forbidden()
-
 
             # =====================================================
             # BUSINESS RULE
@@ -74,73 +84,65 @@ class DeleteApplicationUseCase:
             if application.status != ApplicationStatus.DRAFT:
                 raise ApplicationCannotBeDeleted()
 
-
             # =====================================================
             # GET DOCUMENTS BEFORE DELETE
             # Needed for S3 cleanup
             # =====================================================
 
-            documents = (
-                self.document_repo.get_by_application(
-                    application_id
-                )
+            documents = self.document_repo.get_by_application(
+                dto.application_id
             )
-
 
             # =====================================================
             # DELETE S3 FILES
             # =====================================================
 
             for document in documents:
-
                 if document.s3_key:
-
                     self.s3_service.delete_file(
                         document.s3_key
                     )
-
 
             # =====================================================
             # DELETE CHILD ENTITIES
             # =====================================================
 
             self.document_repo.delete_by_application(
-                application_id
+                dto.application_id
             )
 
             self.event_repo.delete_by_application(
-                application_id
+                dto.application_id
             )
 
-            self.notification_repo.delete_by_entity(NotificationEntityType.APPLICATION,
-            application_id
+            self.notification_repo.delete_by_entity(
+                NotificationEntityType.APPLICATION,
+                dto.application_id,
             )
 
             self.trade_in_repo.delete_by_application(
-                application_id
+                dto.application_id
             )
 
             self.financing_repo.delete_by_application(
-                application_id
+                dto.application_id
             )
 
             self.application_option_repo.delete_by_application(
-                application_id
+                dto.application_id
             )
 
             self.reservation_repo.delete_by_application(
-                application_id
+                dto.application_id
             )
-
 
             # =====================================================
             # DELETE APPLICATION
             # =====================================================
 
             self.application_repo.delete(
-                application_id
+                dto.application_id
             )
-
 
             # =====================================================
             # COMMIT
@@ -151,25 +153,23 @@ class DeleteApplicationUseCase:
             logger.warning(
                 "Suppression définitive application",
                 extra={
-                    "application_id": application_id,
+                    "application_id": dto.application_id,
                     "user_id": current_user.id,
-                }
+                },
             )
 
-            return DeleteApplicationResponseDTO(
-                success=True,
-                application_id=application_id,
+            return DeleteApplicationResult(
+                application_id=dto.application_id,
             )
-        
+
         except Exception:
-
             self.uow.rollback()
 
             logger.exception(
                 "Erreur suppression définitive application",
                 extra={
-                    "application_id": application_id
-                }
+                    "application_id": dto.application_id,
+                },
             )
-            
+
             raise

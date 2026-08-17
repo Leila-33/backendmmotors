@@ -1,124 +1,197 @@
+import logging
+from datetime import datetime, timezone
+from uuid import uuid4
+
+from modules.auth.domain.enums import UserRole
+from modules.auth.domain.exceptions import Forbidden
+
+from modules.sav.application.dtos.create_ticket_message_dto import (
+    CreateTicketMessageDTO,
+)
+
+from modules.sav.application.results.create_ticket_message_result import (
+    CreateTicketMessageResult,
+)
+
+from modules.sav.domain.entities.ticket_message import (
+    TicketMessage,
+)
+
+from modules.sav.domain.enums import TicketStatus
+
 from modules.sav.domain.exceptions import (
     SupportTicketNotFound,
     TicketClosedException,
     EmptyMessageException,
-    MessageTooLongException
+    MessageTooLongException,
 )
-from uuid import uuid4
-from modules.sav.domain.entities.ticket_message import TicketMessage
-from modules.auth.domain.enums import UserRole
-from modules.auth.domain.exceptions import Forbidden
-from modules.sav.domain.enums import TicketStatus
-from datetime import datetime, timezone
+
+
+logger = logging.getLogger(__name__)
+
 
 class CreateTicketMessageUseCase:
 
     def __init__(
         self,
-        ticket_repo,
-        message_repo,
-        read_state_repo,
-        unit_of_work
+        ticket_repository,
+        message_repository,
+        read_state_repository,
+        unit_of_work,
     ):
-        self.ticket_repo = ticket_repo
-        self.message_repo = message_repo
-        self.read_state_repo = read_state_repo
-        self.uow = unit_of_work
+        self.ticket_repository = ticket_repository
+        self.message_repository = message_repository
+        self.read_state_repository = read_state_repository
+        self.unit_of_work = unit_of_work
 
+    # =====================================================
+    # EXECUTE
+    # =====================================================
 
     def execute(
         self,
-        ticket_id: str,
-        user,
-        payload
-    ):
+        dto: CreateTicketMessageDTO,
+        user_id: str,
+        user_role: UserRole,
+    ) -> CreateTicketMessageResult:
+
+        message = None
 
         try:
 
-            # =====================
-            # 1. LOAD TICKET
-            # =====================
-            ticket = self.ticket_repo.get_by_id(ticket_id)
+            # =================================================
+            # LOAD TICKET
+            # =================================================
 
-            if not ticket:
+            ticket = (
+                self.ticket_repository
+                .get_by_id(dto.ticket_id)
+            )
+
+            if ticket is None:
                 raise SupportTicketNotFound()
 
+            # =================================================
+            # AUTHORIZATION
+            # =================================================
 
-            # =====================
-            # 2. SECURITY
-            # =====================
             if (
-                ticket.user_id != user.id
-                and user.role not in [
+                ticket.user_id != user_id
+                and user_role not in (
                     UserRole.ADMIN,
-                    UserRole.SAV_AGENT
-                ]
+                    UserRole.SAV_AGENT,
+                )
             ):
                 raise Forbidden()
 
+            # =================================================
+            # TICKET STATUS
+            # =================================================
 
-            # =====================
-            # 3. BUSINESS RULES
-            # =====================
             if ticket.status == TicketStatus.CLOSED:
                 raise TicketClosedException()
 
+            # =================================================
+            # MESSAGE VALIDATION
+            # =================================================
 
-            content = payload.message.strip()
-
+            content = dto.message.strip()
 
             if not content:
                 raise EmptyMessageException()
 
-
             if len(content) > 2000:
                 raise MessageTooLongException()
 
+            # =================================================
+            # CREATE MESSAGE
+            # =================================================
 
-
-            # =====================
-            # 4. CREATE MESSAGE
-            # =====================
             message = TicketMessage(
                 id=str(uuid4()),
-                ticket_id=ticket_id,
-                sender_id=user.id,
-                sender_role=user.role,
+
+                ticket_id=dto.ticket_id,
+
+                sender_id=user_id,
+
+                sender_role=user_role,
+
                 message=content,
-                created_at=datetime.now(timezone.utc)   # ajout ici
+
+                created_at=datetime.now(
+                    timezone.utc
+                ),
             )
 
-
-            saved_message = self.message_repo.create(
-                message
+            message = (
+                self.message_repository
+                .create(message)
             )
 
+            # =================================================
+            # READ STATE
+            # =================================================
 
-            # =====================
-            # 5. READ STATE
-            # =====================
-            self.read_state_repo.mark_last_read(
-                ticket_id=ticket_id,
-                user_id=user.id,
-                last_read_at=saved_message.created_at
+            self.read_state_repository.mark_last_read(
+                ticket_id=dto.ticket_id,
+                user_id=user_id,
+                last_read_at=message.created_at,
             )
 
+            # =================================================
+            # UPDATE TICKET
+            # =================================================
 
-            # =====================
-            # 6. UPDATE TICKET DATE
-            # =====================
-            ticket.updated_at = datetime.now(timezone.utc)
+            ticket.updated_at = datetime.now(
+                timezone.utc
+            )
 
-            self.ticket_repo.update(ticket)
+            self.ticket_repository.update(
+                ticket
+            )
 
+            # =================================================
+            # COMMIT
+            # =================================================
 
-            self.uow.commit()
+            self.unit_of_work.commit()
 
+            # =================================================
+            # LOG
+            # =================================================
 
-            return saved_message
+            logger.info(
+                "Message ticket SAV créé",
+                extra={
+                    "ticket_id": dto.ticket_id,
+                    "message_id": message.id,
+                    "user_id": user_id,
+                },
+            )
 
+            # =================================================
+            # RESULT
+            # =================================================
+
+            return CreateTicketMessageResult(
+                message=message,
+            )
 
         except Exception:
 
-            self.uow.rollback()
+            self.unit_of_work.rollback()
+
+            logger.exception(
+                "Erreur création message ticket SAV",
+                extra={
+                    "ticket_id": dto.ticket_id,
+                    "user_id": user_id,
+                    "message_id": (
+                        message.id
+                        if message
+                        else None
+                    ),
+                },
+            )
+
             raise

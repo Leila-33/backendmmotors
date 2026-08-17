@@ -1,17 +1,45 @@
-from uuid import uuid4
-from modules.applications.domain.enums import ApplicationStatus, EventType
-from modules.payments.domain.enums import SubscriptionStatus
-from modules.applications.domain.entities.event import Event
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.applications.domain.policies.cancel_application_policy import CancelApplicationPolicy
-from modules.auth.domain.enums import UserRole
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.application.services.event_service import EventService
-from modules.reservations.application.use_cases.cancel_reservation import CancelReservationUseCase
-from modules.financing.domain.repositories.financing_contract_repository import FinancingContractRepository
-from modules.applications.domain.entities.application import Application
-from core.database.unit_of_work import UnitOfWork
 import logging
+
+from core.database.unit_of_work import UnitOfWork
+
+from modules.applications.application.services.event_service import (
+    EventService,
+)
+
+from modules.applications.domain.entities.application import (
+    Application,
+)
+from modules.applications.domain.enums import (
+    ApplicationStatus,
+    EventType,
+)
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
+)
+from modules.applications.domain.policies.cancel_application_policy import (
+    CancelApplicationPolicy,
+)
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
+from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+
+from modules.auth.domain.enums import (
+    UserRole,
+)
+
+from modules.financing.domain.repositories.financing_contract_repository import (
+    FinancingContractRepository,
+)
+
+from modules.payments.domain.enums import (
+    SubscriptionStatus,
+)
+
+from modules.reservations.application.use_cases.cancel_reservation import (
+    CancelReservationUseCase,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +61,7 @@ class CancelApplicationUseCase:
 
     def execute(
         self,
-        application_id: str,
+        dto: ApplicationIdDTO,
         role: str,
         user_id: str,
     ) -> Application:
@@ -44,7 +72,7 @@ class CancelApplicationUseCase:
             # LOAD
             # =========================
             application = self.application_repository.get_by_id(
-                application_id
+                dto.application_id
             )
 
             if application is None:
@@ -99,6 +127,7 @@ class CancelApplicationUseCase:
             self.event_service.log(
                     application_id=application.id,
                     user_id=user_id,
+                    vehicle_id=application.vehicle_id,
                     type=EventType.APPLICATION_CANCELLED,
                     message=(
                         "Dossier annulé par "
@@ -131,7 +160,7 @@ class CancelApplicationUseCase:
             logger.exception(
     "Erreur annulation application",
     extra={
-        "application_id": application_id
+        "application_id": dto.application_id
     }
 )
             raise

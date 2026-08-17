@@ -10,12 +10,9 @@ from modules.sav.infrastructure.mappers.ticket_read_state_mapper import (
 from modules.sav.infrastructure.db.ticket_read_state_model import (
     TicketReadStateModel,
 )
-from modules.sav.infrastructure.db.support_ticket_model import SupportTicketModel
 
-from modules.sav.infrastructure.db.ticket_message_model import TicketMessageModel
 
-from datetime import datetime
-from sqlalchemy.orm import Session
+
 
 
 class TicketReadStateRepositorySQL(TicketReadStateRepository):

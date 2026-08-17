@@ -1,93 +1,68 @@
 from fastapi import APIRouter, Depends
 
 from modules.reservations.api.schemas import (
-    ReservationResponseDTO,
-    CreateReservationDTO,
-    CancelReservationDTO,
-    CheckAvailabilityDTO,
-    ReservationAvailabilityResponse
+    CheckAvailabilityRequest,
+    CheckAvailabilityResponse,
 )
-from modules.reservations.application.use_cases.create_reservation import CreateReservationUseCase
-from modules.reservations.application.use_cases.cancel_reservation import CancelReservationUseCase
-from modules.reservations.application.use_cases.check_availability import CheckReservationAvailabilityUseCase
+
+from modules.reservations.application.dtos.check_availability_dto import (
+    CheckAvailabilityDTO,
+)
+
+from modules.reservations.application.use_cases.check_availability import (
+    CheckReservationAvailabilityUseCase,
+)
 
 from modules.reservations.api.dependencies import (
-    get_create_reservation_usecase,
-    get_cancel_reservation_usecase,
-    get_check_availability_usecase
+    get_check_availability_usecase,
 )
 
-from core.security.dependencies import get_current_user
 
-from modules.reservations.infrastructure.repositories.reservation_repository_sql import ReservationRepositorySQL
-
-
-router = APIRouter(tags=["Reservations"])
+router = APIRouter(
+    tags=["Reservations"]
+)
 
 
-
-# =========================
-# CREATE
-# =========================
-@router.post("", response_model=ReservationResponseDTO)
-def create_reservation(
-    dto: CreateReservationDTO,
-    current_user=Depends(get_current_user),
-    usecase: CreateReservationUseCase = Depends(get_create_reservation_usecase)
-):
-
-    reservation = usecase.execute(
-        dto=dto,
-        application_id=dto.application_id
-    )
-
-    return ReservationResponseDTO(
-        id=reservation.id,
-        status=reservation.status,
-        message="Réservation créée avec succès"
-    )
-
-
-# =========================
-# CANCEL
-# =========================
-@router.post("/cancel", response_model=ReservationResponseDTO)
-def cancel_reservation(
-    dto: CancelReservationDTO,
-    current_user=Depends(get_current_user),
-    usecase: CancelReservationUseCase = Depends(get_cancel_reservation_usecase)
-):
-
-    reservation = usecase.execute(
-        reservation_id=dto.reservation_id,
-        role=current_user.role,
-        user_id=current_user.id
-    )
-
-    return ReservationResponseDTO(
-        id=reservation.id,
-        status=reservation.status,
-        message="Réservation annulée avec succès"
-    )
-
-
-# =========================
+# =========================================================
 # CHECK AVAILABILITY
-# =========================
-@router.post(
+# =========================================================
+
+@router.get(
     "/check",
-    response_model=ReservationAvailabilityResponse
+    response_model=CheckAvailabilityResponse,
 )
-def check_availability(
-    dto: CheckAvailabilityDTO,
+def check_reservation_availability(
+
+    request: CheckAvailabilityRequest,
 
     usecase: CheckReservationAvailabilityUseCase = Depends(
         get_check_availability_usecase
     ),
+
 ):
 
-    available = usecase.execute(dto)
+    # =====================================================
+    # DTO
+    # =====================================================
 
-    return ReservationAvailabilityResponse(
-        available=available
+    dto = CheckAvailabilityDTO(
+        vehicle_id=request.vehicle_id,
+        start_date=request.start_date,
+        end_date=request.end_date,
+    )
+
+    # =====================================================
+    # USE CASE
+    # =====================================================
+
+    result = usecase.execute(
+        dto
+    )
+
+    # =====================================================
+    # RESPONSE
+    # =====================================================
+
+    return CheckAvailabilityResponse(
+        available=result.available
     )

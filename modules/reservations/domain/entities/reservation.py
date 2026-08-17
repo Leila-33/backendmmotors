@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
 from modules.reservations.domain.enums import ReservationStatus
+from modules.reservations.domain.exceptions import (
+    InvalidReservationDates,
+)
 
 @dataclass
 class Reservation:
@@ -20,3 +23,21 @@ class Reservation:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+    def __post_init__(self):
+
+        today = date.today()
+
+        if self.start_date < today:
+            raise InvalidReservationDates(
+                "La date de début doit être supérieure ou égale à aujourd'hui."
+            )
+
+        if self.start_date > self.end_date:
+            raise InvalidReservationDates(
+                "La date de début doit être antérieure ou égale à la date de fin."
+            )
+
+        if self.end_date < today:
+            raise InvalidReservationDates(
+                "La date de fin doit être supérieure ou égale à aujourd'hui."
+            )

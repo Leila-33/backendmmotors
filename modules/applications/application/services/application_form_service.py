@@ -1,33 +1,69 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from modules.applications.domain.entities.application import Application
+from modules.applications.application.results.application_form_result import (
+    ApplicationFormResult,
+)
+from modules.applications.domain.entities.application_trade_in import (
+    ApplicationTradeIn,
+)
+from modules.applications.application.services.document_sync_service import (
+    DocumentSyncService,
+)
+from modules.applications.domain.entities.application import (
+    Application,
+)
+from modules.applications.domain.entities.application_financing import (
+    ApplicationFinancing,
+)
+from modules.applications.domain.entities.application_trade_in import (
+    ApplicationTradeIn,
+)
 from modules.applications.domain.enums import (
     ApplicationStatus,
     ApplicationType,
 )
-from modules.reservations.domain.enums import ReservationStatus
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.domain.repositories.event_repository import EventRepository
-from modules.financing.api.schemas import FinancingRequest
-from modules.financing.domain.services.financing_service import FinancingService
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.financing.api.schemas import TradeInEstimateRequest
-from modules.financing.domain.services.trade_in_service import TradeInService
-from modules.applications.domain.entities.application_financing import ApplicationFinancing
-from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
-from modules.applications.domain.entities.application_trade_in import ApplicationTradeIn
-from modules.applications.domain.entities.application_financing import ApplicationFinancing
-from modules.applications.domain.repositories.application_financing_repository import ApplicationFinancingRepository
-from modules.applications.domain.repositories.application_trade_in_repository import ApplicationTradeInRepository
-from modules.applications.domain.repositories.application_option_repository import ApplicationOptionRepository
-from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
-from modules.applications.application.services.document_sync_service import DocumentSyncService
-from modules.financing.domain.exceptions import (
-   FinancingAmountNegative
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
 )
-from modules.vehicles.domain.exceptions import VehicleNotAvailable
-from modules.applications.api.schemas import ApplicationFormResult
+from modules.applications.domain.repositories.application_financing_repository import (
+    ApplicationFinancingRepository,
+)
+from modules.applications.domain.repositories.application_option_repository import (
+    ApplicationOptionRepository,
+)
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
+from modules.applications.domain.repositories.application_trade_in_repository import (
+    ApplicationTradeInRepository,
+)
+
+from modules.financing.domain.services.financing_service import (
+    FinancingService,
+)
+from modules.financing.domain.services.trade_in_service import (
+    TradeInService,
+)
+from modules.financing.domain.inputs.trade_in_input import (
+    TradeInInput
+)
+from modules.financing.domain.inputs.financing_input import (
+    FinancingInput
+)
+from modules.financing.domain.exceptions import (
+    ExpensesGreaterThanIncome
+)
+from modules.reservations.domain.enums import (
+    ReservationStatus,
+)
+from modules.reservations.domain.repositories.reservation_repository import (
+    ReservationRepository,
+)
+
+from modules.vehicles.domain.exceptions import (
+    VehicleNotAvailable,
+)
 
 
 class ApplicationFormService:
@@ -64,60 +100,49 @@ class ApplicationFormService:
         self,
         dto,
         current_user,
-    ) -> Application:
+    ) -> ApplicationFormResult:
 
+        self._validate_financial_information(dto)
 
         result = self._get_or_create_application(
-    dto,
-    current_user
-)
+            dto,
+            current_user,
+        )
 
         application = result.application
 
-
-        trade_in_value = (
-            self._save_trade_in(
-                dto,
-                application
-            )
+        trade_in_value = self._save_trade_in(
+            dto,
+            application,
         )
-
 
         self._save_financing(
             dto,
             application,
-            trade_in_value
+            trade_in_value,
         )
-
 
         self._update_snapshot(
             dto,
-            application
+            application,
         )
-
 
         self._save_options(
             dto,
-            application
+            application,
         )
-
 
         self._save_documents(
             dto,
-            application
+            application,
         )
-
 
         self._save_reservation(
             dto,
-            application
+            application,
         )
 
-
-        self.application_repository.update(
-            application
-        )
-
+        self.application_repository.update(application)
 
         return ApplicationFormResult(
             application=application,
@@ -211,46 +236,62 @@ class ApplicationFormService:
     # TRADE IN
     # =========================
 
+
     def _save_trade_in(
         self,
         dto,
-        application
-    ):
+        application,
+    ) -> float:
+
+        # =========================
+        # TRADE-IN NON ACTIVÉ
+        # =========================
 
         if not dto.trade_in:
             return 0
 
-
         if not dto.trade_in.enabled:
             return 0
 
+        trade_in = dto.trade_in
 
+        # =========================
+        # DOMAIN INPUT
+        # =========================
 
-        value = self.trade_in_service.estimate(
-            TradeInEstimateRequest(
-                brand=dto.trade_in.brand,
-                model=dto.trade_in.model,
-                year=dto.trade_in.year,
-                mileage=dto.trade_in.mileage,
-                condition=dto.trade_in.condition,
-            )
+        trade_in_input = TradeInInput(
+            brand=trade_in.brand,
+            model=trade_in.model,
+            year=trade_in.year,
+            mileage=trade_in.mileage,
+            condition=trade_in.condition,
         )
 
+        # =========================
+        # ESTIMATION
+        # =========================
+
+        result = self.trade_in_service.estimate(
+            trade_in_input
+        )
+
+        # =========================
+        # SAVE
+        # =========================
 
         self.trade_in_repository.save(
             ApplicationTradeIn(
                 application_id=application.id,
-                brand=dto.trade_in.brand,
-                model=dto.trade_in.model,
-                year=dto.trade_in.year,
-                mileage=dto.trade_in.mileage,
-                condition=dto.trade_in.condition,
-                estimated_value=value,
+                brand=trade_in.brand,
+                model=trade_in.model,
+                year=trade_in.year,
+                mileage=trade_in.mileage,
+                condition=trade_in.condition,
+                estimated_value=result.estimated_value,
             )
         )
 
-
-        return value
+        return result.estimated_value
 
 
 
@@ -262,33 +303,25 @@ class ApplicationFormService:
         self,
         dto,
         application,
-        trade_in_value
+        trade_in_value,
     ):
-
 
         if not dto.financing:
             return
-        if (
-            dto.financing
-            and dto.total_price is not None
-            and (
-                dto.financing.down_payment
-                + trade_in_value
-                > dto.total_price
-            )
-        ):
-            raise FinancingAmountNegative()
 
+        if dto.total_price is None:
+            return
 
-        result = self.financing_service.calculate(
-            FinancingRequest(
-                total_price=dto.total_price,
-                down_payment=dto.financing.down_payment,
-                duration_months=dto.financing.duration_months,
-                trade_in_value=trade_in_value,
-            )
+        financing_input = FinancingInput(
+            total_price=dto.total_price,
+            down_payment=dto.financing.down_payment,
+            duration_months=dto.financing.duration_months,
+            trade_in_value=trade_in_value,
         )
 
+        result = self.financing_service.calculate(
+            financing_input
+        )
 
         self.financing_repository.save(
             ApplicationFinancing(
@@ -416,3 +449,12 @@ class ApplicationFormService:
             end_date=dto.selected_dates.end,
             status=ReservationStatus.DRAFT,
         )
+
+    def _validate_financial_information(self, dto):
+
+        if (
+            dto.monthly_income is not None
+            and dto.monthly_expenses is not None
+            and dto.monthly_expenses > dto.monthly_income
+        ):
+            raise ExpensesGreaterThanIncome()

@@ -1,23 +1,43 @@
-from modules.applications.domain.enums import ApplicationStatus, EventType
-from modules.vehicles.domain.enums import VehicleStatus
+import logging
+
 from modules.applications.domain.enums import (
+    ApplicationStatus,
     EventType,
 )
 from modules.vehicles.domain.enums import VehicleStatus
 from modules.leads.domain.enums import LeadStatus
 
-from modules.applications.domain.enums import (
-    EventType
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
 )
-from modules.payments.api.schemas import (
-    CompleteSalePaymentResponse
+
+from modules.payments.application.dtos.complete_sale_payment_dto import (
+    CompleteSalePaymentDTO,
 )
-import logging
+from modules.payments.application.results.complete_sale_payment_result import (
+    CompleteSalePaymentResult,
+)
+
+from modules.warranties.application.dtos.activate_vehicle_warranty_dto import (
+    ActivateVehicleWarrantyDTO,
+)
+
+from modules.financing.application.dtos.create_financing_contract_dto import (
+    CreateFinancingContractDTO,
+)
+
+from modules.payments.application.dtos.create_subscription_dto import (
+    CreateSubscriptionDTO,
+)
+
+from modules.financing.application.dtos.create_installments_dto import (
+    CreateInstallmentsDTO,
+)
 
 logger = logging.getLogger(__name__)
 
-class CompleteSalePaymentUseCase:
 
+class CompleteSalePaymentUseCase:
 
     def __init__(
         self,
@@ -30,11 +50,11 @@ class CompleteSalePaymentUseCase:
         create_subscription_uc,
         create_installments_uc,
     ):
-
         self.vehicle_repository = vehicle_repository
-        self.application_repository = application_repository
+        self.application_repository = (
+            application_repository
+        )
         self.lead_repository = lead_repository
-
         self.event_service = event_service
 
         self.activate_vehicle_warranty_uc = (
@@ -54,46 +74,85 @@ class CompleteSalePaymentUseCase:
         )
 
     def execute(
-    self,
-    application,
-    payment,
-):
+        self,
+        dto: CompleteSalePaymentDTO,
+    ):
 
         try:
+
+            # =========================
+            # GET APPLICATION
+            # =========================
+
+            application = (
+                self.application_repository
+                .get_by_id(
+                    dto.application_id
+                )
+            )
+
+            if application is None:
+                raise ApplicationNotFound()
 
             vehicle = application.vehicle
 
 
             # =========================
+            # IDEMPOTENCE
+            # =========================
+
+            if (
+                application.status
+                == ApplicationStatus.COMPLETED
+            ):
+
+                return CompleteSalePaymentResult(
+                    application_id=application.id,
+                    vehicle_id=vehicle.id,
+                    warranty_created=True,
+                    financing_created=(
+                        application.financing is not None
+                    ),
+                    message=(
+                        "Vente déjà finalisée"
+                    ),
+                )
+
+            # =========================
             # VEHICLE SOLD
             # =========================
 
-            vehicle.status = VehicleStatus.SOLD
+            vehicle.status = (
+                VehicleStatus.SOLD
+            )
+
             vehicle.is_available = False
 
             self.vehicle_repository.update(
                 vehicle
             )
 
-
             # =========================
-            # APPLICATION
+            # APPLICATION STATUS
             # =========================
 
             if (
                 application.financing
-                and application.financing.financed_amount > 0
+                and
+                application.financing.financed_amount > 0
             ):
-                application.status = ApplicationStatus.PAID
+                application.status = (
+                    ApplicationStatus.PAID
+                )
 
             else:
-                application.status = ApplicationStatus.COMPLETED
-
+                application.status = (
+                    ApplicationStatus.COMPLETED
+                )
 
             self.application_repository.update(
                 application
             )
-
 
             # =========================
             # PAYMENT EVENT
@@ -105,17 +164,19 @@ class CompleteSalePaymentUseCase:
 
                 application_id=application.id,
 
+                vehicle_id=vehicle.id,
+
                 user_id=application.user_id,
 
-                message="Acompte véhicule payé.",
+                message=(
+                    "Acompte véhicule payé."
+                ),
 
                 event_metadata={
-                    "payment_id": payment.id,
-                    "amount": payment.amount,
+                    "payment_id": dto.payment_id,
                     "vehicle_id": vehicle.id,
                 },
             )
-
 
             # =========================
             # LEAD WON
@@ -127,17 +188,31 @@ class CompleteSalePaymentUseCase:
 
                 if lead:
 
-                    lead.status = LeadStatus.WON
+                    lead.status = (
+                        LeadStatus.WON
+                    )
 
                     self.lead_repository.update(
                         lead
                     )
 
-
                     self.event_service.log(
+
                         type=EventType.LEAD_WON,
 
-                        application_id=application.id,
+                        application_id=(
+                            application.id
+                        ),
+
+                        vehicle_id=vehicle.id,
+
+                        quote_id=(
+                            application.quote_id
+                        ),
+
+                        lead_id=(
+                            application.quote.lead_id
+                        ),
 
                         user_id=lead.assigned_to,
 
@@ -147,64 +222,127 @@ class CompleteSalePaymentUseCase:
 
                         event_metadata={
                             "lead_id": lead.id,
-                            "quote_id": application.quote.id,
+                            "quote_id": (
+                                application.quote.id
+                            ),
                         },
                     )
-
 
             # =========================
             # WARRANTY
             # =========================
 
             self.activate_vehicle_warranty_uc.execute(
-                vehicle=vehicle,
-                mileage=vehicle.mileage,
-                user_id=application.user_id,
-            )
 
+                ActivateVehicleWarrantyDTO(
+                    vehicle_id=vehicle.id,
+                    mileage=vehicle.mileage,
+                    user_id=application.user_id,
+                )
+            )
 
             # =========================
             # FINANCING
             # =========================
 
+            financing_created = False
+
             if (
                 application.financing
-                and application.financing.financed_amount > 0
+                and
+                application.financing.financed_amount > 0
             ):
 
-                contract = (
-                    self.create_financing_contract_uc.execute(
-                        application_id=application.id
+                financing_created = True
+
+                # =========================
+                # FINANCING CONTRACT
+                # =========================
+
+                contract_result = (
+                    self.create_financing_contract_uc
+                    .execute(
+                        CreateFinancingContractDTO(
+                            application_id=(
+                                application.id
+                            ),
+                        )
                     )
                 )
 
+                # =========================
+                # SUBSCRIPTION
+                # =========================
 
                 self.create_subscription_uc.execute(
-                    contract=contract,
-                    customer_email=application.email,
-                    customer_name=(
-                        f"{application.first_name} "
-                        f"{application.last_name}"
-                    ),
-                    user_id=application.user_id,
+
+                    CreateSubscriptionDTO(
+                        contract_id=(
+                            contract_result.contract_id
+                        ),
+
+                        customer_email=(
+                            application.email
+                        ),
+
+                        customer_name=(
+                            f"{application.first_name} "
+                            f"{application.last_name}"
+                        ),
+
+                        user_id=(
+                            application.user_id
+                        ),
+                    )
                 )
 
+                # =========================
+                # INSTALLMENTS
+                # =========================
 
                 self.create_installments_uc.execute(
-                    contract_id=contract.id
+
+                    CreateInstallmentsDTO(
+                        contract_id=(
+                            contract_result.contract_id
+                        ),
+                    )
                 )
 
+            # =========================
+            # SUCCESS LOG
+            # =========================
 
-            return CompleteSalePaymentResponse(
+            logger.info(
+                "Vente finalisée après paiement",
+                extra={
+                    "application_id": (
+                        application.id
+                    ),
+                    "vehicle_id": vehicle.id,
+                    "payment_id": dto.payment_id,
+                    "financing_created": (
+                        financing_created
+                    ),
+                },
+            )
 
-                application_id=application.id,
+            # =========================
+            # RESULT
+            # =========================
+
+            return CompleteSalePaymentResult(
+
+                application_id=(
+                    application.id
+                ),
 
                 vehicle_id=vehicle.id,
 
                 warranty_created=True,
 
                 financing_created=(
-                    application.financing is not None
+                    financing_created
                 ),
 
                 message=(
@@ -212,14 +350,17 @@ class CompleteSalePaymentUseCase:
                 ),
             )
 
-
         except Exception:
 
             logger.exception(
                 "Erreur finalisation vente",
                 extra={
-                    "application_id": application.id,
-                    "payment_id": payment.id,
+                    "application_id": (
+                        dto.application_id
+                    ),
+                    "payment_id": (
+                        dto.payment_id
+                    ),
                 },
             )
 

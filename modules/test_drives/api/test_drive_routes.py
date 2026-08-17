@@ -1,48 +1,69 @@
 from fastapi import APIRouter, Depends, status
 
 from core.security.dependencies import get_current_user
-from modules.test_drives.infrastructure.mappers.test_drive_mapper import TestDriveMapper
-from modules.test_drives.domain.enums import TestDriveStatus
 
-# =========================
-# SCHEMAS
-# =========================
 from modules.test_drives.api.schemas import (
     CreateTestDriveRequest,
     TestDriveResponse,
-    AvailabilityResponse,
+    GetAvailabilityRequest,
+    GetAvailabilityResponse,
     MyTestDriveResponse,
-    TestDriveDetailClientResponse,
-    TestDriveStatusResponse
+    TestDriveDetailResponse,
+    TestDriveStatusResponse,
 )
-# =========================
-# USE CASES
-# =========================
-from modules.test_drives.application.use_cases.create_test_drive import CreateTestDriveUseCase
-from modules.test_drives.application.use_cases.get_avaibility import GetAvailabilityUseCase
 
-# =========================
-# DEPENDENCIES
-# =========================
+from modules.test_drives.application.dtos.create_test_drive_dto import (
+    CreateTestDriveDTO,
+)
+from modules.test_drives.application.dtos.get_availability_dto import (
+    GetAvailabilityDTO,
+)
+from modules.test_drives.application.dtos.update_test_drive_status_dto import (
+    UpdateTestDriveStatusDTO,
+)
+
+from modules.test_drives.application.use_cases.create_test_drive import (
+    CreateTestDriveUseCase,
+)
+from modules.test_drives.application.use_cases.get_availability import (
+    GetAvailabilityUseCase,
+)
+from modules.test_drives.application.use_cases.get_my_test_drives import (
+    GetMyTestDrivesUseCase,
+)
+from modules.test_drives.application.use_cases.get_test_drive_detail import (
+    GetTestDriveDetailUseCase,
+)
+from modules.test_drives.application.use_cases.update_test_drive_status import (
+    UpdateTestDriveStatusUseCase,
+)
+
 from modules.test_drives.api.dependencies import (
     get_create_test_drive_usecase,
-    get_availability_usecase,
-    get_update_test_drive_status_usecase,
+    get_get_availability_usecase,
     get_my_test_drives_usecase,
-    get_test_drive_detail_client_usecase
+    get_test_drive_detail_usecase,
+    get_update_test_drive_status_usecase,
 )
 
-# =========================
-# MAPPERS
-# =========================
+from modules.test_drives.domain.enums import TestDriveStatus
+
+from modules.test_drives.infrastructure.mappers.test_drive_mapper import (
+    TestDriveMapper,
+)
 from modules.test_drives.infrastructure.mappers.my_test_drive_mapper import (
-    MyTestDriveMapper
+    MyTestDriveMapper,
 )
-from modules.test_drives.infrastructure.mappers.test_drive_detail_client_mapper import TestDriveDetailClientMapper
-
-router = APIRouter(tags=["TestDrive"])
 
 
+router = APIRouter(
+    tags=["TestDrive"]
+)
+
+
+# =====================================================
+# CREATE TEST DRIVE
+# =====================================================
 
 @router.post(
     "",
@@ -50,99 +71,141 @@ router = APIRouter(tags=["TestDrive"])
     status_code=status.HTTP_201_CREATED,
 )
 def create_test_drive(
-    data: CreateTestDriveRequest,
+    payload: CreateTestDriveRequest,
     current_user=Depends(get_current_user),
-    usecase=Depends(get_create_test_drive_usecase),
+    use_case: CreateTestDriveUseCase = Depends(
+        get_create_test_drive_usecase
+    ),
 ):
 
-    test_drive = usecase.execute(
-        data,
-        current_user,
+    dto = CreateTestDriveDTO(
+        vehicle_id=payload.vehicle_id,
+        appointment_date=payload.appointment_date,
+        comment=payload.comment,
+    )
+
+    result = use_case.execute(
+        dto=dto,
+        user_id=current_user.id,
     )
 
     return TestDriveMapper.to_response(
-        test_drive
+        result.test_drive
     )
 
-@router.get("/availability", response_model=AvailabilityResponse
+
+# =====================================================
+# AVAILABILITY
+# =====================================================
+
+@router.get(
+    "/availability",
+    response_model=GetAvailabilityResponse,
 )
 def get_availability(
-    vehicle_id: str,
-    date: str,
-    usecase: GetAvailabilityUseCase = Depends(
-        get_availability_usecase
-    )
+    request: GetAvailabilityRequest,
+    use_case: GetAvailabilityUseCase = Depends(
+        get_get_availability_usecase
+    ),
 ):
 
-    return usecase.execute(
-        vehicle_id=vehicle_id,
-        date=date
+    dto = GetAvailabilityDTO(
+        vehicle_id=request.vehicle_id,
+        date=request.date,
     )
 
+    result = use_case.execute(dto)
+
+    return GetAvailabilityResponse(
+        date=result.date,
+        timezone=result.timezone,
+        available_slots=result.available_slots,
+    )
+
+
+# =====================================================
+# MY TEST DRIVES
+# =====================================================
 
 @router.get(
     "/me",
-    response_model=list[MyTestDriveResponse]
+    response_model=list[MyTestDriveResponse],
 )
 def get_my_test_drives(
     current_user=Depends(get_current_user),
-    usecase=Depends(get_my_test_drives_usecase),
+    use_case: GetMyTestDrivesUseCase = Depends(
+        get_my_test_drives_usecase
+    ),
 ):
 
-    test_drives = usecase.execute(
-        current_user.id
+    result = use_case.execute(
+        user_id=current_user.id
     )
 
     return [
-        MyTestDriveMapper.to_response(td)
-        for td in test_drives
+        MyTestDriveMapper.to_response(test_drive)
+        for test_drive in result.items
     ]
 
 
+# =====================================================
+# TEST DRIVE DETAIL
+# =====================================================
+
 @router.get(
     "/{test_drive_id}",
-    response_model=TestDriveDetailClientResponse
+    response_model=TestDriveDetailResponse,
 )
 def get_test_drive_detail(
     test_drive_id: str,
     current_user=Depends(get_current_user),
-    usecase=Depends(
-        get_test_drive_detail_client_usecase
+    use_case: GetTestDriveDetailUseCase = Depends(
+        get_test_drive_detail_usecase
     ),
 ):
 
-    result = usecase.execute(
-        test_drive_id,
-        current_user.id
+    result = use_case.execute(
+        test_drive_id=test_drive_id,
+        user_id=current_user.id,
+        user_role=current_user.role,
+    )
+
+    return TestDriveMapper.to_detail_response(
+        result.test_drive,
+        result.events,
     )
 
 
-    return TestDriveDetailClientMapper.to_response(
-        result["test_drive"],
-        result["events"]
-    )
+# =====================================================
+# CANCEL TEST DRIVE
+# =====================================================
 
-@router.post("/{test_drive_id}/cancel")
+@router.post(
+    "/{test_drive_id}/cancel",
+    response_model=TestDriveStatusResponse,
+)
 async def cancel_test_drive(
-
     test_drive_id: str,
-
     current_user=Depends(get_current_user),
-
-    usecase=Depends(get_update_test_drive_status_usecase)
+    use_case: UpdateTestDriveStatusUseCase = Depends(
+        get_update_test_drive_status_usecase
+    ),
 ):
 
-    test_drive = await usecase.execute(
+    dto = UpdateTestDriveStatusDTO(
         test_drive_id=test_drive_id,
         status=TestDriveStatus.CANCELLED,
         actor_id=current_user.id,
-        actor_role="client"
+        actor_role=current_user.role,
     )
 
-    
+    result = await use_case.execute(dto)
+
+    test_drive = result.test_drive
+
     return TestDriveStatusResponse(
         id=test_drive.id,
         status=test_drive.status.value,
         appointment_date=test_drive.appointment_date,
-        message="Statut de l’essai routier mis à jour"
+        message="Essai routier annulé",
     )

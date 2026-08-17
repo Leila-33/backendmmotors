@@ -1,282 +1,277 @@
 import uuid
-from modules.vehicles.domain.entities.vehicle import Vehicle
-from modules.vehicles.api.schemas import (
-    CreateVehicleRequest,
-)
-from modules.vehicles.domain.enums import (
-    VehicleOptionType,
-    VehicleType,
-    VehicleStatus
-)
-from modules.warranties.domain.exceptions import (
-    WarrantyRequiredForSale
-)
-from modules.vehicles.domain.entities.vehicle_option import VehicleOption
-from modules.vehicles.domain.exceptions import VehicleNotFound, VehicleAlreadyExists
-from modules.options.domain.exceptions import OptionNotFound
-from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
-from modules.applications.domain.enums import EventType
 import logging
+from modules.vehicles.domain.entities.vehicle import Vehicle
+from modules.vehicles.domain.enums import VehicleType, VehicleStatus
+from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
+
+from modules.vehicles.domain.exceptions import VehicleAlreadyExists
+from modules.warranties.domain.exceptions import WarrantyRequiredForSale
+
+from modules.applications.domain.enums import EventType
+
+from modules.vehicles.application.dtos.admin.create_vehicle_dto import (
+    CreateVehicleDTO,
+)
+
+from modules.vehicles.domain.entities.vehicle_option import (
+    VehicleOption,
+)
+from modules.vehicles.domain.enums import VehicleOptionType
+
+from modules.vehicles.domain.exceptions import (
+    VehicleNotFound,
+)
+
+from modules.options.domain.exceptions import (
+    OptionNotFound,
+)
 
 logger = logging.getLogger(__name__)
 
-class CreateVehicle:
+
+class CreateVehicleUseCase:
 
     def __init__(
         self,
-        repo,
-        assign_options_uc,
+        vehicle_repository,
+        assign_options_usecase,
         event_service,
-        unit_of_work
+        unit_of_work,
     ):
-        self.repo = repo
-        self.assign_options_uc = assign_options_uc
+        self.vehicle_repository = vehicle_repository
+        self.assign_options_usecase = assign_options_usecase
         self.event_service = event_service
-        self.unit_of_work = unit_of_work
-
+        self.uow = unit_of_work
 
     def execute(
         self,
-        request: CreateVehicleRequest,
-        current_admin
+        dto: CreateVehicleDTO,
+        admin_id: str,
     ):
 
         try:
 
             # =========================
-            # CHECK DUPLICATE
+            # DUPLICATE
             # =========================
 
-            if request.license_plate:
+            if dto.license_plate:
 
                 existing = (
-                    self.repo
+                    self.vehicle_repository
                     .get_by_license_plate(
-                        request.license_plate
+                        dto.license_plate
                     )
                 )
 
                 if existing:
                     raise VehicleAlreadyExists()
 
-
             # =========================
             # BUSINESS RULES
             # =========================
 
             if (
-                request.type == VehicleType.SALE
-                and not request.warranty_plan_id
+                dto.type == VehicleType.SALE
+                and not dto.warranty_plan_id
             ):
                 raise WarrantyRequiredForSale()
 
-
-            if request.type == VehicleType.RENT:
-                request.warranty_plan_id = None
-
+            warranty_plan_id = (
+                dto.warranty_plan_id
+                if dto.type == VehicleType.SALE
+                else None
+            )
 
             # =========================
-            # CREATE VEHICLE DOMAIN
+            # VEHICLE
             # =========================
 
             vehicle = Vehicle(
-
                 id=str(uuid.uuid4()),
-
-                brand=request.brand,
-
-                model=request.model,
-
-                price=request.price,
-
-                type=request.type,
-
-                mileage=request.mileage,
-
-                year=request.year,
-
-                description=request.description,
-
-                engine_type=request.engine_type,
-
-                equipments=request.equipments,
-
-                condition=request.condition,
-
+                brand=dto.brand,
+                model=dto.model,
+                price=dto.price,
+                type=dto.type,
+                mileage=dto.mileage,
+                year=dto.year,
+                description=dto.description,
+                engine_type=dto.engine_type,
+                equipments=dto.equipments,
+                condition=dto.condition,
                 is_available=False,
-
-                images=request.images,
-
-                license_plate=request.license_plate,
-
-                status=VehicleStatus.AVAILABLE
+                images=dto.images,
+                license_plate=dto.license_plate,
+                status=VehicleStatus.AVAILABLE,
             )
-
 
             # =========================
             # WARRANTY
             # =========================
 
-            if request.warranty_plan_id:
+            if warranty_plan_id:
 
                 vehicle.warranty = VehicleWarranty(
-
                     id=str(uuid.uuid4()),
-
                     vehicle_id=vehicle.id,
-
-                    warranty_plan_id=request.warranty_plan_id,
-
-                    is_active=False
+                    warranty_plan_id=warranty_plan_id,
+                    is_active=False,
                 )
 
-
             # =========================
-            # SAVE VEHICLE
-            # =========================
-
-            vehicle = self.repo.save(vehicle)
-
-            self.event_service.log(
-    type=EventType.VEHICLE_CREATED,
-    message="Véhicule créé",
-    vehicle_id=vehicle.id,
-    user_id=current_admin.id,
-    event_metadata={
-        "brand": vehicle.brand,
-        "model": vehicle.model,
-    }
-)
-            # =========================
-            # ASSIGN OPTIONS
+            # SAVE
             # =========================
 
-            self.assign_options_uc.execute(
-                vehicle_id=vehicle.id,
-                request=request
+            vehicle = (
+                self.vehicle_repository
+                .save(vehicle)
             )
 
+            # =========================
+            # OPTIONS
+            # =========================
+
+            self.assign_options_usecase.execute(
+                vehicle_id=vehicle.id,
+                included_option_ids=dto.included_options,
+                optional_option_ids=dto.optional_options,
+            )
 
             # =========================
-            # COMMIT GLOBAL
+            # EVENT
             # =========================
 
-            self.unit_of_work.commit()
+            self.event_service.log(
+                type=EventType.VEHICLE_CREATED,
+                message="Véhicule créé",
+                vehicle_id=vehicle.id,
+                user_id=admin_id,
+                event_metadata={
+                    "brand": vehicle.brand,
+                    "model": vehicle.model,
+                },
+            )
+
+            # =========================
+            # COMMIT
+            # =========================
+
+            self.uow.commit()
 
             logger.info(
-    "Véhicule créé",
-    extra={
-        "vehicle_id": vehicle.id,
-        "admin_id": current_admin.id,
-    },
-)
-            # =========================
-            # RESPONSE
-            # =========================
+                "Véhicule créé",
+                extra={
+                    "vehicle_id": vehicle.id,
+                    "admin_id": admin_id,
+                },
+            )
 
             return vehicle
 
-
         except Exception:
 
-            self.unit_of_work.rollback()
+            self.uow.rollback()
 
             logger.exception(
                 "Erreur création véhicule",
                 extra={
-                    "admin_id": current_admin.id,
+                    "admin_id": admin_id,
                 },
             )
 
             raise
 
 
+
+
+
 class AssignOptionsToVehicleUseCase:
 
     def __init__(
         self,
-        vehicle_repo,
-        option_repo,
-        vehicle_option_repo
+        vehicle_repository,
+        option_repository,
+        vehicle_option_repository,
     ):
-        self.vehicle_repo = vehicle_repo
-        self.option_repo = option_repo
-        self.vehicle_option_repo = vehicle_option_repo
-
+        self.vehicle_repository = vehicle_repository
+        self.option_repository = option_repository
+        self.vehicle_option_repository = (
+            vehicle_option_repository
+        )
 
     def execute(
         self,
         vehicle_id: str,
-        request
+        included_option_ids: list[str],
+        optional_option_ids: list[str],
     ):
 
+        # =========================
+        # VEHICLE
+        # =========================
+
         vehicle = (
-            self.vehicle_repo
+            self.vehicle_repository
             .get_by_id(vehicle_id)
         )
 
-        if not vehicle:
+        if vehicle is None:
             raise VehicleNotFound()
 
-
         # =========================
-        # REMOVE EXISTING OPTIONS
+        # REMOVE EXISTING
         # =========================
 
-        self.vehicle_option_repo.delete_by_vehicle(
+        self.vehicle_option_repository.delete_by_vehicle(
             vehicle_id
         )
 
-
         # =========================
-        # ADD INCLUDED
+        # INCLUDED
         # =========================
 
-        for opt_id in request.included_options:
+        for option_id in included_option_ids:
 
             option = (
-                self.option_repo
-                .get_by_id(opt_id)
+                self.option_repository
+                .get_by_id(option_id)
             )
 
-            if not option:
+            if option is None:
                 raise OptionNotFound()
 
-
             vehicle_option = VehicleOption(
-    id=str(uuid.uuid4()),
-    vehicle_id=vehicle_id,
-    option_id=opt_id,
-    type=VehicleOptionType.INCLUDED
-)
+                id=str(uuid.uuid4()),
+                vehicle_id=vehicle_id,
+                option_id=option_id,
+                type=VehicleOptionType.INCLUDED,
+            )
 
-            self.vehicle_option_repo.create(
+            self.vehicle_option_repository.create(
                 vehicle_option
             )
 
-
         # =========================
-        # ADD OPTIONAL
+        # OPTIONAL
         # =========================
 
-        for opt_id in request.optional_options:
+        for option_id in optional_option_ids:
 
             option = (
-                self.option_repo
-                .get_by_id(opt_id)
+                self.option_repository
+                .get_by_id(option_id)
             )
 
-            if not option:
+            if option is None:
                 raise OptionNotFound()
 
-
             vehicle_option = VehicleOption(
-    id=str(uuid.uuid4()),
-    vehicle_id=vehicle_id,
-    option_id=opt_id,
-    type=VehicleOptionType.OPTIONAL
-)
+                id=str(uuid.uuid4()),
+                vehicle_id=vehicle_id,
+                option_id=option_id,
+                type=VehicleOptionType.OPTIONAL,
+            )
 
-            self.vehicle_option_repo.create(
+            self.vehicle_option_repository.create(
                 vehicle_option
             )

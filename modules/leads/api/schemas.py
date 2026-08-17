@@ -1,8 +1,13 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+# ==========================================
+# CLIENT
+# ==========================================
 
-# create lead
+# ==========================================
+# CREATE LEAD
+# ==========================================
 class CreateLeadRequest(BaseModel):
     vehicle_id: str
     first_name: str
@@ -20,9 +25,13 @@ class CreateLeadResponse(BaseModel):
     message: str
 
 
+# ==========================================
+# ADMIN
+# ==========================================
 
-
-# get leads
+# ==========================================
+# GET SALES LEADS
+# ==========================================
 
 class VehicleMiniResponse(BaseModel):
     id: str
@@ -52,7 +61,7 @@ class LeadListResponse(BaseModel):
 
 
 # ==========================================
-# GET LEAD
+# GET LEAD DETAIL
 # ==========================================
 
 class AgentMiniResponse(BaseModel):
@@ -100,7 +109,9 @@ class LeadDetailResponse(BaseModel):
         from_attributes = True
 
 
-# assign
+# ==========================================
+# ASSIGN LEAD
+# ==========================================
 
 class AssignLeadResponse(BaseModel):
 
@@ -111,7 +122,9 @@ class AssignLeadResponse(BaseModel):
     message: str
 
 
-# mark lead contacted
+# ==========================================
+# MARK LEAD AS CONTACTED
+# ==========================================
 class MarkLeadContactedResponse(BaseModel):
 
     id: str
@@ -120,16 +133,9 @@ class MarkLeadContactedResponse(BaseModel):
 
     message: str
 
-
-class QuoteLeadResponse(BaseModel):
-
+# ==========================================
+# DELETE LEAD
+# ==========================================
+class DeleteLeadResponse(BaseModel):
     id: str
-
-    first_name: str
-    last_name: str
-
-    email: str
-    phone: str
-
-    class Config:
-        from_attributes = True
+    message: str

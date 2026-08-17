@@ -1,21 +1,28 @@
-from uuid import uuid4
-from modules.payments.domain.entities.payment import Payment
-from core.config.settings import settings
-from modules.payments.domain.exceptions import PaymentNotAllowed
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.payments.domain.enums import PaymentStatus
-from modules.applications.domain.enums import ApplicationStatus, EventType
-from modules.applications.domain.entities.event import Event
+import logging
 from datetime import datetime, timezone
-from modules.payments.api.schemas import (
-    CreateCheckoutSessionResponse,
+from uuid import uuid4
+
+from modules.payments.domain.entities.payment import Payment
+from modules.payments.domain.enums import PaymentStatus
+from modules.payments.domain.exceptions import PaymentNotAllowed
+
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
 )
-import logging
 
-logger = logging.getLogger(__name__)
+from modules.applications.domain.enums import (
+    ApplicationStatus,
+    EventType,
+)
 
+from core.config.settings import settings
 
-import logging
+from modules.payments.application.results.create_checkout_session_result import (
+    CreateCheckoutSessionResult,
+)
+from modules.payments.application.dtos.create_checkout_session_dto import (
+    CreateCheckoutSessionDTO
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,18 +35,17 @@ class CreateCheckoutSessionUseCase:
         stripe_service,
         application_repository,
         event_service,
-        uow,
+        unit_of_work,
     ):
         self.payment_repository = payment_repository
         self.stripe_service = stripe_service
         self.application_repository = application_repository
         self.event_service = event_service
-        self.uow = uow
-
+        self.unit_of_work = unit_of_work
 
     def execute(
         self,
-        dto
+        dto: CreateCheckoutSessionDTO,
     ):
 
         try:
@@ -55,7 +61,7 @@ class CreateCheckoutSessionUseCase:
                 )
             )
 
-            if not application:
+            if application is None:
                 raise ApplicationNotFound()
 
             if (
@@ -63,7 +69,6 @@ class CreateCheckoutSessionUseCase:
                 != ApplicationStatus.APPROVED
             ):
                 raise PaymentNotAllowed()
-
 
             # =========================
             # ALREADY PAID
@@ -73,7 +78,7 @@ class CreateCheckoutSessionUseCase:
                 self.payment_repository
                 .get_by_application_and_status(
                     application.id,
-                    PaymentStatus.PAID
+                    PaymentStatus.PAID,
                 )
             )
 
@@ -84,14 +89,13 @@ class CreateCheckoutSessionUseCase:
                     extra={
                         "application_id": application.id,
                         "payment_id": payment.id,
-                    }
+                    },
                 )
 
-                return CreateCheckoutSessionResponse(
+                return CreateCheckoutSessionResult(
                     checkout_url=None,
-                    payment_id=payment.id
+                    payment_id=payment.id,
                 )
-
 
             # =========================
             # PENDING PAYMENT
@@ -101,25 +105,23 @@ class CreateCheckoutSessionUseCase:
                 self.payment_repository
                 .get_by_application_and_status(
                     application.id,
-                    PaymentStatus.PENDING
+                    PaymentStatus.PENDING,
                 )
             )
-
 
             # =========================
             # FAILED PAYMENT
             # =========================
 
-            if not payment:
+            if payment is None:
 
                 payment = (
                     self.payment_repository
                     .get_by_application_and_status(
                         application.id,
-                        PaymentStatus.FAILED
+                        PaymentStatus.FAILED,
                     )
                 )
-
 
             # =========================
             # STRIPE SESSION
@@ -137,12 +139,11 @@ class CreateCheckoutSessionUseCase:
                 )
             )
 
-
             # =========================
-            # CREATE / UPDATE PAYMENT
+            # CREATE PAYMENT
             # =========================
 
-            if not payment:
+            if payment is None:
 
                 payment = Payment(
                     id=str(uuid4()),
@@ -155,12 +156,16 @@ class CreateCheckoutSessionUseCase:
                     description=dto.product_name,
                     created_at=datetime.now(
                         timezone.utc
-                    )
+                    ),
                 )
 
                 self.payment_repository.save(
                     payment
                 )
+
+            # =========================
+            # REUSE PAYMENT
+            # =========================
 
             else:
 
@@ -176,7 +181,6 @@ class CreateCheckoutSessionUseCase:
                     payment
                 )
 
-
             # =========================
             # EVENT
             # =========================
@@ -186,23 +190,22 @@ class CreateCheckoutSessionUseCase:
                 message="Paiement initialisé",
                 user_id=dto.user_id,
                 application_id=application.id,
+                vehicle_id=application.vehicle_id,
                 event_metadata={
                     "payment_id": payment.id,
                     "amount": payment.amount,
                     "stripe_session_id": session.id,
-                }
+                },
             )
-
 
             # =========================
             # COMMIT
             # =========================
 
-            self.uow.commit()
-
+            self.unit_of_work.commit()
 
             # =========================
-            # LOG SUCCESS
+            # SUCCESS LOG
             # =========================
 
             logger.info(
@@ -211,26 +214,30 @@ class CreateCheckoutSessionUseCase:
                     "application_id": application.id,
                     "payment_id": payment.id,
                     "stripe_session_id": session.id,
-                }
+                },
             )
 
+            # =========================
+            # RESULT
+            # =========================
 
-            return CreateCheckoutSessionResponse(
+            return CreateCheckoutSessionResult(
                 checkout_url=session.url,
-                payment_id=payment.id
+                payment_id=payment.id,
             )
-
 
         except Exception:
 
-            self.uow.rollback()
+            self.unit_of_work.rollback()
 
             logger.exception(
                 "Erreur création session checkout Stripe",
                 extra={
-                    "application_id": dto.application_id,
+                    "application_id": (
+                        dto.application_id
+                    ),
                     "user_id": dto.user_id,
-                }
+                },
             )
 
             raise

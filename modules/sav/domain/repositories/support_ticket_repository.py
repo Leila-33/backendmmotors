@@ -1,11 +1,18 @@
 from abc import ABC, abstractmethod
-
 from modules.sav.domain.entities.support_ticket import SupportTicket
 from modules.auth.domain.entities.user import User
-from modules.sav.infrastructure.db.support_ticket_model import SupportTicketModel
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from modules.sav.api.schemas import SupportTicketListItemResponse
+from modules.auth.domain.enums import UserRole
+from modules.sav.application.results.support_ticket_list_item import (
+    SupportTicketListItem,
+)
+from modules.sav.domain.enums import (
+    TicketStatus,
+    TicketPriority,
+    TicketCategory,
+)
+from typing import Literal
 
 class SupportTicketRepository(ABC):
 
@@ -34,13 +41,15 @@ class SupportTicketRepository(ABC):
         self,
         page: int,
         limit: int,
-        search: str,
-        status: str,
-        category: str,
-        priority: str,
+        search: str | None,
+        status: TicketStatus | list[TicketStatus] | Literal["ALL"],
+        category: TicketCategory | Literal["ALL"],
+        priority: TicketPriority | Literal["ALL"],
         sort: str,
-        user: User,
-    ) -> tuple[list[SupportTicketListItemResponse], int]:
+        archive: bool,
+        user_id: str,
+        user_role: UserRole,
+    ) -> tuple[list[SupportTicketListItem], int]:
         pass
 
     # =====================
@@ -64,5 +73,9 @@ class SupportTicketRepository(ABC):
     # =====================
 
     @abstractmethod
-    def count_unread(self, user: User) -> int:
+    def count_unread(
+        self,
+        user_id: str,
+        user_role: UserRole,
+    ) -> int:
         pass

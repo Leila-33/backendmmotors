@@ -1,17 +1,12 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
 
-# delete notifications
-class DeleteNotificationResponse(BaseModel):
+from pydantic import BaseModel, Field
 
-    id: str
 
-    success: bool
+# =====================================================
+# NOTIFICATION
+# =====================================================
 
-    message: str
-
-# get notifications
 class NotificationResponse(BaseModel):
 
     id: str
@@ -26,19 +21,49 @@ class NotificationResponse(BaseModel):
 
     created_at: datetime
 
-    entity_type: Optional[str] = None
+    entity_type: str | None = None
 
-    entity_id: Optional[str] = None
+    entity_id: str | None = None
 
 
+# =====================================================
+# GET NOTIFICATIONS
+# =====================================================
 
-# get unread count
+class GetNotificationsResponse(BaseModel):
+
+    notifications: list[NotificationResponse] = Field(
+        default_factory=list
+    )
+
+
+# =====================================================
+# UNREAD COUNT
+# =====================================================
+
 class UnreadNotificationCountResponse(BaseModel):
 
     count: int
 
-# mark notification read
+
+# =====================================================
+# MARK AS READ
+# =====================================================
+
 class MarkNotificationReadResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+
+# =====================================================
+# DELETE
+# =====================================================
+
+class DeleteNotificationResponse(BaseModel):
+
+    id: str
 
     success: bool
 

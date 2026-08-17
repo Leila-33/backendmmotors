@@ -148,10 +148,6 @@ def get_create_quote_usecase(
         get_lead_repository
     ),
 
-    vehicle_repository = Depends(
-        get_vehicle_repository
-    ),
-
     financing_service = Depends(
         get_financing_service
     ),
@@ -177,8 +173,6 @@ def get_create_quote_usecase(
 
         lead_repository=lead_repository,
 
-        vehicle_repository=vehicle_repository,
-
         financing_service=financing_service,
 
         trade_in_service=trade_in_service,
@@ -199,10 +193,6 @@ def get_update_quote_usecase(
 
     lead_repository = Depends(
         get_lead_repository
-    ),
-
-    vehicle_repository = Depends(
-        get_vehicle_repository
     ),
 
     financing_service = Depends(
@@ -229,8 +219,6 @@ def get_update_quote_usecase(
             quote_trade_in_repository,
 
         lead_repository=lead_repository,
-
-        vehicle_repository=vehicle_repository,
 
         financing_service=financing_service,
 
@@ -328,11 +316,11 @@ def get_send_quote_usecase(
     )
 
 
-def get_customer_quotes_usecase(
+def get_get_customer_quotes_usecase(
 
     quote_repository: QuoteRepository = Depends(
         get_quote_repository,
-    )
+    ),
 
 ):
 
@@ -378,7 +366,6 @@ def get_accept_quote_usecase(
     financing_repository : ApplicationFinancingRepository = Depends(get_financing_repository),
     lead_repository : LeadRepository = Depends(get_lead_repository),
     notification_service = Depends(get_notification_service),
-    email_service = Depends(get_email_service),
     event_service = Depends(get_event_service),
     unit_of_work = Depends(get_unit_of_work)
 ):
@@ -389,7 +376,6 @@ def get_accept_quote_usecase(
         financing_repository=financing_repository,
         lead_repository=lead_repository,
         notification_service=notification_service,
-        email_service=email_service,    
         event_service = event_service,
         unit_of_work = unit_of_work
     )

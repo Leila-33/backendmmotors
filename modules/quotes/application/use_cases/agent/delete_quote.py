@@ -1,17 +1,31 @@
-from modules.leads.domain.exceptions import LeadNotFound
+import logging
+
+from modules.leads.domain.exceptions import (
+    LeadNotFound,
+)
+
 from modules.quotes.domain.exceptions import (
     QuoteNotFound,
-    QuoteCannotBeDeleted
+    QuoteCannotBeDeleted,
 )
+
 from modules.applications.domain.enums import (
-    EventType
+    EventType,
 )
-import logging
+
+from modules.quotes.application.dtos.agent.delete_quote_dto import (
+    DeleteQuoteDTO,
+)
+
+from modules.quotes.application.results.quote_action_result import (
+    QuoteActionResult,
+)
+
 
 logger = logging.getLogger(__name__)
 
-class DeleteQuoteUseCase:
 
+class DeleteQuoteUseCase:
 
     def __init__(
         self,
@@ -35,36 +49,36 @@ class DeleteQuoteUseCase:
         self.event_service = event_service
         self.unit_of_work = unit_of_work
 
-
+    # =====================================================
+    # EXECUTE
+    # =====================================================
 
     def execute(
         self,
-        quote_id: str,
-        agent_id: str,
-    ):
+        dto: DeleteQuoteDTO,
+    ) -> QuoteActionResult:
+
+        quote_id = dto.quote_id
 
         try:
 
-            # =========================
+            # =================================================
             # LOAD QUOTE
-            # =========================
+            # =================================================
 
             quote = (
                 self.quote_repository
                 .find_by_id(
-                    quote_id
+                    dto.quote_id
                 )
             )
-
 
             if quote is None:
                 raise QuoteNotFound()
 
-
-
-            # =========================
+            # =================================================
             # LOAD LEAD
-            # =========================
+            # =================================================
 
             lead = (
                 self.lead_repository
@@ -73,36 +87,29 @@ class DeleteQuoteUseCase:
                 )
             )
 
-
             if lead is None:
                 raise LeadNotFound()
 
-
-
-            # =========================
+            # =================================================
             # AUTHORIZATION
-            # =========================
+            # =================================================
 
             self.authorization.check_owner(
                 lead,
-                agent_id
+                dto.agent_id,
             )
 
-
-
-            # =========================
+            # =================================================
             # BUSINESS RULE
-            # =========================
+            # =================================================
 
             if not quote.can_be_deleted():
 
                 raise QuoteCannotBeDeleted()
 
-
-
-            # =========================
-            # DELETE TRADE IN
-            # =========================
+            # =================================================
+            # DELETE TRADE-IN
+            # =================================================
 
             trade_in = (
                 self.quote_trade_in_repository
@@ -111,37 +118,75 @@ class DeleteQuoteUseCase:
                 )
             )
 
-
             if trade_in:
 
                 self.quote_trade_in_repository.delete(
                     quote.id
                 )
 
-
-
-            # =========================
+            # =================================================
             # DELETE QUOTE
-            # =========================
+            # =================================================
 
             self.quote_repository.delete(
                 quote.id
             )
 
+            # =================================================
+            # EVENT
+            # =================================================
+
             self.event_service.log(
-    type=EventType.QUOTE_DELETED,
-    message="Devis supprimé",
-    quote_id=quote.id,
-    user_id=agent_id,
-    event_metadata={
-        "quote_id": quote.id,
-        "customer_email": quote.lead.customer.email,
-    }
-)
+
+                type=EventType.QUOTE_DELETED,
+
+                message="Devis supprimé",
+
+                quote_id=quote.id,
+
+                lead_id=lead.id,
+
+                vehicle_id=lead.vehicle_id,
+
+                user_id=dto.agent_id,
+
+                event_metadata={
+                    "quote_id": quote.id,
+                    "customer_email": (
+                        lead.customer.email
+                        if lead.customer
+                        else None
+                    ),
+                },
+            )
+
+            # =================================================
+            # COMMIT
+            # =================================================
 
             self.unit_of_work.commit()
 
+            # =================================================
+            # SUCCESS LOG
+            # =================================================
 
+            logger.info(
+                "Devis supprimé avec succès",
+                extra={
+                    "quote_id": quote.id,
+                    "lead_id": lead.id,
+                    "agent_id": dto.agent_id,
+                },
+            )
+
+            # =================================================
+            # RESULT
+            # =================================================
+
+            return QuoteActionResult(
+                quote_id=quote.id,
+                message="Devis supprimé avec succès",
+            )
 
         except Exception:
 
@@ -150,8 +195,8 @@ class DeleteQuoteUseCase:
             logger.exception(
                 "Erreur suppression devis",
                 extra={
-                    "quote_id": quote_id
-                }
+                    "quote_id": quote_id,
+                },
             )
 
             raise

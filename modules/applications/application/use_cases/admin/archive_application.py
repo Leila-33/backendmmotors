@@ -1,12 +1,31 @@
-from modules.applications.domain.enums import EventType
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from core.database.unit_of_work import UnitOfWork
-from modules.applications.domain.entities.application import Application
-from modules.auth.domain.entities.user import User
-from modules.applications.domain.policies.archive_application_policy import ArchiveApplicationPolicy
-from modules.applications.application.services.event_service import EventService
 import logging
+
+from core.database.unit_of_work import UnitOfWork
+
+from modules.applications.domain.entities.application import (
+    Application,
+)
+from modules.auth.domain.entities.user import (
+    User,
+)
+from modules.applications.domain.enums import (
+    EventType,
+)
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
+)
+from modules.applications.domain.policies.archive_application_policy import (
+    ArchiveApplicationPolicy,
+)
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
+from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+
+from modules.applications.application.services.event_service import (
+    EventService,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +44,7 @@ class ArchiveApplicationUseCase:
 
     def execute(
         self,
-        application_id: str,
+        application_id: ApplicationIdDTO,
         current_admin: User,
     ) -> Application:
 
@@ -37,7 +56,7 @@ class ArchiveApplicationUseCase:
 
             application = (
                 self.application_repository
-                .get_by_id(application_id)
+                .get_by_id(dto.application_id)
             )
 
 
@@ -78,7 +97,7 @@ class ArchiveApplicationUseCase:
                 application_id=application.id,
 
                 user_id=current_admin.id,
-
+                vehicle_id=application.vehicle_id,
                 type=EventType.APPLICATION_ARCHIVED,
 
                 message=(
@@ -123,7 +142,7 @@ class ArchiveApplicationUseCase:
             logger.exception(
                 "Erreur archivage application",
                 extra={
-                    "application_id": application_id
+                    "application_id": dto.application_id
                 }
             )
 

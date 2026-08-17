@@ -1,92 +1,111 @@
-from functools import lru_cache
 from fastapi import Depends
+
+# ============================================================
+# USE CASES
+# ============================================================
+
 from modules.financing.application.use_cases.estimate_trade_in import (
-    EstimateTradeInUseCase
+    EstimateTradeInUseCase,
 )
-from modules.financing.application.use_cases.create_installments import CreateInstallmentsUseCase
-from modules.financing.application.use_cases.create_financing_contract import CreateFinancingContractUseCase
-from modules.financing.domain.services.trade_in_service import (
-    TradeInService
+
+from modules.financing.application.use_cases.create_installments import (
+    CreateInstallmentsUseCase,
 )
+
+from modules.financing.application.use_cases.create_financing_contract import (
+    CreateFinancingContractUseCase,
+)
+
+
+# ============================================================
+# REPOSITORIES
+# ============================================================
+
 from modules.dependencies.dependencies import (
     get_application_repository,
     get_financing_contract_repository,
     get_installment_repository,
-    get_financing_contract_repository
-)
-# =========================
-# CORE
-# =========================
-from core.database.dependencies import (
-    get_unit_of_work
+    get_event_service,
 )
 
-# =====================================================
-# SERVICE
-# =====================================================
+
+# ============================================================
+# DOMAIN SERVICES
+# ============================================================
+
 from modules.financing.domain.services.trade_in_service import (
     TradeInService,
 )
+
 from modules.financing.domain.services.financing_service import (
     FinancingService,
 )
 
-@lru_cache()
-def get_trade_in_estimation_service():
 
+# ============================================================
+# SERVICES
+# ============================================================
+
+def get_trade_in_service() -> TradeInService:
     return TradeInService()
 
 
-def get_trade_in_service():
-    return TradeInService()
-
-
-def get_financing_service():
+def get_financing_service() -> FinancingService:
     return FinancingService()
 
-# =====================================================
-# USE CASE
-# =====================================================
 
-def get_estimate_trade_in_use_case(
+# ============================================================
+# USE CASE : ESTIMATE TRADE IN
+# ============================================================
+
+def get_estimate_trade_in_usecase(
     service: TradeInService = Depends(
-        get_trade_in_estimation_service
-    )
-):
+        get_trade_in_service
+    ),
+) -> EstimateTradeInUseCase:
+
     return EstimateTradeInUseCase(
-        trade_in_estimation_service=service
+        trade_in_estimation_service=service,
     )
 
-# =====================================================
-# CREATE FINANCING CONTRACT
-# =====================================================
+
+# ============================================================
+# USE CASE : CREATE FINANCING CONTRACT
+# ============================================================
 
 def get_create_financing_contract_usecase(
-    application_repository=Depends(get_application_repository),
-    financing_contract_repository=Depends(get_financing_contract_repository),
-    uow=Depends(get_unit_of_work),
-):
-    return CreateFinancingContractUseCase(
-        application_repository=application_repository,
-        financing_contract_repository=financing_contract_repository,
-        uow=uow,
-    )
-
-# =====================================================
-# CREATE INSTALLMENTS
-# =====================================================
-
-def get_create_installments_usecase(
-
+    application_repository=Depends(
+        get_application_repository
+    ),
     financing_contract_repository=Depends(
         get_financing_contract_repository
     ),
+    event_service=Depends(
+        get_event_service
+    ),
+) -> CreateFinancingContractUseCase:
 
-    installment_repository=Depends(
-        get_installment_repository
+    return CreateFinancingContractUseCase(
+        application_repository=application_repository,
+        financing_contract_repository=(
+            financing_contract_repository
+        ),
+        event_service=event_service,
     )
 
-):
+
+# ============================================================
+# USE CASE : CREATE INSTALLMENTS
+# ============================================================
+
+def get_create_installments_usecase(
+    financing_contract_repository=Depends(
+        get_financing_contract_repository
+    ),
+    installment_repository=Depends(
+        get_installment_repository
+    ),
+) -> CreateInstallmentsUseCase:
 
     return CreateInstallmentsUseCase(
         financing_contract_repository=(

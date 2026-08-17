@@ -1,5 +1,4 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, field_validator
 
 from modules.options.domain.enums import (
     OptionType,
@@ -12,21 +11,31 @@ from modules.options.domain.enums import (
 class CreateOptionRequest(BaseModel):
 
     name: str = Field(
-        ...,
-        min_length=2,
-        max_length=100,
-    )
+            ...,
+            min_length=2,
+            max_length=100,
+        )
 
-    price: float | None = Field(
-        default=None,
-        ge=0,
+    price: float = Field(
+        gt=0
     )
 
     billing_type: BillingType = (
-        BillingType.FIXED
-    )
+            BillingType.FIXED
+        )
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str):
 
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "Le nom de l'option est obligatoire"
+            )
+
+        return value
 
 class CreateOptionResponse(BaseModel):
 
@@ -68,13 +77,28 @@ class ToggleOptionStatusRequest(BaseModel):
 
     is_active: bool
 
+
+class ToggleOptionStatusResponse(BaseModel):
+
+    id: str
+    is_active: bool
+    message: str
+
 # =========================
 # RESPONSE
 # =========================
 class OptionResponse(BaseModel):
+
     id: str
     name: str
     type: OptionType
     price: float
+    billing_type: str
     is_active: bool
-    billing_type : BillingType
+
+
+class GetOptionsResponse(BaseModel):
+
+    options: list[OptionResponse] = Field(
+        default_factory=list
+    )

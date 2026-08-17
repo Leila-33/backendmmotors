@@ -1,4 +1,7 @@
-from modules.applications.domain.enums import DocumentStatus, EventType
+from modules.applications.domain.enums import (
+    DocumentStatus,
+    EventType
+)
 
 
 DOCUMENT_LABELS = {

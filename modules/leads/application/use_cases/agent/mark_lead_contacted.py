@@ -1,17 +1,19 @@
-from modules.leads.domain.exceptions import (
-    LeadNotFound
-)
-
-from modules.leads.api.schemas import (
-    MarkLeadContactedResponse
-)
-from modules.leads.application.services.LeadAuthorizationService import LeadAuthorizationService
-from modules.applications.domain.enums import (
-    EventType
-)
 import logging
 
+from modules.leads.domain.exceptions import LeadNotFound
+from modules.applications.domain.enums import EventType
+
+from modules.leads.application.dtos.agent.mark_lead_contacted_dto import (
+    MarkLeadContactedDTO,
+)
+
+from modules.leads.application.results.agent.mark_lead_contacted_result import (
+    MarkLeadContactedResult,
+)
+
+
 logger = logging.getLogger(__name__)
+
 
 class MarkLeadContactedUseCase:
 
@@ -22,24 +24,15 @@ class MarkLeadContactedUseCase:
         event_service,
         unit_of_work,
     ):
-        self.lead_repository = (
-            lead_repository
-        )
-
-        self.authorization = (
-            authorization
-        )
+        self.lead_repository = lead_repository
+        self.authorization = authorization
         self.event_service = event_service
-        self.unit_of_work = (
-            unit_of_work
-        )
-
+        self.unit_of_work = unit_of_work
 
     def execute(
         self,
-        lead_id: str,
-        agent_id: str,
-    ):
+        dto: MarkLeadContactedDTO,
+    ) -> MarkLeadContactedResult:
 
         try:
 
@@ -47,18 +40,12 @@ class MarkLeadContactedUseCase:
             # GET LEAD
             # =========================
 
-            lead = (
-                self.lead_repository
-                .find_by_id(
-                    lead_id
-                )
+            lead = self.lead_repository.find_by_id(
+                dto.lead_id
             )
-
 
             if not lead:
                 raise LeadNotFound()
-
-
 
             # =========================
             # AUTHORIZATION
@@ -66,18 +53,14 @@ class MarkLeadContactedUseCase:
 
             self.authorization.check_owner(
                 lead,
-                agent_id
+                dto.agent_id,
             )
-
-
 
             # =========================
             # DOMAIN RULE
             # =========================
 
             lead.mark_as_contacted()
-
-
 
             # =========================
             # PERSISTENCE
@@ -86,56 +69,53 @@ class MarkLeadContactedUseCase:
             self.lead_repository.update(
                 lead
             )
+
+            # =========================
+            # EVENT
+            # =========================
+
             self.event_service.log(
-    type=EventType.LEAD_CONTACTED,
-    message="Prospect contacté",
-    user_id=agent_id,
-    lead_id=lead.id,
-    event_metadata={
-        "status": lead.status.value,
-    }
-)
+                type=EventType.LEAD_CONTACTED,
+                message="Prospect contacté",
+                user_id=dto.agent_id,
+                lead_id=lead.id,
+                vehicle_id=lead.vehicle_id,
+                event_metadata={
+                    "status": lead.status.value,
+                },
+            )
+
+            # =========================
+            # COMMIT
+            # =========================
 
             self.unit_of_work.commit()
 
             logger.info(
-    "Lead marqué comme contacté",
-    extra={
-        "lead_id": lead.id,
-        "user_id": agent_id,
-    }
-)
+                "Lead marqué comme contacté",
+                extra={
+                    "lead_id": dto.lead_id,
+                    "user_id": dto.agent_id,
+                },
+            )
+
+            return MarkLeadContactedResult(
+                id=lead.id,
+                status=lead.status.value,
+                message="Prospect marqué comme contacté",
+            )
 
         except Exception:
 
             self.unit_of_work.rollback()
 
             logger.exception(
-        "Erreur lors du marquage du lead comme contacté",
-        extra={
-            "lead_id": lead_id,
-            "user_id": agent_id,
-        }
-    )
-
-            raise
-
-
-
-        # =========================
-        # RESPONSE
-        # =========================
-
-        return MarkLeadContactedResponse(
-
-            id=lead.id,
-
-            status=lead.status.value,
-
-            message=(
-                "Prospect marqué comme contacté"
+                "Erreur lors du marquage du lead comme contacté",
+                extra={
+                    "lead_id": dto.lead_id,
+                    "user_id": dto.agent_id,
+                },
             )
 
-        )
-
+            raise
 

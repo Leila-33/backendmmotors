@@ -1,16 +1,15 @@
 from modules.auth.domain.exceptions import TokenInvalid
+from modules.auth.application.results.verify_email_result import VerifyEmailResult
 from modules.auth.api.schemas import VerifyEmailResponse
 from modules.applications.domain.enums import EventType
 import logging
 
 logger = logging.getLogger(__name__)
 
-import logging
-
-logger = logging.getLogger(__name__)
 
 
-class VerifyEmail:
+
+class VerifyEmailUseCase:
 
     def __init__(
         self,
@@ -28,7 +27,7 @@ class VerifyEmail:
     def execute(
         self,
         token: str
-    ) -> VerifyEmailResponse:
+    ) -> VerifyEmailResult:
 
         payload = None
 
@@ -87,7 +86,7 @@ class VerifyEmail:
                 )
 
                 return VerifyEmailResponse(
-                    message="Email already verified"
+                    message="Email déjà vérifié"
                 )
 
 
@@ -136,8 +135,8 @@ class VerifyEmail:
             )
 
 
-            return VerifyEmailResponse(
-                message="Email verified"
+            return VerifyEmailResult(
+                message="Email vérifié"
             )
 
 

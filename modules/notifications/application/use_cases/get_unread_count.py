@@ -1,6 +1,11 @@
-from modules.notifications.api.schemas import (
-    UnreadNotificationCountResponse
+from modules.notifications.application.dtos.get_unread_count_dto import (
+    GetUnreadCountDTO,
 )
+
+from modules.notifications.application.results.get_unread_count_result import (
+    GetUnreadCountResult,
+)
+
 
 class GetUnreadCountUseCase:
 
@@ -10,18 +15,18 @@ class GetUnreadCountUseCase:
     ):
         self.repository = repository
 
-
     def execute(
         self,
-        user_id: str,
-    ):
+        dto: GetUnreadCountDTO,
+    ) -> GetUnreadCountResult:
 
         count = (
             self.repository
-            .count_unread(user_id)
+            .count_unread(
+                dto.user_id
+            )
         )
 
-
-        return UnreadNotificationCountResponse(
+        return GetUnreadCountResult(
             count=count
         )

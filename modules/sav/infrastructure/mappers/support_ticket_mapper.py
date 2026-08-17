@@ -3,11 +3,10 @@ from modules.sav.infrastructure.db.support_ticket_model import SupportTicketMode
 from modules.sav.infrastructure.mappers.ticket_message_mapper import TicketMessageMapper
 from modules.sav.api.schemas import (
     SupportTicketResponse,
-    TicketMessageDTO,
+    TicketMessageResponse,
     SupportTicketListItemResponse
 )
 from modules.auth.domain.enums import UserRole
-from datetime import datetime
 
 class SupportTicketMapper:
 
@@ -64,9 +63,10 @@ class SupportTicketMapper:
             assigned_to=ticket.assigned_to,
             created_at=ticket.created_at,
             updated_at=ticket.updated_at,
+
             archived_at=ticket.archived_at,
             messages=[
-                TicketMessageDTO(
+                TicketMessageResponse(
                     id=message.id,
                     sender_id=message.sender_id,
                     sender_role=(
@@ -100,46 +100,32 @@ class SupportTicketMapper:
         return model
 
     @staticmethod
-    def from_row(row):
+    def to_paginated_response(
+        result: FindSupportTicketsResult,
+    ) -> PaginatedSupportTicketsResponse:
 
-        ticket = row[0]
-
-        last_activity_at = row.last_activity_at
-        last_read_at = row.last_read_at
-
-        if isinstance(last_activity_at, str):
-            last_activity_at = datetime.fromisoformat(last_activity_at)
-
-        if isinstance(last_read_at, str):
-            last_read_at = datetime.fromisoformat(last_read_at)
-
-        unread = False
-
-        if last_activity_at:
-
-            if last_read_at is None:
-                unread = True
-            else:
-                unread = last_read_at < last_activity_at
-
-        return SupportTicketListItemResponse(
-
-            id=ticket.id,
-            subject=ticket.subject,
-            category=ticket.category,
-            status=ticket.status,
-            priority=ticket.priority,
-
-            user_id=ticket.user_id,
-            user_name=row.user_name,
-
-            last_message_preview=row.last_message_preview,
-            last_actor=row.last_actor,
-            last_activity_at=last_activity_at,
-
-            unread=unread,
-
-            created_at=ticket.created_at,
-            updated_at=ticket.updated_at,
-            archived_at=ticket.archived_at,
+        return PaginatedSupportTicketsResponse(
+            items=[
+                SupportTicketListItemResponse(
+                    id=item.id,
+                    subject=item.subject,
+                    category=item.category,
+                    status=item.status,
+                    priority=item.priority,
+                    user_id=item.user_id,
+                    user_name=item.user_name,
+                    last_message_preview=item.last_message_preview,
+                    last_actor=item.last_actor,
+                    last_activity_at=item.last_activity_at,
+                    unread=item.unread,
+                    created_at=item.created_at,
+                    updated_at=item.updated_at,
+                    archived_at=item.archived_at,
+                )
+                for item in result.items
+            ],
+            page=result.page,
+            limit=result.limit,
+            total=result.total,
+            pages=result.pages,
         )

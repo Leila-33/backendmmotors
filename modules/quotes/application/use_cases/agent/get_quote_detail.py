@@ -1,5 +1,20 @@
-from modules.quotes.domain.exceptions import QuoteNotFound
-from modules.quotes.infrastructure.mappers.quote_mapper import QuoteMapper
+import logging
+
+from modules.quotes.domain.exceptions import (
+    QuoteNotFound,
+)
+
+from modules.quotes.application.dtos.agent.get_quote_detail_dto import (
+    GetQuoteDetailDTO,
+)
+
+from modules.quotes.application.results.agent.get_quote_detail_result import (
+    GetQuoteDetailResult,
+)
+
+
+logger = logging.getLogger(__name__)
+
 
 class GetQuoteDetailUseCase:
 
@@ -8,27 +23,38 @@ class GetQuoteDetailUseCase:
         quote_repository,
         authorization,
     ):
+
         self.quote_repository = quote_repository
         self.authorization = authorization
 
     def execute(
         self,
-        quote_id: str,
-        agent_id: str,
-    ):
+        dto: GetQuoteDetailDTO,
+    ) -> GetQuoteDetailResult:
 
-        quote = self.quote_repository.find_by_id(
-            quote_id
+        quote = (
+            self.quote_repository
+            .find_by_id(
+                dto.quote_id
+            )
         )
 
-        if not quote:
+        if quote is None:
             raise QuoteNotFound()
 
         self.authorization.check_owner(
             quote.lead,
-            agent_id,
+            dto.agent_id,
         )
 
-        return QuoteMapper.to_detail_response(
-            quote
+        logger.info(
+            "Détail du devis récupéré",
+            extra={
+                "quote_id": quote.id,
+                "agent_id": dto.agent_id,
+            },
+        )
+
+        return GetQuoteDetailResult(
+            quote=quote
         )

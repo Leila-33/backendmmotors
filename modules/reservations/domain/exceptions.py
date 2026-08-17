@@ -53,3 +53,12 @@ class InvalidReservationDates(DomainException):
             message="La date de fin doit être postérieure ou égale à la date de début.",
             status_code=400
         )
+
+class InvalidReservationDates(Exception):
+
+    def __init__(
+        self,
+        message: str = "Les dates de réservation sont invalides.",
+    ):
+        self.message = message
+        super().__init__(self.message)

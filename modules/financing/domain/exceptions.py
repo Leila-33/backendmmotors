@@ -37,3 +37,38 @@ class InstallmentNotFound(DomainException):
             "La mensualité de financement est introuvable.",
             404
         )
+
+class InvalidFinancingAmount(DomainException):
+
+    def __init__(
+        self,
+        message: str = "Montant de financement invalide.",
+    ):
+        super().__init__(
+            message=message,
+            status_code=400,
+        )
+
+
+class InvalidFinancingDuration(DomainException):
+
+    def __init__(
+        self,
+        message: str = "Durée de financement invalide.",
+    ):
+        super().__init__(
+            message=message,
+            status_code=400,
+        )
+
+
+class ExpensesGreaterThanIncome(DomainException):
+
+    def __init__(self):
+        super().__init__(
+            message=(
+                "Les charges mensuelles ne peuvent pas "
+                "dépasser les revenus."
+            ),
+            status_code=400,
+        )

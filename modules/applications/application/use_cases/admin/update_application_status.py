@@ -1,29 +1,30 @@
-from uuid import uuid4
-from datetime import datetime, timezone
-from modules.applications.domain.entities.event import Event
-from modules.applications.application.services.event_service import EventService
-from modules.applications.api.schemas import (
+from core.database.unit_of_work import UnitOfWork
+
+from modules.applications.application.dtos.admin.update_application_status_dto import (
     UpdateApplicationStatusDTO,
-    UpdateApplicationStatusResponseDTO,
 )
-from modules.applications.domain.entities.event import Event
-from modules.notifications.domain.enums import (
-    NotificationEntityType,
+from modules.applications.application.results.admin.update_application_status_result import (
+    UpdateApplicationStatusResult,
 )
 
 from modules.applications.domain.application_messages import (
     APPLICATION_EVENT_MAP,
 )
-
 from modules.applications.domain.builders.application_notification_builder import (
     ApplicationNotificationBuilder,
 )
-
 from modules.applications.domain.exceptions import (
     ApplicationNotFound,
 )
-from modules.auth.domain.entities.user import User
-from core.database.unit_of_work import UnitOfWork
+from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+
+from modules.auth.domain.entities.user import (
+    User,
+)
+from modules.notifications.domain.enums import (
+    NotificationEntityType,
+)
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,6 @@ class UpdateApplicationStatusUseCase:
 
     async def execute(
         self,
-        application_id: str,
         dto: UpdateApplicationStatusDTO,
         current_admin: User
     ):
@@ -57,7 +57,7 @@ class UpdateApplicationStatusUseCase:
         try:
             application = (
                 self.application_repository.get_by_id(
-                    application_id
+                    dto.application_id
                 )
             )
 
@@ -130,6 +130,7 @@ class UpdateApplicationStatusUseCase:
             self.event_service.log(
 
                 application_id=application.id,
+                vehicle_id=application.vehicle_id,
 
                 type=APPLICATION_EVENT_MAP.get(
                     dto.status
@@ -172,14 +173,10 @@ class UpdateApplicationStatusUseCase:
             # RESPONSE
             # =========================
 
-            return UpdateApplicationStatusResponseDTO(
-
-                application_id=application.id,
-
-                status=application.status.value,
-
-                message=notification.message,
-            )
+            return UpdateApplicationStatusResult(
+    id=application.id,
+    status=application.status,
+)
 
         except Exception:
 
@@ -188,7 +185,7 @@ class UpdateApplicationStatusUseCase:
             logger.exception(
     "Erreur lors de la mise à jour du statut application",
     extra={
-        "application_id": application.id,
+        "application_id": dto.application_id,
         "new_status":  dto.status.value
     }
 )

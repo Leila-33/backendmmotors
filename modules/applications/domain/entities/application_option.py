@@ -1,8 +1,4 @@
 from dataclasses import dataclass
-from modules.applications.domain.enums import OptionUsageType
-
-
-
 
 @dataclass
 class ApplicationOption:

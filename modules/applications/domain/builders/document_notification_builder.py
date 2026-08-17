@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 from modules.applications.domain.document_messages import (
     DOCUMENT_LABELS,
 )

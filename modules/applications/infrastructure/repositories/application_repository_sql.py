@@ -1,21 +1,31 @@
-from datetime import datetime, timezone
 import logging
-logger = logging.getLogger(__name__)
-from sqlalchemy.orm import selectinload, Session 
-from modules.applications.domain.enums import ApplicationStatus, ViewMode
-from modules.reservations.domain.enums import ReservationStatus
-from modules.auth.domain.exceptions import UserIdRequiredForClient
-from modules.applications.infrastructure.db.application_model import ApplicationModel
-from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
-from modules.applications.domain.entities.application import Application
-from modules.vehicles.infrastructure.db.vehicle_model import (
-    VehicleModel
-)
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.infrastructure.mappers.application_mapper import ApplicationMapper
-from modules.auth.domain.enums import UserRole
+
 from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session, selectinload
+
+from modules.applications.domain.entities.application import Application
+from modules.applications.domain.enums import (
+    ApplicationStatus,
+    ViewMode,
+)
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
+from modules.applications.infrastructure.db.application_model import (
+    ApplicationModel,
+)
+from modules.applications.infrastructure.mappers.application_mapper import (
+    ApplicationMapper,
+)
+
+from modules.auth.domain.enums import UserRole
+from modules.auth.domain.exceptions import UserIdRequiredForClient
+
 from modules.vehicles.domain.enums import VehicleType
+from modules.vehicles.infrastructure.db.vehicle_model import VehicleModel
+
+
+logger = logging.getLogger(__name__)
 
 class ApplicationRepositorySQL(ApplicationRepository):
 

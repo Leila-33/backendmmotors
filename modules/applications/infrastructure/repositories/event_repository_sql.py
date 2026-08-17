@@ -1,19 +1,18 @@
-from modules.applications.infrastructure.db.event_model import EventModel
-from modules.applications.domain.entities.event import Event
+from datetime import datetime, timedelta
 from typing import List
 
-from modules.applications.domain.repositories.event_repository import (
-    EventRepository
-)
-
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
-from modules.applications.infrastructure.mappers.event_mapper import (
-    EventMapper
-)
-from sqlalchemy import or_, desc
-from datetime import datetime
+
+from modules.applications.domain.entities.event import Event
 from modules.applications.domain.enums import EventType
-from datetime import datetime, timedelta
+from modules.applications.domain.repositories.event_repository import (
+    EventRepository,
+)
+from modules.applications.infrastructure.db.event_model import EventModel
+from modules.applications.infrastructure.mappers.event_mapper import (
+    EventMapper,
+)
 
 
 EVENT_CATEGORIES = {

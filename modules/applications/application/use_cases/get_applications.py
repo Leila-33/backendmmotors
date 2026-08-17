@@ -1,16 +1,42 @@
-from modules.applications.api.schemas import (
+from modules.auth.domain.enums import (
+    UserRole,
+)
+
+from modules.applications.application.dtos.get_applications_dto import (
     GetApplicationsDTO,
 )
-from modules.auth.domain.enums import UserRole
-from modules.applications.domain.policies.cancel_application_policy import CancelApplicationPolicy
-from modules.applications.domain.policies.restore_application_policy import RestoreApplicationPolicy
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.application.results.application_list_item_data import ApplicationListItemData
-from modules.applications.application.results.get_applications_result import GetApplicationsResult
-from modules.applications.application.services.restore_application_service import RestoreApplicationService
-from modules.applications.domain.exceptions import CannotRestoreApplication
-from modules.applications.domain.policies.soft_delete_application_policy import SoftDeleteApplicationPolicy
-from modules.applications.domain.policies.archive_application_policy import ArchiveApplicationPolicy
+
+from modules.applications.application.results.application_list_item_data import (
+    ApplicationListItemData,
+)
+from modules.applications.application.results.get_applications_result import (
+    GetApplicationsResult,
+)
+
+from modules.applications.application.services.restore_application_service import (
+    RestoreApplicationService,
+)
+
+from modules.applications.domain.exceptions import (
+    CannotRestoreApplication,
+)
+
+from modules.applications.domain.policies.archive_application_policy import (
+    ArchiveApplicationPolicy,
+)
+from modules.applications.domain.policies.cancel_application_policy import (
+    CancelApplicationPolicy,
+)
+from modules.applications.domain.policies.restore_application_policy import (
+    RestoreApplicationPolicy,
+)
+from modules.applications.domain.policies.soft_delete_application_policy import (
+    SoftDeleteApplicationPolicy,
+)
+
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
 
 class GetApplicationsUseCase:
 

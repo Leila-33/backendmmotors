@@ -1,11 +1,14 @@
-from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel, Field
+
 from modules.test_drives.domain.enums import TestDriveStatus
-from typing import Optional, List, Any
 
-# CLIENT
 
-# create test drive
+# =========================================================
+# CLIENT — CREATE
+# =========================================================
+
 class CreateTestDriveRequest(BaseModel):
 
     vehicle_id: str
@@ -15,7 +18,10 @@ class CreateTestDriveRequest(BaseModel):
     comment: str | None = None
 
 
-# get my test drives
+# =========================================================
+# CLIENT — MY TEST DRIVES
+# =========================================================
+
 class MyTestDriveResponse(BaseModel):
 
     id: str
@@ -33,56 +39,11 @@ class MyTestDriveResponse(BaseModel):
     created_at: datetime | None = None
 
 
-# get test drive details client
-class TestDriveVehicleResponse(BaseModel):
+# =========================================================
+# CLIENT — AVAILABILITY
+# =========================================================
 
-    id: str
-
-    brand: str
-
-    model: str
-
-    images: list[str] = []
-
-
-class TestDriveUserResponse(BaseModel):
-
-    id: str
-
-    name: str
-
-    email: str
-
-
-class TestDriveTimelineResponse(BaseModel):
-
-    type: str
-
-    message: str
-
-    date: datetime
-
-    metadata: Optional[dict[str, Any]] = None
-
-
-class TestDriveDetailClientResponse(BaseModel):
-
-    id: str
-
-    vehicle: TestDriveVehicleResponse
-
-    appointment_date: datetime
-
-    status: TestDriveStatus
-
-    comment: Optional[str] = None
-
-    user: TestDriveUserResponse
-
-    timeline: List[TestDriveTimelineResponse]
-
-# get availability
-class AvailabilityResponse(BaseModel):
+class GetAvailabilityResponse(BaseModel):
 
     date: str
 
@@ -91,7 +52,10 @@ class AvailabilityResponse(BaseModel):
     available_slots: list[datetime]
 
 
-# testdrive response
+# =========================================================
+# CLIENT — CREATE RESPONSE
+# =========================================================
+
 class TestDriveResponse(BaseModel):
 
     id: str
@@ -108,68 +72,142 @@ class TestDriveResponse(BaseModel):
 
     created_at: datetime | None = None
 
-# ADMIN
 
-# get test drive details admin
-class TestDriveEventResponse(BaseModel):
+# =========================================================
+# SHARED — DETAIL
+# =========================================================
+
+class TestDriveUserResponse(BaseModel):
+
     id: str
+
+    name: str
+
+    email: str
+
+
+class TestDriveVehicleResponse(BaseModel):
+
+    id: str
+
+    brand: str
+
+    model: str
+
+    images: list[str]
+
+    price: float
+
+    license_plate: str | None = None
+
+
+class TestDriveTimelineItem(BaseModel):
+
+    id: str
+
     type: str
+
     message: str
-    created_at: datetime
+
+    date: datetime
+
+    metadata: dict | None = None
 
 
-class TestDriveDetailsAdminResponse(BaseModel):
+class TestDriveDetailResponse(BaseModel):
+
     id: str
 
-    # USER
-    user_name: str
-    user_email: str
-
-    # VEHICLE
-    vehicle_name: str
-    vehicle_price: float
-    vehicle_license_plate: str | None
-
-    # APPOINTMENT
     appointment_date: datetime
-    status: str
-    comment: str | None
 
-    # TIMELINE
-    events: list[TestDriveEventResponse]
+    status: TestDriveStatus
 
+    comment: str | None = None
 
-# get test drives admin
-class TestDriveAdminListItemResponse(BaseModel):
-    id: str
-    user_name: str
-    vehicle_name: str
-    appointment_date: datetime
-    status: str
+    user: TestDriveUserResponse
 
+    vehicle: TestDriveVehicleResponse
 
-class TestDriveAdminListResponse(BaseModel):
-    items: list[TestDriveAdminListItemResponse]
-    total: int
+    timeline: list[TestDriveTimelineItem]
+
+# =========================================================
+# ADMIN — PAGINATION
+# =========================================================
+
+class PaginatedTestDriveAdminResponse(BaseModel):
+
+    items: list[TestDriveAdminItemResponse]
+
     page: int
+
     limit: int
 
-# update test drive status
+    total: int
+
+
+# =========================================================
+# SHARED - STATUS
+# =========================================================
+
 class UpdateTestDriveStatusRequest(BaseModel):
 
     status: TestDriveStatus
+
 
 class TestDriveStatusResponse(BaseModel):
 
     id: str
 
-    status: str
+    status: TestDriveStatus
 
     appointment_date: datetime
 
     message: str
 
-# pending count
+# =========================================================
+# ADMIN — LIST QUERY
+# =========================================================
+
+class GetTestDrivesAdminQuery(BaseModel):
+
+    status: TestDriveStatus | None = None
+
+    search: str = ""
+
+    page: int = Field(
+        default=1,
+        ge=1,
+    )
+
+    limit: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+    )
+
+
+# =========================================================
+# ADMIN — LIST ITEM
+# =========================================================
+
+class TestDriveAdminItemResponse(BaseModel):
+
+    id: str
+
+    user_name: str
+
+    vehicle_name: str
+
+    appointment_date: datetime
+
+    status: TestDriveStatus
+
+    comment: str | None = None
+
+
+# =========================================================
+# ADMIN - PENDING COUNT
+# =========================================================
 
 class PendingTestDriveCountResponse(BaseModel):
 

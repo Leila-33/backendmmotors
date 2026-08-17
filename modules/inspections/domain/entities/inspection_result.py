@@ -1,14 +1,21 @@
 from dataclasses import dataclass, field
-from typing import List
 
 
-@dataclass(slots=True)
+@dataclass
 class InspectionResult:
+
     engine_score: int
     brakes_score: int
     tires_score: int
     electronics_score: int
-    safety_score: int
 
-    failures: List[str] = field(default_factory=list)
-    recommended_repairs: List[str] = field(default_factory=list)
+    safety_score: int
+    overall_score: int
+
+    failures: list[str] = field(
+        default_factory=list
+    )
+
+    recommended_repairs: list[str] = field(
+        default_factory=list
+    )

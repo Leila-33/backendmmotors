@@ -1,13 +1,22 @@
+import logging
+
 from modules.options.domain.exceptions import (
     OptionNotFound,
     OptionAlreadyExists,
-    SystemOptionCannotBeModified
+    SystemOptionCannotBeModified,
 )
-from modules.options.api.schemas import UpdateOptionResponse
 from modules.options.domain.enums import OptionType
 from modules.applications.domain.enums import EventType
-import logging
+
+from modules.options.application.dtos.admin.update_option_dto import (
+    UpdateOptionDTO,
+)
+from modules.options.application.results.admin.update_option_result import (
+    UpdateOptionResult,
+)
+
 logger = logging.getLogger(__name__)
+
 
 class UpdateOptionUseCase:
 
@@ -23,17 +32,18 @@ class UpdateOptionUseCase:
 
     def execute(
         self,
-        option_id: str,
-        request,
-        current_admin
-    ):
+        dto: UpdateOptionDTO,
+    ) -> UpdateOptionResult:
 
-        # =========================
-        # GET OPTION
-        # =========================
         try:
-            option = self.option_repository.get_by_id(
-                option_id
+
+            # =========================
+            # GET OPTION
+            # =========================
+
+            option = (
+                self.option_repository
+                .get_by_id(dto.option_id)
             )
 
             if not option:
@@ -50,7 +60,7 @@ class UpdateOptionUseCase:
             # NORMALIZE NAME
             # =========================
 
-            name = request.name.strip()
+            name = dto.name.strip()
 
             # =========================
             # DUPLICATE CHECK
@@ -60,7 +70,7 @@ class UpdateOptionUseCase:
                 self.option_repository
                 .exists_by_name_except_id(
                     name,
-                    option_id
+                    dto.option_id,
                 )
             )
 
@@ -68,54 +78,91 @@ class UpdateOptionUseCase:
                 raise OptionAlreadyExists(name)
 
             # =========================
-            # DOMAIN UPDATE
+            # KEEP OLD VALUES
+            # =========================
+
+            old_name = option.name
+            old_price = option.price
+            old_billing_type = option.billing_type
+
+            # =========================
+            # UPDATE DOMAIN ENTITY
             # =========================
 
             option.name = name
-
-            option.type = OptionType.CUSTOM
-
-            option.price = request.price
-
-            option.billing_type = request.billing_type
+            option.price = dto.price
+            option.billing_type = dto.billing_type
 
             # =========================
             # PERSISTENCE
             # =========================
 
-            option = self.option_repository.update(
-                option
-            )
+            self.option_repository.update(option)
+
+            # =========================
+            # EVENT
+            # =========================
+
             self.event_service.log(
-            type=EventType.OPTION_UPDATED,
-            message="Option modifiée",
-            user_id=current_admin.id,
-            event_metadata={
-                "option_id": option.id,
-                "name": option.name,
-            }
-        )
-          
+                type=EventType.OPTION_UPDATED,
+                message="Option modifiée",
+                user_id=dto.admin_id,
+                event_metadata={
+                    "option_id": option.id,
+                    "old_name": old_name,
+                    "new_name": option.name,
+                    "old_price": old_price,
+                    "new_price": option.price,
+                    "old_billing_type": (
+                        old_billing_type.value
+                        if old_billing_type
+                        else None
+                    ),
+                    "new_billing_type": (
+                        option.billing_type.value
+                        if option.billing_type
+                        else None
+                    ),
+                },
+            )
+
+            # =========================
+            # COMMIT
+            # =========================
+
             self.unit_of_work.commit()
 
             # =========================
-            # RESPONSE
+            # SUCCESS LOG
             # =========================
 
-            return UpdateOptionResponse(
+            logger.info(
+                "Option modifiée avec succès",
+                extra={
+                    "option_id": option.id,
+                    "admin_id": dto.admin_id,
+                },
+            )
+
+            # =========================
+            # RESULT
+            # =========================
+
+            return UpdateOptionResult(
                 id=option.id,
-                message="Option modifiée avec succès"
+                message="Option modifiée avec succès",
             )
 
         except Exception:
 
-            self.uow.rollback()
+            self.unit_of_work.rollback()
 
             logger.exception(
                 "Erreur lors de la modification de l'option",
                 extra={
-                    "option_id": option_id
-                }
+                    "option_id": dto.option_id,
+                    "admin_id": dto.admin_id,
+                },
             )
 
             raise

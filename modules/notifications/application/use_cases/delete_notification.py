@@ -1,27 +1,30 @@
-from modules.notifications.domain.exceptions import NotificationNotFound
+from modules.notifications.domain.exceptions import (
+    NotificationNotFound,
+)
 from modules.auth.domain.exceptions import Unauthorized
-from modules.notifications.api.schemas import DeleteNotificationResponse
+
+from modules.notifications.application.dtos.delete_notification_dto import (
+    DeleteNotificationDTO,
+)
+from modules.notifications.application.results.delete_notification_result import (
+    DeleteNotificationResult,
+)
+
 
 class DeleteNotificationUseCase:
-
 
     def __init__(
         self,
         repository,
         unit_of_work,
     ):
-
         self.repository = repository
-
         self.unit_of_work = unit_of_work
-
-
 
     def execute(
         self,
-        notification_id: str,
-        user_id: str,
-    ):
+        dto: DeleteNotificationDTO,
+    ) -> DeleteNotificationResult:
 
         try:
 
@@ -32,54 +35,41 @@ class DeleteNotificationUseCase:
             notification = (
                 self.repository
                 .get_by_id(
-                    notification_id
+                    dto.notification_id
                 )
             )
 
-
-            if not notification:
+            if notification is None:
                 raise NotificationNotFound()
-
-
 
             # =========================
             # SECURITY CHECK
             # =========================
 
-            if notification.user_id != user_id:
+            if notification.user_id != dto.user_id:
                 raise Unauthorized()
-
-
 
             # =========================
             # DELETE
             # =========================
 
             self.repository.delete(
-                notification_id
+                notification.id
             )
 
+            # =========================
+            # COMMIT
+            # =========================
 
             self.unit_of_work.commit()
-
-
 
         except Exception:
 
             self.unit_of_work.rollback()
-
             raise
 
-
-
-        return DeleteNotificationResponse(
-
+        return DeleteNotificationResult(
             id=notification.id,
-
             success=True,
-
-            message=(
-                "Notification supprimée"
-            )
-
+            message="Notification supprimée",
         )

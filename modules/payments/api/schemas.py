@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
-# create checkout session
-class CreateCheckoutSessionDTO(BaseModel):
+# =========================================================
+# CREATE CHECKOUT SESSION
+# =========================================================
+class CreateCheckoutSessionRequest(BaseModel):
 
     application_id: str = Field(..., min_length=1)
 
@@ -58,42 +60,10 @@ class CreateCheckoutSessionResponse(BaseModel):
     payment_id: str
 
 
-# handle payment success
+# =========================================================
+# STRIPE WEBHOOK
+# =========================================================
 
-class HandlePaymentSuccessResponse(BaseModel):
+class StripeWebhookResponse(BaseModel):
 
-    payment_id: str
-
-    status: str
-
-    vehicle_type: str
-
-    application_id: str
-
-    message: str
-
-# complete sale payment 
-
-class CompleteSalePaymentResponse(BaseModel):
-
-    application_id: str
-
-    vehicle_id: str
-
-    warranty_created: bool
-
-    financing_created: bool
-
-    message: str
-
-# complete rental payment
-
-class CompleteRentalPaymentResponse(BaseModel):
-
-    application_id: str
-
-    vehicle_id: str
-
-    rental_started: bool
-
-    message: str
+    received: bool

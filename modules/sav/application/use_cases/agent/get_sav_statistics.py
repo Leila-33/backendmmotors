@@ -1,25 +1,30 @@
-from modules.sav.api.schemas import SavStatisticsResponse, CategoryStat
+from modules.sav.application.dtos.get_sav_statistics_result import (
+    GetSavStatisticsResult,
+    CategoryStatResult,
+)
+
 
 class GetSavStatisticsUseCase:
 
     def __init__(self, repo):
         self.repo = repo
 
-    def execute(self, user):
+    def execute(self, user_id: str) -> GetSavStatisticsResult:
 
-        data = self.repo.get_sav_statistics(user)
+        data = self.repo.get_sav_statistics(user_id)
 
-        return SavStatisticsResponse(
+        return GetSavStatisticsResult(
             total=data["total"],
             closed=data["closed"],
             last_7_days=data["last_7_days"],
             last_30_days=data["last_30_days"],
             category_distribution=[
-                CategoryStat(
-                    category=cat,
-                    count=count
+                CategoryStatResult(
+                    category=category,
+                    count=count,
                 )
-                for cat, count in data["category_distribution"]
+                for category, count
+                in data["category_distribution"]
             ],
             resolution_rate=data["resolution_rate"],
         )

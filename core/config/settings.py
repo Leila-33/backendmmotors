@@ -57,9 +57,6 @@ class Settings(BaseSettings):
     # =========================
     SUCCESS_URL: str
     CANCEL_URL: str
-    
-    class Config:
-        env_file = ".env"
 
     # =========================
     # SENTRY

@@ -62,5 +62,4 @@ class ActivationTokenService:
             model
         )
 
-        print(raw_token)
         return raw_token

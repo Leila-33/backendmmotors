@@ -1,13 +1,27 @@
-from uuid import uuid4
-from modules.applications.domain.entities.event import Event
-from modules.applications.domain.enums import EventType
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.applications.domain.entities.application import Application
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from core.database.unit_of_work import UnitOfWork
-from modules.applications.application.services.event_service import EventService
-from modules.auth.domain.entities.user import User
-from modules.applications.domain.exceptions import ApplicationNotArchived
+
+from modules.applications.application.services.event_service import (
+    EventService,
+)
+
+from modules.applications.domain.entities.application import (
+    Application,
+)
+from modules.applications.domain.enums import (
+    EventType,
+)
+from modules.applications.domain.exceptions import (
+    ApplicationNotArchived,
+    ApplicationNotFound,
+)
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
+from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+
+from modules.auth.domain.entities.user import (
+    User,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,7 +44,7 @@ class UnarchiveApplicationUseCase:
     # =========================
     def execute(
         self,
-        application_id: str,
+        dto: ApplicationIdDTO,
         current_admin: User,
     ) -> Application:
 
@@ -40,7 +54,7 @@ class UnarchiveApplicationUseCase:
             # =========================
             application = (
                 self.application_repository.get_by_id(
-                    application_id
+                    dto.application_id
                 )
             )
 
@@ -73,6 +87,7 @@ class UnarchiveApplicationUseCase:
                     application_id=application.id,
 
                     user_id=current_admin.id,
+                    vehicle_id=application.vehicle_id,
 
                     type=EventType.APPLICATION_UNARCHIVED,
 
@@ -115,7 +130,7 @@ class UnarchiveApplicationUseCase:
             logger.exception(
     "Erreur désarchivage application",
     extra={
-        "application_id": application_id
+        "application_id": dto.application_id
     }
 )
             raise

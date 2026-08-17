@@ -74,3 +74,14 @@ class PaymentMapper:
         model.updated_at = entity.updated_at
 
         return model
+
+
+    @staticmethod
+    def to_checkout_session_response(
+    result: CreateCheckoutSessionResult,
+) -> CreateCheckoutSessionResponse:
+
+        return CreateCheckoutSessionResponse(
+            checkout_url=result.checkout_url,
+            payment_id=result.payment_id,
+        )

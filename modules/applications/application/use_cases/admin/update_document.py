@@ -1,6 +1,12 @@
-from modules.applications.api.schemas import (
+import logging
+
+from core.database.unit_of_work import UnitOfWork
+
+from modules.applications.application.dtos.admin.update_document_dto import (
     UpdateDocumentDTO,
-    UpdateDocumentResponseDTO,
+)
+from modules.applications.application.results.admin.update_document_result import (
+    UpdateDocumentResult,
 )
 
 from modules.applications.domain.builders.document_message_builder import (
@@ -9,28 +15,25 @@ from modules.applications.domain.builders.document_message_builder import (
 from modules.applications.domain.builders.document_notification_builder import (
     DocumentNotificationBuilder,
 )
-
 from modules.applications.domain.document_messages import (
     DOCUMENT_EVENT_MAP,
 )
-
-from modules.applications.domain.enums import DocumentStatus
-
+from modules.applications.domain.enums import (
+    DocumentStatus,
+)
 from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
     DocumentNotFound,
-    ApplicationNotFound
 )
 
 from modules.notifications.domain.enums import (
-
     NotificationEntityType,
     NotificationType,
 )
 
-from core.database.unit_of_work import UnitOfWork
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 class UpdateDocumentUseCase:
 
@@ -40,7 +43,7 @@ class UpdateDocumentUseCase:
         application_repository,
         event_service,
         notification_service,
-        uow : UnitOfWork,
+        uow: UnitOfWork,
     ):
         self.document_repository = document_repository
         self.application_repository = application_repository
@@ -53,7 +56,14 @@ class UpdateDocumentUseCase:
         dto: UpdateDocumentDTO,
         current_admin,
     ):
+        document = None
+        application = None
+
         try:
+            # =================================================
+            # GET DOCUMENT
+            # =================================================
+
             document = self.document_repository.get_by_id(
                 dto.document_id
             )
@@ -61,6 +71,9 @@ class UpdateDocumentUseCase:
             if not document:
                 raise DocumentNotFound()
 
+            # =================================================
+            # GET APPLICATION
+            # =================================================
 
             application = self.application_repository.get_by_id(
                 document.application_id
@@ -69,12 +82,20 @@ class UpdateDocumentUseCase:
             if not application:
                 raise ApplicationNotFound()
 
+            # =================================================
+            # UPDATE DOCUMENT
+            # =================================================
+
             document.update_status(
                 status=dto.status,
                 comment=dto.comment,
             )
 
             self.document_repository.save(document)
+
+            # =================================================
+            # EVENT
+            # =================================================
 
             message = DocumentMessageBuilder.build(
                 document_type=document.type,
@@ -87,12 +108,17 @@ class UpdateDocumentUseCase:
                 type=DOCUMENT_EVENT_MAP[dto.status],
                 message=message,
                 user_id=current_admin.id,
+                vehicle_id=application.vehicle_id,
                 event_metadata={
                     "document_id": document.id,
                     "document_type": document.type,
                     "status": dto.status.value,
                 },
             )
+
+            # =================================================
+            # NOTIFICATION
+            # =================================================
 
             if dto.status == DocumentStatus.REJECTED:
 
@@ -113,31 +139,49 @@ class UpdateDocumentUseCase:
                     notif_type=NotificationType.DOCUMENT_REJECTED,
                 )
 
+            # =================================================
+            # COMMIT
+            # =================================================
+
             self.uow.commit()
 
             logger.info(
-    "Document application mis à jour",
-    extra={
-        "application_id": application.id,
-        "document_id": document.id,
-        "admin_id": current_admin.id,
-    }
-)
-            return UpdateDocumentResponseDTO(
+                "Document application mis à jour",
+                extra={
+                    "application_id": application.id,
+                    "document_id": document.id,
+                    "admin_id": current_admin.id,
+                },
+            )
+
+            # =================================================
+            # RESULT
+            # =================================================
+
+            return UpdateDocumentResult(
                 document_id=document.id,
                 status=document.status,
                 comment=document.comment,
             )
-        
+
         except Exception:
 
             self.uow.rollback()
 
             logger.exception(
-    "Erreur lors de la mise à jour d'un document",
-    extra={
-        "application_id": application.id,
-        "document_id": document.id
-    }
-)
+                "Erreur lors de la mise à jour d'un document",
+                extra={
+                    "application_id": (
+                        application.id
+                        if application
+                        else None
+                    ),
+                    "document_id": (
+                        document.id
+                        if document
+                        else dto.document_id
+                    ),
+                },
+            )
+
             raise

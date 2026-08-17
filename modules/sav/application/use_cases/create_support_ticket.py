@@ -1,162 +1,190 @@
+import logging
+from datetime import datetime, timezone
 from uuid import uuid4
+
+from modules.auth.domain.enums import UserRole
+from modules.applications.domain.enums import EventType
+
 from modules.sav.domain.entities.support_ticket import SupportTicket
 from modules.sav.domain.entities.ticket_message import TicketMessage
 from modules.sav.domain.enums import TicketStatus
-from datetime import datetime, timezone
-from modules.auth.domain.enums import UserRole
-from modules.applications.domain.enums import EventType
-import logging
+
+from modules.sav.application.dtos.create_support_ticket_dto import (
+    CreateSupportTicketDTO,
+)
+from modules.sav.application.results.create_support_ticket_result import (
+    CreateSupportTicketResult,
+)
 
 
 logger = logging.getLogger(__name__)
+
 
 class CreateSupportTicketUseCase:
 
     def __init__(
         self,
-        repo,
-        message_repo,
+        ticket_repository,
+        message_repository,
         assignment_service,
         event_service,
         unit_of_work,
     ):
-        self.repo = repo
-        self.message_repo = message_repo
+        self.ticket_repository = ticket_repository
+        self.message_repository = message_repository
         self.assignment_service = assignment_service
         self.event_service = event_service
-        self.uow = unit_of_work
+        self.unit_of_work = unit_of_work
 
+    # =====================================================
+    # EXECUTE
+    # =====================================================
 
     def execute(
         self,
+        dto: CreateSupportTicketDTO,
         user_id: str,
         user_role: UserRole,
-        payload
-    ):
+    ) -> CreateSupportTicketResult:
+
+        ticket = None
 
         try:
 
-            # =========================
+            # =================================================
             # ASSIGN AGENT
-            # =========================
+            # =================================================
 
             agent = (
                 self.assignment_service
                 .get_next_agent()
             )
 
+            assigned_to = (
+                agent.id
+                if agent
+                else None
+            )
 
-            # =========================
+            # =================================================
             # CREATE TICKET
-            # =========================
+            # =================================================
 
             ticket = SupportTicket(
-
                 id=str(uuid4()),
 
                 user_id=user_id,
 
-                application_id=(
-                    payload.application_id
-                    if payload.application_id
-                    else None
-                ),
+                application_id=dto.application_id,
 
-                subject=payload.subject,
+                subject=dto.subject.strip(),
 
-                description=payload.message,
+                description=dto.message.strip(),
 
-                category=payload.category,
+                category=dto.category,
 
                 status=TicketStatus.OPEN,
 
-                priority=payload.priority,
+                priority=dto.priority,
 
-                assigned_to=(
-                    agent.id
-                    if agent
-                    else None
+                assigned_to=assigned_to,
+
+                created_at=datetime.now(
+                    timezone.utc
                 ),
-
-                created_at=datetime.now(timezone.utc)
             )
 
+            ticket = (
+                self.ticket_repository
+                .create(ticket)
+            )
 
-            saved_ticket = self.repo.create(ticket)
-
-
-            # =========================
-            # CREATE FIRST MESSAGE
-            # =========================
+            # =================================================
+            # FIRST MESSAGE
+            # =================================================
 
             message = TicketMessage(
-
                 id=str(uuid4()),
 
-                ticket_id=saved_ticket.id,
+                ticket_id=ticket.id,
 
                 sender_id=user_id,
 
                 sender_role=user_role,
 
-                message=payload.message,
+                message=dto.message.strip(),
 
-                created_at=datetime.now(timezone.utc)
+                created_at=datetime.now(
+                    timezone.utc
+                ),
             )
 
+            self.message_repository.create(
+                message
+            )
 
-            self.message_repo.create(message)
+            # =================================================
+            # EVENT
+            # =================================================
 
             self.event_service.log(
-
                 type=EventType.SUPPORT_TICKET_CREATED,
 
                 message="Ticket SAV créé",
 
-                application_id=saved_ticket.application_id,
+                application_id=ticket.application_id,
 
                 user_id=user_id,
 
                 event_metadata={
-
-                    "ticket_id": saved_ticket.id,
-
-                    "subject": saved_ticket.subject,
-
-                    "category": saved_ticket.category.value,
-
-                    "priority": saved_ticket.priority.value,
-
-                    "assigned_to": saved_ticket.assigned_to,
-
-                }
+                    "ticket_id": ticket.id,
+                    "subject": ticket.subject,
+                    "category": ticket.category.value,
+                    "priority": ticket.priority.value,
+                    "assigned_to": ticket.assigned_to,
+                },
             )
-            # =========================
+
+            # =================================================
             # COMMIT
-            # =========================
-            self.uow.commit()
+            # =================================================
+
+            self.unit_of_work.commit()
+
+            # =================================================
+            # LOG
+            # =================================================
 
             logger.info(
                 "Ticket SAV créé",
                 extra={
-                    "ticket_id": saved_ticket.id,
+                    "ticket_id": ticket.id,
                     "user_id": user_id,
-                    "assigned_to": saved_ticket.assigned_to,
+                    "assigned_to": ticket.assigned_to,
                 },
             )
 
+            # =================================================
+            # RESULT
+            # =================================================
 
-            return saved_ticket
-
+            return CreateSupportTicketResult(
+                ticket=ticket,
+            )
 
         except Exception:
 
-            self.uow.rollback()
+            self.unit_of_work.rollback()
 
             logger.exception(
                 "Erreur création ticket SAV",
                 extra={
                     "user_id": user_id,
+                    "ticket_id": (
+                        ticket.id
+                        if ticket
+                        else None
+                    ),
                 },
             )
 

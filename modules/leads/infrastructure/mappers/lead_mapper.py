@@ -2,7 +2,8 @@ from modules.leads.domain.entities.lead import Lead
 from modules.leads.infrastructure.db.lead_model import LeadModel
 from modules.vehicles.infrastructure.mappers.vehicle_mapper import VehicleMapper
 from modules.auth.infrastructure.mappers.user_mapper import UserMapper
-
+from modules.leads.application.results.admin.get_lead_detail_result import GetLeadDetailResult
+from modules.leads.application.results.admin.get_sales_leads_result import GetSalesLeadsResult
 class LeadMapper:
 
     # =====================================================
@@ -116,12 +117,10 @@ else None)
     
     @staticmethod
     def to_detail_response(
-        lead,
-        quotes,
-        can_create_quote,
-        can_delete
+        result: GetLeadDetailResult
     ):
-
+        lead = result.lead
+        quotes = result.quotes
         return {
 
             "id": lead.id,
@@ -187,6 +186,15 @@ else None)
 
 
             "created_at": lead.created_at,
-            "can_create_quote": can_create_quote,
-            "can_delete": can_delete
+            "can_create_quote": result.can_create_quote,
+            "can_delete": result.can_delete
         }
+
+    @staticmethod
+    def to_list_response(
+        result: GetSalesLeadsResult,
+    ):
+        return [
+            LeadMapper.to_response(lead)
+            for lead in result.leads
+        ]

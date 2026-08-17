@@ -1,83 +1,78 @@
 from uuid import uuid4
 from datetime import datetime, timezone
-from modules.favorites.domain.exceptions import FavoriteAlreadyExists
+
+from modules.favorites.domain.exceptions import (
+    FavoriteAlreadyExists,
+)
 from modules.favorites.domain.entities.favorite import Favorite
-from modules.favorites.api.schemas import (
-    AddFavoriteResponse,
+from modules.favorites.application.dtos.add_favorite_dto import (
+    AddFavoriteDTO,
+)
+from modules.favorites.application.results.add_favorite_result import (
+    AddFavoriteResult,
 )
 
 
 class AddFavoriteUseCase:
-
 
     def __init__(
         self,
         repository,
         unit_of_work,
     ):
-
         self.repository = repository
         self.unit_of_work = unit_of_work
 
-
-
     def execute(
         self,
-        user_id: str,
-        vehicle_id: str,
-    ):
+        dto: AddFavoriteDTO,
+    ) -> AddFavoriteResult:
 
+        try:
 
-        # =========================
-        # CHECK EXISTING
-        # =========================
+            # =========================
+            # CHECK EXISTING
+            # =========================
 
-        if self.repository.exists(
-            user_id=user_id,
-            vehicle_id=vehicle_id,
-        ):
+            if self.repository.exists(
+                user_id=dto.user_id,
+                vehicle_id=dto.vehicle_id,
+            ):
+                raise FavoriteAlreadyExists()
 
-            raise FavoriteAlreadyExists()
+            # =========================
+            # CREATE DOMAIN ENTITY
+            # =========================
 
+            favorite = Favorite(
+                id=str(uuid4()),
+                user_id=dto.user_id,
+                vehicle_id=dto.vehicle_id,
+                created_at=datetime.now(timezone.utc),
+            )
 
-        # =========================
-        # CREATE DOMAIN
-        # =========================
+            # =========================
+            # SAVE
+            # =========================
 
-        favorite = Favorite(
+            favorite = self.repository.add(
+                favorite
+            )
 
-            id=str(uuid4()),
+            # =========================
+            # COMMIT
+            # =========================
 
-            user_id=user_id,
+            self.unit_of_work.commit()
 
-            vehicle_id=vehicle_id,
+            # =========================
+            # RESULT
+            # =========================
 
-            created_at=datetime.now(
-                timezone.utc
-            ),
+            return AddFavoriteResult(
+                id=favorite.id,
+            )
 
-        )
-
-
-        # =========================
-        # SAVE
-        # =========================
-
-        favorite = self.repository.add(
-            favorite
-        )
-
-        self.unit_of_work.commit()
-
-
-        # =========================
-        # RESPONSE
-        # =========================
-
-        return AddFavoriteResponse(
-
-            id=favorite.id,
-
-            message="Favori ajouté avec succès."
-
-        )
+        except Exception:
+            self.unit_of_work.rollback()
+            raise

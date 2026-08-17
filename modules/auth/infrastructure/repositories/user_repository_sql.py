@@ -1,12 +1,12 @@
+from sqlalchemy import or_, asc, desc
+from sqlalchemy.orm import Session
+
 from modules.auth.domain.entities.user import User
-from modules.auth.domain.repositories.user_repository import UserRepository
-from modules.auth.infrastructure.db.user_model import UserModel
-from sqlalchemy.orm import Session
 from modules.auth.domain.enums import UserRole
+from modules.auth.domain.repositories.user_repository import UserRepository
+
+from modules.auth.infrastructure.db.user_model import UserModel
 from modules.auth.infrastructure.mappers.user_mapper import UserMapper
-from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, asc, desc, update
 
 
 class UserRepositorySQL(UserRepository):

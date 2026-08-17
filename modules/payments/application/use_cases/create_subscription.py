@@ -1,22 +1,27 @@
-from modules.payments.domain.enums import SubscriptionStatus
+import logging
 
-from uuid import uuid4
-
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
+)
 
 from modules.financing.domain.exceptions import (
-    FinancingContractNotFound
+    FinancingContractNotFound,
 )
-from modules.applications.domain.enums import EventType
-from modules.applications.domain.entities.event import Event
+
+from modules.applications.domain.enums import (
+    EventType,
+)
 
 from modules.payments.domain.subscription_status_mapper import (
-    SubscriptionStatusMapper
+    SubscriptionStatusMapper,
 )
-import logging
+from modules.payments.application.dtos.create_subscription_dto import (
+    CreateSubscriptionDTO
+)
+from modules.payments.application.results.create_subscription_result import (
+    CreateSubscriptionResult,
+)
 
-logger = logging.getLogger(__name__)
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +32,7 @@ class CreateSubscriptionUseCase:
         self,
         stripe_service,
         financing_contract_repository,
+        application_repository,
         event_service,
     ):
         self.stripe_service = stripe_service
@@ -35,20 +41,18 @@ class CreateSubscriptionUseCase:
             financing_contract_repository
         )
 
+        self.application_repository = (
+            application_repository
+        )
+
         self.event_service = event_service
-
-
-    # =========================
-    # EXECUTE
-    # =========================
 
     def execute(
         self,
-        contract,
-        customer_email: str,
-        customer_name: str,
-        user_id: str,
+        dto: CreateSubscriptionDTO,
     ):
+
+        contract = None
 
         try:
 
@@ -56,9 +60,15 @@ class CreateSubscriptionUseCase:
             # CONTRACT
             # =========================
 
-            if not contract:
-                raise FinancingContractNotFound()
+            contract = (
+                self.financing_contract_repository
+                .find_by_id(
+                    dto.contract_id
+                )
+            )
 
+            if contract is None:
+                raise FinancingContractNotFound()
 
             # =========================
             # IDEMPOTENCE
@@ -73,12 +83,38 @@ class CreateSubscriptionUseCase:
                         "stripe_subscription_id": (
                             contract.stripe_subscription_id
                         ),
-                        "user_id": user_id,
-                    }
+                        "user_id": dto.user_id,
+                    },
                 )
 
-                return contract
+                return CreateSubscriptionResult(
+                    contract_id=contract.id,
+                    stripe_customer_id=(
+                        contract.stripe_customer_id
+                    ),
+                    stripe_subscription_id=(
+                        contract.stripe_subscription_id
+                    ),
+                    subscription_status=(
+                        contract.subscription_status.value
+                        if contract.subscription_status
+                        else None
+                    ),
+                )
 
+            # =========================
+            # APPLICATION
+            # =========================
+
+            application = (
+                self.application_repository
+                .get_by_id(
+                    contract.application_id
+                )
+            )
+
+            if application is None:
+                raise ApplicationNotFound()
 
             # =========================
             # CREATE CUSTOMER
@@ -87,11 +123,10 @@ class CreateSubscriptionUseCase:
             customer = (
                 self.stripe_service
                 .create_customer(
-                    email=customer_email,
-                    name=customer_name,
+                    email=dto.customer_email,
+                    name=dto.customer_name,
                 )
             )
-
 
             # =========================
             # CREATE SUBSCRIPTION
@@ -110,9 +145,8 @@ class CreateSubscriptionUseCase:
                 )
             )
 
-
             # =========================
-            # SAVE STRIPE IDS
+            # UPDATE CONTRACT
             # =========================
 
             contract.stripe_customer_id = (
@@ -130,11 +164,9 @@ class CreateSubscriptionUseCase:
                 )
             )
 
-
             self.financing_contract_repository.update(
                 contract
             )
-
 
             # =========================
             # EVENT
@@ -146,9 +178,12 @@ class CreateSubscriptionUseCase:
                     "Abonnement de financement créé."
                 ),
                 application_id=(
-                    contract.application_id
+                    application.id
                 ),
-                user_id=user_id,
+                vehicle_id=(
+                    application.vehicle_id
+                ),
+                user_id=dto.user_id,
                 event_metadata={
                     "contract_id": contract.id,
                     "stripe_customer_id": customer.id,
@@ -158,12 +193,11 @@ class CreateSubscriptionUseCase:
                     "monthly_payment": (
                         contract.monthly_payment
                     ),
-                }
+                },
             )
 
-
             # =========================
-            # LOG SUCCESS
+            # SUCCESS LOG
             # =========================
 
             logger.info(
@@ -171,19 +205,34 @@ class CreateSubscriptionUseCase:
                 extra={
                     "contract_id": contract.id,
                     "application_id": (
-                        contract.application_id
+                        application.id
                     ),
-                    "stripe_customer_id": customer.id,
+                    "stripe_customer_id": (
+                        customer.id
+                    ),
                     "stripe_subscription_id": (
                         subscription.id
                     ),
-                    "user_id": user_id,
-                }
+                    "user_id": dto.user_id,
+                },
             )
 
+            # =========================
+            # RESULT
+            # =========================
 
-            return contract
-
+            return CreateSubscriptionResult(
+                contract_id=contract.id,
+                stripe_customer_id=(
+                    customer.id
+                ),
+                stripe_subscription_id=(
+                    subscription.id
+                ),
+                subscription_status=(
+                    contract.subscription_status.value
+                ),
+            )
 
         except Exception:
 
@@ -193,10 +242,10 @@ class CreateSubscriptionUseCase:
                     "contract_id": (
                         contract.id
                         if contract
-                        else None
+                        else dto.contract_id
                     ),
-                    "user_id": user_id,
-                }
+                    "user_id": dto.user_id,
+                },
             )
 
             raise

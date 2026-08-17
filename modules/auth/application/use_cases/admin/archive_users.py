@@ -1,15 +1,21 @@
-from modules.auth.domain.exceptions import (
-    InvalidUserIds,
-    UserAlreadyArchived,
-    CannotArchiveAdmin
+import logging
+from datetime import datetime, timezone
+
+from modules.applications.domain.enums import EventType
+from modules.auth.application.results.admin.archive_users_result import (
+    ArchiveUsersResult,
 )
 from modules.auth.domain.enums import UserRole
-from modules.auth.api.schemas import ArchiveUsersResponse
-from datetime import datetime, timezone
-from modules.applications.domain.enums import EventType
-import logging
-
+from modules.auth.domain.exceptions import (
+    CannotArchiveAdmin,
+    InvalidUserIds,
+    UserAlreadyArchived,
+)
+from modules.auth.application.dtos.admin.archive_users_dto import (
+    ArchiveUsersDTO,
+)
 logger = logging.getLogger(__name__)
+
 
 class ArchiveUsersUseCase:
 
@@ -23,39 +29,33 @@ class ArchiveUsersUseCase:
         self.event_service = event_service
         self.uow = uow
 
-
     def execute(
         self,
-        ids: list[str],
-        current_admin
-    ) -> ArchiveUsersResponse:
+        dto: ArchiveUsersDTO,
+        current_admin,
+    ) -> ArchiveUsersResult:
 
         try:
 
-            # =====================
+            # =====================================================
             # VALIDATION
-            # =====================
+            # =====================================================
 
-            if not ids:
+            if not dto.user_ids:
                 raise InvalidUserIds()
 
-
-            users = (
-                self.user_repo
-                .find_by_ids(ids)
+            users = self.user_repo.find_by_ids(
+                dto.user_ids
             )
 
-
-            if len(users) != len(ids):
+            if len(users) != len(dto.user_ids):
                 raise InvalidUserIds(
                     "Certains utilisateurs sont introuvables"
                 )
 
-
-
-            # =====================
-            # BUSINESS RULE
-            # =====================
+            # =====================================================
+            # BUSINESS RULES
+            # =====================================================
 
             for user in users:
 
@@ -64,76 +64,70 @@ class ArchiveUsersUseCase:
                         f"Utilisateur {user.id} déjà archivé"
                     )
 
-
                 if user.role == UserRole.ADMIN:
                     raise CannotArchiveAdmin()
 
-
-
-            # =====================
+            # =====================================================
             # ARCHIVE
-            # =====================
-
-            now = datetime.now(
-                timezone.utc
-            )
-
+            # =====================================================
 
             for user in users:
 
-                user.is_deleted = True
+                user.archive()
 
-                user.is_active = False
+                self.user_repo.update(user)
 
-                user.deleted_at = now
+            # =====================================================
+            # EVENT
+            # =====================================================
 
-
-                self.user_repo.update(
-                    user
-                )
-            
             self.event_service.log(
-    type=EventType.ADMIN_ACTION,
-    message="Archivage de plusieurs utilisateurs",
-    event_metadata={
-        "action": "archive_users",
-        "user_ids": ids,
-        "count": len(ids)
-    }
-)
+                type=EventType.ADMIN_ACTION,
+                message="Archivage de plusieurs utilisateurs",
+                user_id=current_admin.id,
+                event_metadata={
+                    "action": "archive_users",
+                    "user_ids": dto.user_ids,
+                    "count": len(users),
+                },
+            )
 
+            # =====================================================
+            # COMMIT
+            # =====================================================
 
             self.uow.commit()
 
             logger.info(
-    "Archivage utilisateurs en masse effectué",
-    extra={
-        "count": len(users),
-        "admin_id": current_admin.id,
-    }
-)
+                "Archivage utilisateurs en masse effectué",
+                extra={
+                    "count": len(users),
+                    "admin_id": current_admin.id,
+                },
+            )
 
+            # =====================================================
+            # RESULT
+            # =====================================================
 
-            return ArchiveUsersResponse(
-
+            return ArchiveUsersResult(
                 archived_count=len(users),
-
                 user_ids=[
                     user.id
                     for user in users
                 ],
-
-                message=(
-                    "Utilisateurs archivés avec succès"
-                )
             )
-
 
         except Exception:
 
             self.uow.rollback()
 
             logger.exception(
-    "Erreur archivage utilisateurs en masse"
-)
+                "Erreur archivage utilisateurs en masse",
+                extra={
+                    "admin_id": current_admin.id,
+                    "user_ids": dto.user_ids,
+                },
+            )
+
             raise

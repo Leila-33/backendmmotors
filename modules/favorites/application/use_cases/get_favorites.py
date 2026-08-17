@@ -1,12 +1,26 @@
-from modules.favorites.api.schemas import GetFavoritesResponse, FavoriteSchema, FavoriteVehicleSchema
+from modules.favorites.application.dtos.get_favorites_dto import (
+    GetFavoritesDTO,
+)
+from modules.favorites.api.schemas import (
+    GetFavoritesResponse,
+    FavoriteSchema,
+    FavoriteVehicleSchema,
+)
+
+
 class GetFavoritesUseCase:
 
-    def __init__(self, repo):
-        self.repo = repo
+    def __init__(self, repository):
+        self.repository = repository
 
-    def execute(self, user_id):
+    def execute(
+        self,
+        dto: GetFavoritesDTO,
+    ) -> GetFavoritesResponse:
 
-        favorites = self.repo.get_user_favorites(user_id)
+        favorites = self.repository.get_user_favorites(
+            dto.user_id
+        )
 
         return GetFavoritesResponse(
             items=[
@@ -14,7 +28,8 @@ class GetFavoritesUseCase:
                     id=f.id,
                     created_at=(
                         f.created_at.isoformat()
-                        if f.created_at else None
+                        if f.created_at
+                        else None
                     ),
                     vehicle=FavoriteVehicleSchema(
                         id=f.vehicle.id,
@@ -24,8 +39,8 @@ class GetFavoritesUseCase:
                         price=f.vehicle.price,
                         mileage=f.vehicle.mileage,
                         type=f.vehicle.type,
-                        images=f.vehicle.images or []
-                    )
+                        images=f.vehicle.images or [],
+                    ),
                 )
                 for f in favorites
             ]

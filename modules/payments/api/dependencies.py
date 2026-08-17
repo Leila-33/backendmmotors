@@ -78,7 +78,7 @@ def get_create_checkout_session_usecase(
         stripe_service=stripe_service,
         application_repository=application_repository,
         event_service=event_service,
-        uow=uow,
+        unit_of_work=uow,
     )
 
 # =====================================================
@@ -94,6 +94,9 @@ def get_create_subscription_usecase(
     financing_contract_repository=Depends(
         get_financing_contract_repository
     ),
+    application_repository=Depends(
+        get_application_repository
+    ),
 
     event_service=Depends(get_event_service)
 
@@ -104,6 +107,7 @@ def get_create_subscription_usecase(
         financing_contract_repository=(
             financing_contract_repository
         ),
+        application_repository=application_repository,
         event_service=event_service,
     )
 
@@ -250,7 +254,7 @@ def get_handle_payment_success_usecase(
 
         event_service=event_service,
 
-        uow=uow,
+        unit_of_work=uow,
     )
 
 # =====================================================
@@ -283,7 +287,7 @@ def get_handle_subscription_payment_usecase(
         financing_contract_repository=financing_contract_repository,
         application_repository=application_repository,
         event_service=event_service,
-        uow=uow,
+        unit_of_work=uow,
     )
 
 
@@ -313,5 +317,5 @@ def get_handle_invoice_created_usecase(
         installment_repository=(
             installment_repository
         ),
-        uow=uow,
+        unit_of_work=uow,
     )

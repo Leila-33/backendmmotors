@@ -1,38 +1,41 @@
-from modules.reconditionings.api.schemas import ReconditioningResult
-from modules.inspections.domain.entities.inspection import Inspection
-from modules.reconditionings.api.schemas import ReconditioningResult
-from modules.reconditionings.domain.exceptions import InvalidRepairConfiguration
+from modules.inspections.domain.entities.inspection import (
+    Inspection,
+)
+from modules.reconditionings.application.results.admin.reconditioning_analysis_result import (
+    ReconditioningAnalysisResult,
+)
+from modules.reconditionings.domain.exceptions import (
+    InvalidRepairConfiguration,
+)
+
+
+REPAIR_RULES = {
+    "ENGINE_DIAG": {
+        "cost": 800,
+        "duration_days": 2,
+    },
+    "BRAKES_REPLACE": {
+        "cost": 300,
+        "duration_days": 1,
+    },
+    "TIRES_REPLACE": {
+        "cost": 500,
+        "duration_days": 1,
+    },
+    "ELECTRONICS_DIAG": {
+        "cost": 250,
+        "duration_days": 1,
+    },
+    "SAFETY_COMPLIANCE": {
+        "cost": 600,
+        "duration_days": 2,
+    },
+}
+
 
 def perform_reconditioning_analysis(
     inspection: Inspection,
-) -> ReconditioningResult:
-
-
-    # =========================
-    # MAPPING CODES → BUSINESS LOGIC
-    # =========================
-    REPAIR_RULES = {
-        "ENGINE_DIAG": {
-            "cost": 800,
-            "duration_days": 2,
-        },
-        "BRAKES_REPLACE": {
-            "cost": 300,
-            "duration_days": 1,
-        },
-        "TIRES_REPLACE": {
-            "cost": 500,
-            "duration_days": 1,
-        },
-        "ELECTRONICS_DIAG": {
-            "cost": 250,
-            "duration_days": 1,
-        },
-        "SAFETY_COMPLIANCE": {
-            "cost": 600,
-            "duration_days": 2,
-        },
-    }
+) -> ReconditioningAnalysisResult:
 
     tasks = inspection.recommended_repairs or []
 
@@ -50,11 +53,14 @@ def perform_reconditioning_analysis(
         duration_days += rule["duration_days"]
 
     if not tasks:
-        tasks = ["NO_REPAIR_NEEDED"]
+
+        tasks = [
+            "NO_REPAIR_NEEDED"
+        ]
+
         duration_days = 1
 
-
-    return ReconditioningResult(
+    return ReconditioningAnalysisResult(
         tasks=tasks,
         cost=cost,
         duration_days=duration_days,

@@ -1,26 +1,27 @@
-from uuid import uuid4
 from datetime import datetime, timezone
+from uuid import uuid4
+import logging
+
 from modules.test_drives.domain.entities.test_drive import TestDrive
 from modules.test_drives.domain.enums import TestDriveStatus
-from modules.test_drives.domain.exceptions import TestDriveSlotUnavailable, TestDrivePastDate
-from modules.test_drives.domain.entities.test_drive import (
-    TestDrive,
-)
-from modules.test_drives.domain.enums import TestDriveStatus
-from modules.vehicles.domain.enums import VehicleStatus
 from modules.test_drives.domain.exceptions import (
     TestDriveSlotUnavailable,
-    TestDrivePastDate
+    TestDrivePastDate,
 )
+
+from modules.vehicles.domain.enums import VehicleStatus
 from modules.vehicles.domain.exceptions import (
     VehicleNotFound,
     VehicleNotAvailableForTestDrive,
 )
+
 from modules.applications.domain.enums import EventType
-import logging
+
+
 
 
 logger = logging.getLogger(__name__)
+
 
 class CreateTestDriveUseCase:
 
@@ -39,15 +40,19 @@ class CreateTestDriveUseCase:
     def execute(
         self,
         dto,
-        current_user,
-    ):
+        user_id: str,
+    ) -> TestDrive:
+
         try:
+
             # =========================
             # VEHICLE
             # =========================
+
             vehicle = (
-                self.vehicle_repository
-                .get_by_id(dto.vehicle_id)
+                self.vehicle_repository.get_by_id(
+                    dto.vehicle_id
+                )
             )
 
             if vehicle is None:
@@ -57,19 +62,21 @@ class CreateTestDriveUseCase:
                 raise VehicleNotAvailableForTestDrive()
 
             # =========================
-            # PAST DATE
+            # DATE
             # =========================
+
             if dto.appointment_date <= datetime.now(timezone.utc):
                 raise TestDrivePastDate()
 
             # =========================
-            # SLOT CONFLICT
+            # SLOT
             # =========================
+
             existing = (
                 self.test_drive_repository
                 .find_conflicting_slot(
-                    dto.vehicle_id,
-                    dto.appointment_date,
+                    vehicle_id=dto.vehicle_id,
+                    appointment_date=dto.appointment_date,
                 )
             )
 
@@ -79,9 +86,10 @@ class CreateTestDriveUseCase:
             # =========================
             # CREATE
             # =========================
+
             test_drive = TestDrive(
                 id=str(uuid4()),
-                user_id=current_user.id,
+                user_id=user_id,
                 vehicle_id=dto.vehicle_id,
                 appointment_date=dto.appointment_date,
                 status=TestDriveStatus.PENDING,
@@ -92,31 +100,43 @@ class CreateTestDriveUseCase:
             self.test_drive_repository.create(
                 test_drive
             )
+
+            # =========================
+            # EVENT
+            # =========================
+
             self.event_service.log(
-        type=EventType.TEST_DRIVE_CREATED,
-        message="Demande d'essai véhicule créée",
-        user_id=current_user.id,
-        vehicle_id=vehicle.id,
-        test_drive_id=test_drive.id,
-        event_metadata={
-            "appointment_date": (
-                test_drive.appointment_date.isoformat()
-            ),
-            "status": test_drive.status.value,
-        }
-    )
+                type=EventType.TEST_DRIVE_CREATED,
+                message="Demande d'essai véhicule créée",
+                user_id=user_id,
+                vehicle_id=vehicle.id,
+                test_drive_id=test_drive.id,
+                event_metadata={
+                    "appointment_date":
+                        test_drive.appointment_date.isoformat(),
+
+                    "status":
+                        test_drive.status.value,
+                },
+            )
+
+            # =========================
+            # COMMIT
+            # =========================
+
             self.unit_of_work.commit()
 
             logger.info(
-        "Demande d'essai routier créée",
-        extra={
-            "test_drive_id": test_drive.id,
-            "user_id": current_user.id,
-            "vehicle_id": test_drive.vehicle_id,
-        },
-    )
+                "Demande d'essai routier créée",
+                extra={
+                    "test_drive_id": test_drive.id,
+                    "user_id": user_id,
+                    "vehicle_id": test_drive.vehicle_id,
+                },
+            )
+
             return test_drive
-        
+
         except Exception:
 
             self.unit_of_work.rollback()
@@ -124,7 +144,7 @@ class CreateTestDriveUseCase:
             logger.exception(
                 "Erreur création essai routier",
                 extra={
-                    "user_id": current_user.id,
+                    "user_id": user_id,
                     "vehicle_id": dto.vehicle_id,
                 },
             )

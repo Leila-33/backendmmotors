@@ -1,10 +1,12 @@
-from modules.financing.api.schemas import (
-    TradeInEstimateRequest,
-    TradeInEstimateResponse
+from modules.financing.application.dtos.trade_in_estimate_dto import (
+    TradeInEstimateDTO,
+)
+from modules.financing.application.results.trade_in_estimate_result import (
+    TradeInEstimateResult,
 )
 
-from modules.financing.domain.entities.trade_in_input import (
-    TradeInInput
+from modules.financing.domain.inputs.trade_in_input import (
+    TradeInInput,
 )
 
 
@@ -12,7 +14,7 @@ class EstimateTradeInUseCase:
 
     def __init__(
         self,
-        trade_in_estimation_service
+        trade_in_estimation_service,
     ):
         self.trade_in_estimation_service = (
             trade_in_estimation_service
@@ -20,8 +22,8 @@ class EstimateTradeInUseCase:
 
     def execute(
         self,
-        dto: TradeInEstimateRequest
-    ) -> TradeInEstimateResponse:
+        dto: TradeInEstimateDTO,
+    ) -> TradeInEstimateResult:
 
         trade_input = TradeInInput(
             brand=dto.brand,
@@ -36,6 +38,6 @@ class EstimateTradeInUseCase:
             .estimate(trade_input)
         )
 
-        return TradeInEstimateResponse(
-            estimated_value=estimated_value
+        return TradeInEstimateResult(
+            estimated_value=estimated_value,
         )

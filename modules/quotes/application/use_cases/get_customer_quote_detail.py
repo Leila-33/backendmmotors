@@ -1,5 +1,16 @@
-from modules.quotes.domain.exceptions import QuoteNotFound, QuoteNotAvailableForCustomer
-from modules.quotes.infrastructure.mappers.quote_mapper import QuoteMapper
+from modules.quotes.domain.exceptions import (
+    QuoteNotFound,
+    QuoteNotAvailableForCustomer,
+)
+
+from modules.quotes.application.dtos.get_customer_quote_detail_dto import (
+    GetCustomerQuoteDetailDTO,
+)
+
+from modules.quotes.application.results.get_customer_quote_detail_result import (
+    GetCustomerQuoteDetailResult,
+)
+
 
 class GetCustomerQuoteDetailUseCase:
 
@@ -11,27 +22,36 @@ class GetCustomerQuoteDetailUseCase:
         self.quote_repository = quote_repository
         self.application_repository = application_repository
 
-
-
     def execute(
         self,
-        quote_id: str,
-        customer_id: str,
-    ):
+        dto: GetCustomerQuoteDetailDTO,
+    ) -> GetCustomerQuoteDetailResult:
+
+        # =========================
+        # QUOTE
+        # =========================
 
         quote = (
             self.quote_repository
             .find_customer_quote_by_id(
-                quote_id,
-                customer_id,
+                dto.quote_id,
+                dto.customer_id,
             )
         )
 
         if quote is None:
             raise QuoteNotFound()
 
+        # =========================
+        # CUSTOMER ACCESS
+        # =========================
+
         if not quote.can_be_viewed_by_customer():
             raise QuoteNotAvailableForCustomer()
+
+        # =========================
+        # APPLICATION
+        # =========================
 
         application = (
             self.application_repository
@@ -40,7 +60,15 @@ class GetCustomerQuoteDetailUseCase:
             )
         )
 
-        return QuoteMapper.to_customer_detail_response(
-            quote,
-            application.id if application else None,
+        # =========================
+        # RESULT
+        # =========================
+
+        return GetCustomerQuoteDetailResult(
+            quote=quote,
+            application_id=(
+                application.id
+                if application
+                else None
+            ),
         )

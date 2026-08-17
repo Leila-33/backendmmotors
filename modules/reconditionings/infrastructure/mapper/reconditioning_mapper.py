@@ -1,7 +1,12 @@
 from modules.reconditionings.domain.entities.reconditioning import Reconditioning
 from modules.reconditionings.infrastructure.db.reconditioning_model import ReconditioningModel
 from modules.reconditionings.api.schemas import ReconditioningResponse
-
+from modules.reconditionings.application.results.admin.start_reconditioning_result import (
+    StartReconditioningResult,
+)
+from modules.reconditionings.api.schemas import (
+    StartReconditioningResponse,
+)
 class ReconditioningMapper:
 
 
@@ -146,4 +151,17 @@ class ReconditioningMapper:
             completed_at=(
                 reconditioning.completed_at
             )
+        )
+
+
+    @staticmethod
+    def to_start_response(
+        result: StartReconditioningResult,
+    ) -> StartReconditioningResponse:
+
+        return StartReconditioningResponse(
+            reconditioning_id=result.reconditioning_id,
+            vehicle_id=result.vehicle_id,
+            status=result.status,
+            message=result.message,
         )

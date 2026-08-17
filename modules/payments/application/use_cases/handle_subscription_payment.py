@@ -1,20 +1,33 @@
-from datetime import (
-    datetime,
-    timezone
+import logging
+from datetime import datetime, timezone
+
+from modules.financing.domain.exceptions import (
+    FinancingContractNotFound,
 )
-from modules.financing.domain.exceptions import FinancingContractNotFound
-from modules.payments.domain.enums import InstallmentStatus, SubscriptionStatus
-from modules.applications.domain.enums import ApplicationStatus, EventType
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.financing.domain.exceptions import InstallmentNotFound
+from modules.financing.domain.exceptions import (
+    InstallmentNotFound,
+)
+
+from modules.payments.domain.enums import (
+    InstallmentStatus,
+    SubscriptionStatus,
+)
+
 from modules.applications.domain.enums import (
-    EventType
+    ApplicationStatus,
+    EventType,
 )
-import logging
 
-logger = logging.getLogger(__name__)
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
+)
+from modules.payments.application.dtos.handle_payment_success_dto import (
+    HandlePaymentSuccessDTO,
+)
+from modules.payments.application.results.handle_subscription_payment_result import (
+    HandleSubscriptionPaymentResult,
+)
 
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +40,7 @@ class HandleSubscriptionPaymentUseCase:
         financing_contract_repository,
         application_repository,
         event_service,
-        uow,
+        unit_of_work,
     ):
         self.installment_repository = (
             installment_repository
@@ -42,49 +55,36 @@ class HandleSubscriptionPaymentUseCase:
         )
 
         self.event_service = event_service
-
-        self.uow = uow
-
-
-    # =====================================================
-    # EXECUTE
-    # =====================================================
+        self.unit_of_work = unit_of_work
 
     def execute(
         self,
-        event: dict,
+        dto: HandlePaymentSuccessDTO,
     ):
 
-        event_type = None
-        invoice = None
         installment = None
         contract = None
+        application = None
 
         try:
 
-            event_type = event["type"]
-
-            invoice = event["data"]["object"]
-
-
-            # =============================================
-            # INSTALLMENT
-            # =============================================
+            # =========================
+            # GET INSTALLMENT
+            # =========================
 
             installment = (
                 self.installment_repository
                 .find_by_stripe_invoice_id(
-                    invoice.id
+                    dto.invoice_id
                 )
             )
 
-            if not installment:
+            if installment is None:
                 raise InstallmentNotFound()
 
-
-            # =============================================
-            # CONTRACT
-            # =============================================
+            # =========================
+            # GET CONTRACT
+            # =========================
 
             contract = (
                 self.financing_contract_repository
@@ -93,13 +93,12 @@ class HandleSubscriptionPaymentUseCase:
                 )
             )
 
-            if not contract:
+            if contract is None:
                 raise FinancingContractNotFound()
 
-
-            # =============================================
-            # APPLICATION
-            # =============================================
+            # =========================
+            # GET APPLICATION
+            # =========================
 
             application = (
                 self.application_repository
@@ -108,18 +107,17 @@ class HandleSubscriptionPaymentUseCase:
                 )
             )
 
-            if not application:
+            if application is None:
                 raise ApplicationNotFound()
 
-
-            # =============================================
+            # =========================
             # PAYMENT SUCCESS
-            # =============================================
+            # =========================
 
-            if event_type == "invoice.paid":
+            if dto.event_type == "invoice.paid":
 
                 # =========================
-                # IDEMPOTENCE
+                # IDEMPOTENCY
                 # =========================
 
                 if (
@@ -131,13 +129,21 @@ class HandleSubscriptionPaymentUseCase:
                         "Mensualité déjà payée",
                         extra={
                             "contract_id": contract.id,
-                            "installment_id": installment.id,
-                            "invoice_id": invoice.id,
-                        }
+                            "installment_id": (
+                                installment.id
+                            ),
+                            "invoice_id": (
+                                dto.invoice_id
+                            ),
+                        },
                     )
 
-                    return installment
-
+                    return HandleSubscriptionPaymentResult(
+                        installment_id=installment.id,
+                        status=installment.status.value,
+                        invoice_id=dto.invoice_id,
+                        message="Mensualité déjà payée",
+                    )
 
                 # =========================
                 # MARK PAID
@@ -155,7 +161,6 @@ class HandleSubscriptionPaymentUseCase:
                     installment
                 )
 
-
                 # =========================
                 # UPDATE BALANCE
                 # =========================
@@ -163,13 +168,12 @@ class HandleSubscriptionPaymentUseCase:
                 contract.remaining_balance = max(
                     0,
                     contract.remaining_balance
-                    - installment.amount
+                    - installment.amount,
                 )
 
                 self.financing_contract_repository.update(
                     contract
                 )
-
 
                 # =========================
                 # EVENT
@@ -186,15 +190,18 @@ class HandleSubscriptionPaymentUseCase:
                     ),
                     event_metadata={
                         "contract_id": contract.id,
-                        "installment_id": installment.id,
-                        "invoice_id": invoice.id,
+                        "installment_id": (
+                            installment.id
+                        ),
+                        "invoice_id": (
+                            dto.invoice_id
+                        ),
                     },
                 )
 
-
-                # =========================================
-                # FINISHED
-                # =========================================
+                # =========================
+                # FINANCING COMPLETED
+                # =========================
 
                 if contract.remaining_balance == 0:
 
@@ -217,10 +224,7 @@ class HandleSubscriptionPaymentUseCase:
                     self.event_service.log(
                         application_id=application.id,
                         user_id=application.user_id,
-                        type=(
-                            EventType
-                            .FINANCING_COMPLETED
-                        ),
+                        type=EventType.FINANCING_COMPLETED,
                         message=(
                             "Financement intégralement "
                             "remboursé."
@@ -230,12 +234,14 @@ class HandleSubscriptionPaymentUseCase:
                         },
                     )
 
-
-            # =============================================
+            # =========================
             # PAYMENT FAILED
-            # =============================================
+            # =========================
 
-            elif event_type == "invoice.payment_failed":
+            elif (
+                dto.event_type
+                == "invoice.payment_failed"
+            ):
 
                 installment.status = (
                     InstallmentStatus.FAILED
@@ -248,6 +254,7 @@ class HandleSubscriptionPaymentUseCase:
                 self.event_service.log(
                     application_id=application.id,
                     user_id=application.user_id,
+                    vehicle_id=application.vehicle_id,
                     type=EventType.INSTALLMENT_FAILED,
                     message=(
                         f"Le paiement de la "
@@ -257,45 +264,64 @@ class HandleSubscriptionPaymentUseCase:
                     ),
                     event_metadata={
                         "contract_id": contract.id,
-                        "installment_id": installment.id,
-                        "invoice_id": invoice.id,
+                        "installment_id": (
+                            installment.id
+                        ),
+                        "invoice_id": (
+                            dto.invoice_id
+                        ),
                     },
                 )
+                
 
-
-            # =============================================
+            # =========================
             # COMMIT
-            # =============================================
+            # =========================
 
-            self.uow.commit()
+            self.unit_of_work.commit()
 
-
-            # =============================================
-            # LOG SUCCESS
-            # =============================================
+            # =========================
+            # SUCCESS LOG
+            # =========================
 
             logger.info(
                 "Paiement abonnement traité",
                 extra={
-                    "event_type": event_type,
+                    "event_type": dto.event_type,
                     "contract_id": contract.id,
                     "installment_id": installment.id,
-                    "invoice_id": invoice.id,
+                    "invoice_id": dto.invoice_id,
                 },
             )
 
+            # =========================
+            # RESULT
+            # =========================
 
-            return installment
-
+            return HandleSubscriptionPaymentResult(
+                installment_id=installment.id,
+                status=installment.status.value,
+                invoice_id=dto.invoice_id,
+                message=(
+                    "Mensualité payée"
+                    if dto.event_type
+                    == "invoice.paid"
+                    else "Paiement de la mensualité échoué"
+                ),
+            )
 
         except Exception:
 
-            self.uow.rollback()
+            self.unit_of_work.rollback()
 
             logger.exception(
                 "Erreur traitement paiement abonnement",
                 extra={
-                    "event_type": event_type,
+                    "event_type": (
+                        dto.event_type
+                        if dto
+                        else None
+                    ),
                     "contract_id": (
                         contract.id
                         if contract
@@ -307,8 +333,8 @@ class HandleSubscriptionPaymentUseCase:
                         else None
                     ),
                     "invoice_id": (
-                        invoice.id
-                        if invoice
+                        dto.invoice_id
+                        if dto
                         else None
                     ),
                 },

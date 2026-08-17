@@ -3,6 +3,7 @@ from modules.vehicles.domain.exceptions import VehicleNotFound
 from modules.storage.infrastrucure.s3_service import S3Service
 from core.database.unit_of_work import UnitOfWork
 from modules.applications.domain.enums import EventType
+from modules.vehicles.api.schemas import DeleteVehicleResponse
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,55 +22,96 @@ class DeleteVehicle:
         self.event_service = event_service
         self.unit_of_work = unit_of_work
 
-
     def execute(
         self,
         vehicle_id: str,
-        current_admin
-    ):
+        current_admin,
+    ) -> DeleteVehicleResponse:
 
         vehicle = self.repo.get_by_id(vehicle_id)
 
         if not vehicle:
             raise VehicleNotFound()
 
-
         try:
 
-            # =========================
-            # DELETE IMAGES S3
-            # =========================
+            # =====================================================
+            # CHECK BUSINESS HISTORY
+            # =====================================================
+
+            has_business_history = (
+                bool(vehicle.applications)
+                or bool(vehicle.reservations)
+                or bool(vehicle.test_drives)
+                or bool(vehicle.warranty)
+                or bool(vehicle.reconditioning)
+                or bool(vehicle.inspections)
+                or bool(vehicle.leads)
+                or bool(vehicle.events)
+            )
+
+            # =====================================================
+            # ARCHIVE
+            # =====================================================
+
+            if has_business_history:
+
+                vehicle.archive()
+
+                self.repo.update(vehicle)
+
+                self.event_service.log(
+                    type=EventType.VEHICLE_ARCHIVED,
+                    message="Véhicule archivé",
+                    vehicle_id=vehicle.id,
+                    user_id=current_admin.id,
+                    event_metadata={
+                        "brand": vehicle.brand,
+                        "model": vehicle.model,
+                        "reason": "business_history",
+                    },
+                )
+
+                self.unit_of_work.commit()
+
+                logger.info(
+                    "Véhicule archivé",
+                    extra={
+                        "vehicle_id": vehicle.id,
+                        "admin_id": current_admin.id,
+                    },
+                )
+
+                return DeleteVehicleResponse(
+                    vehicle_id=vehicle.id,
+                    action="ARCHIVED",
+                    message="Véhicule archivé",
+                )
+
+            # =====================================================
+            # HARD DELETE
+            # =====================================================
+
             for key in (vehicle.images or []):
                 self.s3_service.delete_file(key)
 
-
-            # =========================
-            # DELETE VEHICLE DB
-            # =========================
             self.repo.delete(vehicle_id)
 
-            self.event_service.log(
-    type=EventType.VEHICLE_DELETED,
-    message="Véhicule archivé",
-    vehicle_id=vehicle.id,
-    user_id=current_admin.id,
-    event_metadata={
-        "brand": vehicle.brand,
-        "model": vehicle.model,
-    }
-)
-            # =========================
-            # COMMIT TRANSACTION
-            # =========================
             self.unit_of_work.commit()
 
             logger.info(
-    "Véhicule supprimé",
-    extra={
-        "vehicle_id": vehicle.id,
-        "admin_id": current_admin.id,
-    },
-)
+                "Véhicule supprimé définitivement",
+                extra={
+                    "vehicle_id": vehicle.id,
+                    "admin_id": current_admin.id,
+                },
+            )
+
+            return DeleteVehicleResponse(
+                vehicle_id=vehicle.id,
+                action="DELETED",
+                message="Véhicule supprimé définitivement",
+            )
 
         except Exception:
 
@@ -84,9 +126,3 @@ class DeleteVehicle:
             )
 
             raise
-
-
-        return {
-            "message": "Véhicule supprimé",
-            "vehicle_id": vehicle_id
-        }

@@ -1,24 +1,45 @@
-from modules.leads.domain.enums import LeadStatus
-import uuid
-from modules.quotes.domain.entities.quote import Quote
-from modules.financing.api.schemas import FinancingRequest
+import logging
 from datetime import datetime, timezone
+from uuid import uuid4
 
-from modules.quotes.domain.entities.quote_trade_in import QuoteTradeIn
-from modules.quotes.domain.enums import QuoteStatus
-from modules.financing.api.schemas import FinancingRequest
-from modules.financing.domain.entities.trade_in_input import TradeInInput
+from modules.applications.domain.enums import EventType
+
+from modules.financing.domain.inputs.trade_in_input import (
+    TradeInInput,
+)
+
+from modules.financing.domain.inputs.financing_input import (
+    FinancingInput,
+)
+
 from modules.leads.domain.exceptions import (
     LeadNotFound,
-    LeadHasActiveQuote
+    LeadHasActiveQuote,
 )
-from modules.vehicles.domain.exceptions import VehicleNotFound
-from modules.applications.domain.enums import (
-    EventType
+
+from modules.quotes.domain.entities.quote import (
+    Quote,
 )
-import logging
+
+from modules.quotes.domain.entities.quote_trade_in import (
+    QuoteTradeIn,
+)
+
+from modules.quotes.domain.enums import (
+    QuoteStatus,
+)
+
+from modules.quotes.application.dtos.agent.create_quote_dto import (
+    CreateQuoteDTO,
+)
+
+from modules.quotes.application.results.agent.create_quote_result import (
+    CreateQuoteResult,
+)
+
 
 logger = logging.getLogger(__name__)
+
 
 class CreateQuoteUseCase:
 
@@ -27,19 +48,19 @@ class CreateQuoteUseCase:
         quote_repository,
         quote_trade_in_repository,
         lead_repository,
-        vehicle_repository,
         financing_service,
         trade_in_service,
         authorization,
         event_service,
-        unit_of_work
+        unit_of_work,
     ):
 
         self.quote_repository = quote_repository
-        self.quote_trade_in_repository = quote_trade_in_repository
+        self.quote_trade_in_repository = (
+            quote_trade_in_repository
+        )
 
         self.lead_repository = lead_repository
-        self.vehicle_repository = vehicle_repository
 
         self.financing_service = financing_service
         self.trade_in_service = trade_in_service
@@ -48,44 +69,49 @@ class CreateQuoteUseCase:
         self.event_service = event_service
         self.unit_of_work = unit_of_work
 
-
+    # =====================================================
+    # EXECUTE
+    # =====================================================
 
     def execute(
         self,
-        request,
-        agent_id,
-    ):
+        dto: CreateQuoteDTO,
+    ) -> CreateQuoteResult:
+
+        lead_id = dto.lead_id
+
         try:
 
-
-            # =====================================
+            # =================================================
             # LOAD LEAD
-            # =====================================
+            # =================================================
 
-            lead = self.lead_repository.find_by_id(
-                request.lead_id
+            lead = (
+                self.lead_repository
+                .find_by_id(
+                    dto.lead_id
+                )
             )
 
-            if not lead:
+            if lead is None:
                 raise LeadNotFound()
 
-
-            # =====================================
+            # =================================================
             # AUTHORIZATION
-            # =====================================
+            # =================================================
 
             self.authorization.check_owner(
                 lead,
-                agent_id
+                dto.agent_id,
             )
 
-
-            # =====================================
-            # BUSINESS RULE
-            # =====================================
+            # =================================================
+            # ACTIVE QUOTE
+            # =================================================
 
             existing_quote = (
-                self.quote_repository.find_active_by_lead(
+                self.quote_repository
+                .find_active_by_lead(
                     lead.id
                 )
             )
@@ -93,164 +119,178 @@ class CreateQuoteUseCase:
             if existing_quote:
                 raise LeadHasActiveQuote()
 
-
-
-            # =====================================
+            # =================================================
             # VEHICLE
-            # =====================================
+            # =================================================
 
-            vehicle = self.vehicle_repository.get_by_id(
-                lead.vehicle_id
-            )
+            vehicle = lead.vehicle
 
-            if not vehicle:
-                raise VehicleNotFound()
-
-
-
-            # =====================================
-            # TRADE IN ESTIMATION
-            # =====================================
+            # =================================================
+            # TRADE-IN
+            # =================================================
 
             trade_in_value = 0
 
-            if request.trade_in:
+            if dto.trade_in:
 
                 trade_in_value = (
-                    self.trade_in_service.estimate(
+                    self.trade_in_service
+                    .estimate(
                         TradeInInput(
-
-                            brand=request.trade_in.brand,
-
-                            model=request.trade_in.model,
-
-                            year=request.trade_in.year,
-
-                            mileage=request.trade_in.mileage,
-
-                            condition=request.trade_in.condition,
+                            brand=dto.trade_in.brand,
+                            model=dto.trade_in.model,
+                            year=dto.trade_in.year,
+                            mileage=dto.trade_in.mileage,
+                            condition=dto.trade_in.condition,
                         )
                     )
                 )
 
-
-
-            # =====================================
+            # =================================================
             # FINANCING
-            # =====================================
+            # =================================================
 
             financing = (
-                self.financing_service.calculate(
-
-                    FinancingRequest(
-
-                        total_price=
+                self.financing_service
+                .calculate(
+                    FinancingInput(
+                        total_price=(
                             vehicle.price
-                            - request.discount,
-
-                        down_payment=
-                            request.down_payment,
-
-                        trade_in_value=
-                            trade_in_value,
-
-                        duration_months=
-                            request.duration_months,
+                            - dto.discount
+                        ),
+                        down_payment=(
+                            dto.down_payment
+                        ),
+                        trade_in_value=(
+                            trade_in_value
+                        ),
+                        duration_months=(
+                            dto.duration_months
+                        ),
                     )
                 )
             )
 
-
-
-            # =====================================
+            # =================================================
             # CREATE QUOTE
-            # =====================================
+            # =================================================
 
             quote = Quote(
 
-                id=str(uuid.uuid4()),
+                id=str(uuid4()),
 
                 lead_id=lead.id,
 
                 base_price=vehicle.price,
 
-                discount=request.discount,
+                discount=dto.discount,
 
-                down_payment=request.down_payment,
+                down_payment=dto.down_payment,
 
                 trade_in_value=trade_in_value,
 
-                duration_months=request.duration_months,
+                duration_months=(
+                    dto.duration_months
+                ),
 
-                financed_amount=
-                    financing.financed_amount,
+                financed_amount=(
+                    financing.financed_amount
+                ),
 
-                monthly_payment=
-                    financing.monthly_payment,
+                monthly_payment=(
+                    financing.monthly_payment
+                ),
 
                 status=QuoteStatus.DRAFT,
 
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(
+                    timezone.utc
+                ),
             )
-
 
             self.quote_repository.save(
                 quote
             )
+
+            # =================================================
+            # EVENT
+            # =================================================
 
             self.event_service.log(
     type=EventType.QUOTE_CREATED,
     message="Devis créé",
     vehicle_id=vehicle.id,
     quote_id=quote.id,
-    user_id=agent_id,
+    lead_id=lead.id,
+    user_id=dto.agent_id,
     event_metadata={
-        "amount": quote.total_amount
-    }
+        "base_price": quote.base_price,
+        "discount": quote.discount,
+        "down_payment": quote.down_payment,
+        "trade_in_value": quote.trade_in_value,
+        "financed_amount": quote.financed_amount,
+        "monthly_payment": quote.monthly_payment,
+        "duration_months": quote.duration_months,
+    },
 )
 
-            # =====================================
-            # SAVE TRADE IN DETAILS
-            # =====================================
+            # =================================================
+            # TRADE-IN DETAILS
+            # =================================================
 
-            if request.trade_in:
-
+            if dto.trade_in:
 
                 quote_trade_in = QuoteTradeIn(
 
                     quote_id=quote.id,
 
-                    brand=request.trade_in.brand,
+                    brand=dto.trade_in.brand,
 
-                    model=request.trade_in.model,
+                    model=dto.trade_in.model,
 
-                    year=request.trade_in.year,
+                    year=dto.trade_in.year,
 
-                    mileage=request.trade_in.mileage,
+                    mileage=dto.trade_in.mileage,
 
-                    condition=request.trade_in.condition,
+                    condition=dto.trade_in.condition,
 
                     estimated_value=trade_in_value,
-
                 )
-
 
                 self.quote_trade_in_repository.save(
                     quote_trade_in
                 )
 
+            # =================================================
+            # COMMIT
+            # =================================================
+
             self.unit_of_work.commit()
 
+            # =================================================
+            # LOG SUCCESS
+            # =================================================
+
             logger.info(
-                "Devis créé",
+                "Devis créé avec succès",
                 extra={
-                    "quote_id": quote.id
-                }
+                    "quote_id": quote.id,
+                    "lead_id": lead.id,
+                    "vehicle_id": vehicle.id,
+                    "agent_id": dto.agent_id,
+                },
             )
 
+            # =================================================
+            # RESULT
+            # =================================================
 
-            return quote
-
+            return CreateQuoteResult(
+                quote_id=quote.id,
+                lead_id=lead.id,
+                vehicle_id=vehicle.id,
+                message="Devis créé avec succès",
+            )
 
         except Exception:
 
@@ -259,8 +299,8 @@ class CreateQuoteUseCase:
             logger.exception(
                 "Erreur création devis",
                 extra={
-                    "lead_id": lead.id
-                }
+                    "lead_id": lead_id,
+                },
             )
 
             raise

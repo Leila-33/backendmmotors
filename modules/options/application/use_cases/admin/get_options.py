@@ -1,4 +1,6 @@
-from modules.options.api.schemas import OptionResponse
+from modules.options.application.results.admin.get_options_result import (
+    GetOptionsResult,
+)
 
 
 class GetOptionsUseCase:
@@ -9,25 +11,13 @@ class GetOptionsUseCase:
     ):
         self.option_repository = option_repository
 
-
-    def execute(self):
+    def execute(self) -> GetOptionsResult:
 
         options = (
             self.option_repository
             .get_all()
         )
 
-
-        return [
-            OptionResponse(
-                id=option.id,
-                name=option.name,
-                type=option.type.value,
-                price=option.price,
-                billing_type=(
-                    option.billing_type.value
-                ),
-                is_active=option.is_active,
-            )
-            for option in options
-        ]
+        return GetOptionsResult(
+            options=options
+        )

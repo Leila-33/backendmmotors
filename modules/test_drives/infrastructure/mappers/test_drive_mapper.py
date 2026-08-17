@@ -1,7 +1,9 @@
 from modules.test_drives.domain.entities.test_drive import TestDrive
 from modules.test_drives.infrastructure.db.test_drive_model import TestDriveModel
 from modules.test_drives.api.schemas import TestDriveResponse
-
+from modules.test_drives.api.schemas import (
+    TestDriveDetailResponse,
+)
 
 class TestDriveMapper:
 
@@ -72,4 +74,78 @@ class TestDriveMapper:
             status=test_drive.status,
             comment=test_drive.comment,
             created_at=test_drive.created_at,
+        )
+
+    @staticmethod
+    def to_detail_response(
+        test_drive,
+        events=None,
+    ) -> TestDriveDetailResponse:
+
+        events = events or test_drive.events or []
+
+        return TestDriveDetailResponse(
+
+            # =========================
+            # TEST DRIVE
+            # =========================
+
+            id=test_drive.id,
+
+            appointment_date=test_drive.appointment_date,
+
+            status=(
+                test_drive.status.value
+                if hasattr(test_drive.status, "value")
+                else test_drive.status
+            ),
+
+            comment=test_drive.comment,
+
+            # =========================
+            # USER
+            # =========================
+
+            user={
+                "id": test_drive.user.id,
+                "name": (
+                    f"{test_drive.user.first_name} "
+                    f"{test_drive.user.last_name}"
+                ),
+                "email": test_drive.user.email,
+            },
+
+            # =========================
+            # VEHICLE
+            # =========================
+
+            vehicle={
+                "id": test_drive.vehicle.id,
+                "brand": test_drive.vehicle.brand,
+                "model": test_drive.vehicle.model,
+                "images": test_drive.vehicle.images or [],
+                "price": test_drive.vehicle.price,
+                "license_plate": (
+                    test_drive.vehicle.license_plate
+                ),
+            },
+
+            # =========================
+            # TIMELINE
+            # =========================
+
+            timeline=[
+                {
+                    "id": event.id,
+                    "type": (
+                        event.type.value
+                        if hasattr(event.type, "value")
+                        else event.type
+                    ),
+                    "message": event.message,
+                    "date": event.created_at,
+                    "metadata": event.event_metadata,
+                }
+                for event in events
+            ],
         )

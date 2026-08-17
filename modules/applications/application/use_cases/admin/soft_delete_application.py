@@ -1,13 +1,33 @@
-from modules.applications.domain.policies.soft_delete_application_policy import SoftDeleteApplicationPolicy
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.application.services.event_service import EventService
-from core.database.unit_of_work import UnitOfWork
-from modules.applications.domain.entities.application import Application
-from datetime import datetime, timezone
-from modules.auth.domain.entities.user import User
-from modules.applications.domain.enums import EventType
 import logging
+from datetime import datetime, timezone
+
+from core.database.unit_of_work import UnitOfWork
+
+from modules.applications.application.services.event_service import (
+    EventService,
+)
+
+from modules.applications.domain.entities.application import (
+    Application,
+)
+from modules.applications.domain.enums import (
+    EventType,
+)
+from modules.applications.domain.exceptions import (
+    ApplicationNotFound,
+)
+from modules.applications.domain.policies.soft_delete_application_policy import (
+    SoftDeleteApplicationPolicy,
+)
+from modules.applications.domain.repositories.application_repository import (
+    ApplicationRepository,
+)
+from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+
+from modules.auth.domain.entities.user import (
+    User,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +49,7 @@ class SoftDeleteApplicationUseCase:
     # =========================
     def execute(
         self,
-        application_id: str,
+        dto: ApplicationIdDTO,
         current_admin: User,
     ) -> Application:
 
@@ -39,7 +59,7 @@ class SoftDeleteApplicationUseCase:
             # =========================
             application = (
                 self.application_repository.get_by_id(
-                    application_id
+                    dto.application_id
                 )
             )
 
@@ -75,7 +95,7 @@ class SoftDeleteApplicationUseCase:
                     application_id=application.id,
 
                     user_id=current_admin.id,
-
+                    vehicle_id=application.vehicle_id,
                     type=EventType.APPLICATION_SOFT_DELETED,
 
                     message=(
@@ -116,7 +136,7 @@ class SoftDeleteApplicationUseCase:
             logger.exception(
     "Erreur soft delete application",
     extra={
-        "application_id": application_id
+        "application_id": dto.application_id
     }
 )
             raise

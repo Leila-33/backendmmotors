@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from modules.notifications.infrastructure.mapper.notification_mapper import NotificationMapper
+from modules.notifications.infrastructure.mappers.notification_mapper import NotificationMapper
 from modules.notifications.domain.entities.notification import Notification
 from modules.notifications.infrastructure.db.notification_model import NotificationModel
 from modules.notifications.domain.repositories.notification_repository import NotificationRepository

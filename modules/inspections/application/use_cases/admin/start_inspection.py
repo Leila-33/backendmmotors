@@ -1,10 +1,12 @@
+import logging
+from uuid import uuid4
+
 from modules.vehicles.domain.exceptions import VehicleNotFound
 from modules.inspections.domain.entities.inspection import Inspection
-from modules.inspections.api.schemas import StartInspectionResponse
-import uuid
+from modules.inspections.application.results.start_inspection_result import (
+    StartInspectionResult,
+)
 
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +25,15 @@ class StartInspectionUseCase:
         self.job_queue = job_queue
         self.unit_of_work = unit_of_work
 
-
     def execute(
         self,
         vehicle_id: str,
         admin_id: str,
-    ):
+    ) -> StartInspectionResult:
+
+        # =====================================================
+        # DATABASE TRANSACTION
+        # =====================================================
 
         try:
 
@@ -43,7 +48,7 @@ class StartInspectionUseCase:
             vehicle.ensure_can_be_inspected()
 
             inspection = Inspection.create(
-                id=str(uuid.uuid4()),
+                id=str(uuid4()),
                 vehicle_id=vehicle.id,
             )
 
@@ -57,10 +62,6 @@ class StartInspectionUseCase:
                 vehicle
             )
 
-            # =========================
-            # COMMIT DATABASE
-            # =========================
-
             self.unit_of_work.commit()
 
             logger.info(
@@ -69,7 +70,7 @@ class StartInspectionUseCase:
                     "inspection_id": inspection.id,
                     "vehicle_id": vehicle.id,
                     "admin_id": admin_id,
-                }
+                },
             )
 
         except Exception:
@@ -81,15 +82,14 @@ class StartInspectionUseCase:
                 extra={
                     "vehicle_id": vehicle_id,
                     "admin_id": admin_id,
-                }
+                },
             )
 
             raise
 
-
-        # =========================
+        # =====================================================
         # QUEUE
-        # =========================
+        # =====================================================
 
         try:
 
@@ -106,11 +106,14 @@ class StartInspectionUseCase:
                     "inspection_id": inspection.id,
                     "vehicle_id": vehicle.id,
                     "admin_id": admin_id,
-                }
+                },
             )
 
             raise
 
+        # =====================================================
+        # RESULT
+        # =====================================================
 
         logger.info(
             "Inspection mise en file d'attente",
@@ -118,11 +121,10 @@ class StartInspectionUseCase:
                 "inspection_id": inspection.id,
                 "vehicle_id": vehicle.id,
                 "admin_id": admin_id,
-            }
+            },
         )
 
-
-        return StartInspectionResponse(
+        return StartInspectionResult(
             inspection_id=inspection.id,
             vehicle_id=vehicle.id,
             status="QUEUED",

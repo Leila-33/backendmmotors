@@ -1,35 +1,75 @@
 from fastapi import APIRouter, Depends
 
 from modules.inspections.api.dependencies import (
-    get_inspection_uc,
-    get_start_inspection_uc
-
+    get_get_inspection_usecase,
+    get_start_inspection_usecase,
 )
-from modules.inspections.application.use_cases.admin.get_inspection import GetInspectionUseCase
-from modules.inspections.application.use_cases.admin.start_inspection import StartInspectionUseCase
+
+from modules.auth.domain.entities.user import User
+
+from modules.inspections.api.mappers.inspection_response_mapper import (
+    InspectionResponseMapper,
+)
+
+from modules.inspections.application.use_cases.admin.get_inspection import (
+    GetInspectionUseCase,
+)
+
+from modules.inspections.application.use_cases.admin.start_inspection import (
+    StartInspectionUseCase,
+)
+
 from core.security.dependencies import get_current_admin
+
 from modules.inspections.api.schemas import (
     InspectionResponse,
-    StartInspectionResponse
+    StartInspectionResponse,
 )
-router = APIRouter(tags=["Inspections"])
+
+
+router = APIRouter(
+    tags=["Inspections"]
+)
 
 
 
-@router.get("/{vehicle_id}", response_model=InspectionResponse)
+@router.get(
+    "/{vehicle_id}",
+    response_model=InspectionResponse,
+)
 def get_inspection(
     vehicle_id: str,
-    use_case: GetInspectionUseCase = Depends(get_inspection_uc),
-    current_admin=Depends(get_current_admin)
+    usecase: GetInspectionUseCase = Depends(
+        get_get_inspection_usecase
+    ),
 ):
-    return use_case.execute(vehicle_id)
+    result = usecase.execute(
+        vehicle_id=vehicle_id
+    )
+
+    return InspectionResponseMapper.to_response(
+        result
+    )
 
 
-@router.post("/{vehicle_id}/start", response_model=StartInspectionResponse)
+@router.post(
+    "/{vehicle_id}/start",
+    response_model=StartInspectionResponse,
+)
 def start_inspection(
     vehicle_id: str,
-    use_case: StartInspectionUseCase = Depends(get_start_inspection_uc),
-    current_admin=Depends(get_current_admin)
+    current_admin: User = Depends(
+        get_current_admin
+    ),
+    usecase: StartInspectionUseCase = Depends(
+        get_start_inspection_usecase
+    ),
 ):
+    result = usecase.execute(
+        vehicle_id=vehicle_id,
+        admin_id=current_admin.id,
+    )
 
-    return use_case.execute(vehicle_id, current_admin.id)
+    return InspectionResponseMapper.start(
+        result
+    )

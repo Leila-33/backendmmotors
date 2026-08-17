@@ -1,15 +1,25 @@
-from modules.leads.domain.exceptions import (
-    LeadNotFound,
-    LeadCannotBeDeleted
-
-)
-from modules.leads.domain.enums import LeadStatus
-from modules.applications.domain.enums import (
-    EventType
-)
 import logging
 
+from modules.leads.domain.exceptions import (
+    LeadNotFound,
+    LeadCannotBeDeleted,
+)
+
+from modules.leads.domain.enums import LeadStatus
+
+from modules.applications.domain.enums import EventType
+
+from modules.leads.application.dtos.agent.delete_lead_dto import (
+    DeleteLeadDTO,
+)
+
+from modules.leads.application.results.agent.delete_lead_result import (
+    DeleteLeadResult,
+)
+
+
 logger = logging.getLogger(__name__)
+
 
 class DeleteLeadUseCase:
 
@@ -29,23 +39,34 @@ class DeleteLeadUseCase:
 
     def execute(
         self,
-        lead_id: str,
-        agent_id: str,
-    ):
+        dto: DeleteLeadDTO,
+    ) -> DeleteLeadResult:
 
         try:
 
+            # =========================
+            # GET LEAD
+            # =========================
+
             lead = self.lead_repository.find_by_id(
-    lead_id
-)
+                dto.lead_id
+            )
 
             if lead is None:
                 raise LeadNotFound()
 
+            # =========================
+            # AUTHORIZATION
+            # =========================
+
             self.lead_authorization.check_owner(
                 lead,
-                agent_id,
+                dto.agent_id,
             )
+
+            # =========================
+            # BUSINESS RULE
+            # =========================
 
             if lead.status not in (
                 LeadStatus.NEW,
@@ -54,48 +75,68 @@ class DeleteLeadUseCase:
             ):
                 raise LeadCannotBeDeleted()
 
-            # Le lead ne doit avoir aucun devis
+            # =========================
+            # QUOTE CHECK
+            # =========================
+
             if self.quote_repository.has_any_quote(
                 lead.id
             ):
                 raise LeadCannotBeDeleted()
 
-            
+            # =========================
+            # DELETE
+            # =========================
+
             self.lead_repository.delete(
                 lead.id
             )
 
+            # =========================
+            # EVENT
+            # =========================
+
             self.event_service.log(
-                            type=EventType.LEAD_DELETED,
-                            message="Lead supprimé",
-                            user_id=agent_id,
-                            lead_id=lead.id,
-                            event_metadata={
-                                "email": lead.email,
-                                "status": lead.status.value,
-                            }
-                        )
-            
+                type=EventType.LEAD_DELETED,
+                message="Lead supprimé",
+                user_id=dto.agent_id,
+                lead_id=lead.id,
+                vehicle_id=lead.vehicle_id,
+                event_metadata={
+                    "email": lead.email,
+                    "status": lead.status.value,
+                },
+            )
+
+            # =========================
+            # COMMIT
+            # =========================
+
             self.unit_of_work.commit()
 
             logger.info(
-    "Lead supprimé",
-    extra={
-        "lead_id": lead.id,
-        "user_id": agent_id,
-    }
-)
+                "Lead supprimé",
+                extra={
+                    "lead_id": lead.id,
+                    "user_id": dto.agent_id,
+                },
+            )
 
+            return DeleteLeadResult(
+                lead_id=lead.id,
+                message="Lead supprimé avec succès.",
+            )
 
         except Exception:
 
             self.unit_of_work.rollback()
 
             logger.exception(
-        "Erreur suppression lead",
-        extra={
-            "lead_id": lead_id,
-        }
-    )
+                "Erreur suppression lead",
+                extra={
+                    "lead_id": dto.lead_id,
+                    "user_id": dto.agent_id,
+                },
+            )
 
             raise

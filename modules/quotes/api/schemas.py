@@ -1,8 +1,6 @@
 # modules/quotes/application/schemas.py
 
 from datetime import datetime
-from modules.leads.api.schemas import QuoteLeadResponse, VehicleMiniResponse
-
 from pydantic import BaseModel, Field
 from typing import Optional
 from modules.applications.domain.enums import TradeInVehicleCondition
@@ -49,17 +47,15 @@ class CreateQuoteRequest(BaseModel):
 
     trade_in: QuoteTradeInRequest | None = None
 
-class QuoteResponse(BaseModel):
+from pydantic import BaseModel
 
-    id: str
 
+class CreateQuoteResponse(BaseModel):
+
+    quote_id: str
     lead_id: str
-
-    status: str
-
-    financed_amount: float
-
-    monthly_payment: float
+    vehicle_id: str
+    message: str
 
 
 # get quote detail
@@ -76,6 +72,18 @@ class QuoteTradeInResponse(BaseModel):
 
     estimated_value: float
 
+class QuoteLeadResponse(BaseModel):
+
+    id: str
+
+    first_name: str
+    last_name: str
+
+    email: str
+    phone: str
+
+    class Config:
+        from_attributes = True
 
 class QuoteDetailResponse(BaseModel):
 
@@ -108,7 +116,7 @@ class QuoteDetailResponse(BaseModel):
 
 # get quotes
 
-class QuoteListResponse(BaseModel):
+class CustomerQuoteListResponse(BaseModel):
 
     id: str
 
@@ -211,6 +219,7 @@ from pydantic import BaseModel
 
 
 class AcceptQuoteResponse(BaseModel):
+    quote_id: str
 
     message: str
 
@@ -230,3 +239,15 @@ class UpdateQuoteRequest(BaseModel):
     trade_in_value: float = 0
 
     trade_in: Optional[QuoteTradeInRequest] = None
+
+
+
+
+
+
+
+class QuoteActionResponse(BaseModel):
+
+    id: str
+
+    message: str

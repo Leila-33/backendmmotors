@@ -45,6 +45,7 @@ class ExpireQuotesUseCase:
                     type=EventType.QUOTE_EXPIRED,
                     message="Devis expiré automatiquement",
                     quote_id=quote.id,
+                    vehicle_id=quote.lead.vehicle.id,
                     user_id=None,
                     event_metadata={
                         "old_status": old_status.value,

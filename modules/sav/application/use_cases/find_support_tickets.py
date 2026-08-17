@@ -1,53 +1,65 @@
 from math import ceil
 
-from modules.sav.api.schemas import PaginatedSupportTicketsResponse
-from modules.sav.domain.enums import TicketFilter, TicketStatus, TicketPriority
-from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
+from modules.sav.application.dtos.find_support_tickets_dto import (
+    FindSupportTicketsDTO,
+)
+from modules.sav.application.results.find_support_tickets_result import (
+    FindSupportTicketsResult,
+)
+from modules.sav.domain.enums import (
+    TicketStatus,
+    TicketPriority,
+    TicketFilter,
+)
 
-from math import ceil
+
 
 class FindSupportTicketsUseCase:
 
     def __init__(self, repo):
         self.repo = repo
 
-    def execute(self, query, user):
+    def execute(
+        self,
+        dto: FindSupportTicketsDTO,
+        user_id: str,
+        user_role,
+    ) -> FindSupportTicketsResult:
 
-        status = query.status
-        priority = query.priority
+        status = dto.status
+        priority = dto.priority
 
-        if query.filter == TicketFilter.OPEN:
-
+        if dto.filter == TicketFilter.OPEN:
             status = [
                 TicketStatus.OPEN,
                 TicketStatus.IN_PROGRESS,
-                TicketStatus.WAITING_CUSTOMER
+                TicketStatus.WAITING_CUSTOMER,
             ]
 
-        elif query.filter == TicketFilter.URGENT:
+        elif dto.filter == TicketFilter.URGENT:
             priority = TicketPriority.URGENT
 
-        rows, total = self.repo.find_all(
-            page=query.page,
-            limit=query.limit,
-            search=query.search,
+        items, total = self.repo.find_all(
+            page=dto.page,
+            limit=dto.limit,
+            search=dto.search,
             status=status,
-            category=query.category,
+            category=dto.category,
             priority=priority,
-            sort=query.sort,
-            archive=query.archive,
-            user=user,
+            sort=dto.sort,
+            archive=dto.archive,
+            user_id=user_id,
+            user_role=user_role,
         )
 
-        items = [
-            SupportTicketMapper.from_row(row)
-            for row in rows
-        ]
-
-        return PaginatedSupportTicketsResponse(
+        return FindSupportTicketsResult(
             items=items,
-            page=query.page,
-            limit=query.limit,
+            page=dto.page,
+            limit=dto.limit,
             total=total,
-            pages=1 if total == 0 else ceil(total / query.limit),
+            pages=(
+                1
+                if total == 0
+                else ceil(total / dto.limit)
+            ),
         )

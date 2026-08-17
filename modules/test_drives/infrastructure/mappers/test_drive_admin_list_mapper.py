@@ -1,14 +1,14 @@
 from modules.test_drives.api.schemas import (
-    TestDriveAdminListItemResponse,
-    TestDriveAdminListResponse
+    PaginatedTestDriveAdminResponse,
+    TestDriveAdminItemResponse
 )
 
 class TestDriveAdminListMapper:
 
     @staticmethod
-    def to_item(test_drive) -> TestDriveAdminListItemResponse:
+    def to_item(test_drive) -> TestDriveAdminItemResponse:
 
-        return TestDriveAdminListItemResponse(
+        return TestDriveAdminItemResponse(
             id=test_drive.id,
 
             user_name=(
@@ -23,14 +23,15 @@ class TestDriveAdminListMapper:
 
             appointment_date=test_drive.appointment_date,
 
-            status=test_drive.status.value
+            status=test_drive.status.value,
+            comment=test_drive.comment
         )
 
 
     @staticmethod
-    def to_response(result):
+    def to_paginated_response(result):
 
-        return TestDriveAdminListResponse(
+        return PaginatedTestDriveAdminResponse(
             items=[
                 TestDriveAdminListMapper.to_item(td)
                 for td in result.items

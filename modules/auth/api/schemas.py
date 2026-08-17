@@ -1,39 +1,78 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
-import re
-from modules.auth.domain.enums import UserRole
 from datetime import datetime
-from typing import List, Optional
 
-# =========================
+import re
+
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+)
+
+from modules.auth.domain.enums import (
+    UserRole,
+    UserStatusFilter
+)
+
+
+# =========================================================
 # CLIENT
-# =========================
+# =========================================================
 
-# register
+# =========================
+# REGISTER
+# =========================
 
 class RegisterRequest(BaseModel):
-    first_name: str = Field(min_length=2, max_length=50)
-    last_name: str = Field(min_length=2, max_length=50)
+
+    first_name: str = Field(
+        min_length=2,
+        max_length=50,
+    )
+
+    last_name: str = Field(
+        min_length=2,
+        max_length=50,
+    )
+
     email: EmailStr
-    password: str = Field(min_length=8)
+
+    password: str = Field(
+        min_length=8,
+        max_length=100,
+    )
+
     accepted_cgu: bool
 
     @field_validator("password")
     @classmethod
     def validate_password(cls, value: str):
-        pattern = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$'
+
+        pattern = (
+            r"^(?=.*[a-z])"
+            r"(?=.*[A-Z])"
+            r"(?=.*\d)"
+            r"(?=.*[@$!%*?&]).{8,}$"
+        )
 
         if not re.match(pattern, value):
             raise ValueError(
                 "Le mot de passe doit contenir au moins 8 caractères, "
-                "une majuscule, une minuscule, un chiffre et un caractère spécial"
+                "une majuscule, une minuscule, un chiffre "
+                "et un caractère spécial"
             )
+
         return value
-    
+
     @field_validator("accepted_cgu")
     @classmethod
     def validate_cgu(cls, value: bool):
+
         if value is not True:
-            raise ValueError("Vous devez accepter les CGU pour vous inscrire")
+            raise ValueError(
+                "Vous devez accepter les CGU pour vous inscrire"
+            )
+
         return value
 
 
@@ -41,59 +80,71 @@ class RegisterResponse(BaseModel):
     message: str
 
 
+# =========================
+# LOGIN
+# =========================
 
-# login
+class LoginUserRequest(BaseModel):
 
-class LoginRequest(BaseModel):
     email: EmailStr
+
     password: str
 
-class LoginResponse(BaseModel):
-    access_token: str
 
-
-# refresh
-
-from dataclasses import dataclass
-
-
-@dataclass(slots=True)
-class RefreshTokensResult:
+class LoginUserResponse(BaseModel):
 
     access_token: str
 
-    refresh_token: str
+
+# =========================
+# REFRESH
+# =========================
 
 class RefreshTokenResponse(BaseModel):
+
     access_token: str
 
 
-# verify email
-
-class VerifyEmailRequest(BaseModel):
-    token: str
+# =========================
+# VERIFY EMAIL
+# =========================
 
 class VerifyEmailResponse(BaseModel):
 
     message: str
 
-# logout
+
+# =========================
+# LOGOUT
+# =========================
 
 class LogoutResponse(BaseModel):
 
     message: str
 
-# me
+
+# =========================
+# ME
+# =========================
 
 class UserResponse(BaseModel):
+
     id: str
+
     email: str
-    role: str
+
+    role: UserRole
+
     is_verified: bool
+
     first_name: str
+
     last_name: str
 
-# check activation token
+
+# =========================
+# CHECK ACTIVATION TOKEN
+# =========================
 
 class CheckActivationTokenResponse(BaseModel):
 
@@ -106,15 +157,51 @@ class CheckActivationTokenResponse(BaseModel):
     expired: bool
 
 
-# activate account
+# =========================
+# ACTIVATE ACCOUNT
+# =========================
 
 class ActivateAccountRequest(BaseModel):
 
     token: str
 
-    password: str
+    password: str = Field(
+        min_length=8,
+        max_length=100,
+    )
 
     accepted_cgu: bool
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str):
+
+        pattern = (
+            r"^(?=.*[a-z])"
+            r"(?=.*[A-Z])"
+            r"(?=.*\d)"
+            r"(?=.*[@$!%*?&]).{8,}$"
+        )
+
+        if not re.match(pattern, value):
+            raise ValueError(
+                "Le mot de passe doit contenir au moins 8 caractères, "
+                "une majuscule, une minuscule, un chiffre "
+                "et un caractère spécial"
+            )
+
+        return value
+
+    @field_validator("accepted_cgu")
+    @classmethod
+    def validate_cgu(cls, value: bool):
+
+        if value is not True:
+            raise ValueError(
+                "Vous devez accepter les CGU pour activer votre compte"
+            )
+
+        return value
 
 
 class ActivateAccountResponse(BaseModel):
@@ -123,28 +210,81 @@ class ActivateAccountResponse(BaseModel):
 
     access_token: str
 
-    refresh_token: str
-
-    redirect: str
-
-class ActivateAccountHttpResponse(BaseModel):
-
-    message: str
-
-    access_token: str
-
     redirect: str
 
 
-
-
-
-
-# =========================
+# =========================================================
 # ADMIN
+# =========================================================
+
+# =========================
+# FIND USERS
 # =========================
 
-# update user role
+class FindUsersRequest(BaseModel):
+
+    page: int = Field(
+        default=1,
+        ge=1,
+    )
+
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+    )
+
+    search: str | None = None
+
+    role: UserRole | None = None
+
+    status: UserStatusFilter | None = None
+
+    sort: str = "created_at_desc"
+
+
+class UserItemResponse(BaseModel):
+
+    id: str
+
+    first_name: str
+
+    last_name: str
+
+    email: str
+
+    role: UserRole
+
+    is_active: bool
+
+    is_deleted: bool
+
+    is_verified: bool
+
+    created_at: datetime
+
+
+class PaginatedUsersResponse(BaseModel):
+
+    items: list[UserItemResponse]
+
+    page: int
+
+    limit: int
+
+    total: int
+
+    pages: int
+
+
+# =========================
+# UPDATE USER ROLE
+# =========================
+
+class UpdateUserRoleRequest(BaseModel):
+
+    role: UserRole
+
 
 class UpdateUserRoleResponse(BaseModel):
 
@@ -154,16 +294,15 @@ class UpdateUserRoleResponse(BaseModel):
 
     message: str
 
-class UpdateUserRoleRequest(BaseModel):
 
-    role: UserRole
-
-
-# toggle active
+# =========================
+# TOGGLE ACTIVE
+# =========================
 
 class ToggleUserActiveRequest(BaseModel):
 
     is_active: bool
+
 
 class ToggleUserActiveResponse(BaseModel):
 
@@ -174,17 +313,25 @@ class ToggleUserActiveResponse(BaseModel):
     message: str
 
 
-# archive user
+# =========================
+# ARCHIVE USER
+# =========================
 
 class ArchiveUserResponse(BaseModel):
 
+    id: str
+
     message: str
 
-# archive users
+
+# =========================
+# ARCHIVE USERS
+# =========================
 
 class ArchiveUsersRequest(BaseModel):
 
     user_ids: list[str]
+
 
 class ArchiveUsersResponse(BaseModel):
 
@@ -194,35 +341,58 @@ class ArchiveUsersResponse(BaseModel):
 
     message: str
 
-# create user
+
+# =========================
+# CREATE USER
+# =========================
 
 class CreateUserRequest(BaseModel):
-    first_name: str = Field(min_length=2, max_length=50)
-    last_name: str = Field(min_length=2, max_length=50)
+
+    first_name: str = Field(
+        min_length=2,
+        max_length=50,
+    )
+
+    last_name: str = Field(
+        min_length=2,
+        max_length=50,
+    )
+
     email: EmailStr
+
     password: str = Field(
         min_length=8,
-        max_length=100
-    )    
+        max_length=100,
+    )
+
     role: UserRole
 
     @field_validator("password")
     @classmethod
     def validate_password(cls, value: str):
-        pattern = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$'
+
+        pattern = (
+            r"^(?=.*[a-z])"
+            r"(?=.*[A-Z])"
+            r"(?=.*\d)"
+            r"(?=.*[@$!%*?&]).{8,}$"
+        )
 
         if not re.match(pattern, value):
             raise ValueError(
                 "Le mot de passe doit contenir au moins 8 caractères, "
-                "une majuscule, une minuscule, un chiffre et un caractère spécial"
+                "une majuscule, une minuscule, un chiffre "
+                "et un caractère spécial"
             )
+
         return value
+
 
 class CreateUserResponse(BaseModel):
 
     id: str
 
-    email: str
+    email: EmailStr
 
     role: UserRole
 
@@ -231,32 +401,27 @@ class CreateUserResponse(BaseModel):
 
 # find users
 
-class FindUsersQuery(BaseModel):
-    page: int = 1
-    limit: int = 10
-    search: Optional[str] = None
-    role: Optional[str] = None
-    status: Optional[str] = None  # all | active | inactive
-    sort: Optional[str] = "created_at_desc"
+class FindUsersRequest(BaseModel):
 
-class UserItemDTO(BaseModel):
-    id: str
-    first_name: str
-    last_name: str
-    email: str
-    role: str
-    is_active: bool
-    is_deleted: bool
-    is_verified: bool
-    created_at: Optional[datetime]
+    page: int = Field(
+        default=1,
+        ge=1,
+    )
 
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+    )
 
-class PaginatedUsersResponse(BaseModel):
-    items: List[UserItemDTO]
-    page: int
-    limit: int
-    total: int
-    pages: int
+    search: str | None = None
+
+    role: str | None = None
+
+    status: str | None = None
+
+    sort: str = "created_at_desc"
+
 
 
 

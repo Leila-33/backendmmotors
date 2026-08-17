@@ -12,11 +12,13 @@ from modules.inspections.application.use_cases.admin.get_inspection import GetIn
 from modules.inspections.application.use_cases.admin.start_inspection import StartInspectionUseCase
 
 
-def get_inspection_uc(repo=Depends(get_inspection_repository)):
-    return GetInspectionUseCase(repo)
+def get_get_inspection_usecase(
+        repo=Depends(get_inspection_repository)
+        ):
+    return GetInspectionUseCase(inspection_repository=repo)
 
 
-def get_start_inspection_uc(
+def get_start_inspection_usecase(
     vehicle_repository=Depends(get_vehicle_repository),
     inspection_repository=Depends(get_inspection_repository),
     job_queue=Depends(get_job_queue),

@@ -1,6 +1,15 @@
-from modules.auth.domain.exceptions import Unauthorized 
-from modules.notifications.domain.exceptions import NotificationNotFound 
-from modules.notifications.api.schemas import MarkNotificationReadResponse
+from modules.auth.domain.exceptions import Unauthorized
+from modules.notifications.domain.exceptions import (
+    NotificationNotFound,
+)
+
+from modules.notifications.application.dtos.mark_notification_read_dto import (
+    MarkNotificationReadDTO,
+)
+
+from modules.notifications.application.results.mark_notification_read_result import (
+    MarkNotificationReadResult,
+)
 
 
 class MarkNotificationReadUseCase:
@@ -13,12 +22,10 @@ class MarkNotificationReadUseCase:
         self.repository = repository
         self.unit_of_work = unit_of_work
 
-
     def execute(
         self,
-        notification_id: str,
-        user_id: str,
-    ):
+        dto: MarkNotificationReadDTO,
+    ) -> MarkNotificationReadResult:
 
         try:
 
@@ -28,31 +35,26 @@ class MarkNotificationReadUseCase:
 
             notification = (
                 self.repository
-                .get_by_id(notification_id)
+                .get_by_id(
+                    dto.notification_id
+                )
             )
 
-
-            if not notification:
+            if notification is None:
                 raise NotificationNotFound()
-
-
 
             # =========================
             # SECURITY CHECK
             # =========================
 
-            if notification.user_id != user_id:
+            if notification.user_id != dto.user_id:
                 raise Unauthorized()
-
-
 
             # =========================
             # DOMAIN ACTION
             # =========================
 
             notification.mark_as_read()
-
-
 
             # =========================
             # UPDATE
@@ -62,20 +64,18 @@ class MarkNotificationReadUseCase:
                 notification
             )
 
+            # =========================
+            # COMMIT
+            # =========================
 
             self.unit_of_work.commit()
-
-
 
         except Exception:
 
             self.unit_of_work.rollback()
-
             raise
 
-
-
-        return MarkNotificationReadResponse(
+        return MarkNotificationReadResult(
             success=True,
-            message="Notification marquée comme lue"
+            message="Notification marquée comme lue",
         )

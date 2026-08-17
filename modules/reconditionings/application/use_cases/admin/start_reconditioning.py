@@ -1,17 +1,40 @@
-from uuid import uuid4
-from modules.reconditionings.domain.entities.reconditioning import Reconditioning
-from modules.reconditionings.domain.enums import ReconditioningStatus
-from modules.inspections.domain.enums import InspectionStatus
-from modules.vehicles.domain.exceptions import (
-    VehicleNotFound,
-    VehicleNotEligibleForReconditioning
-)
-from modules.reconditionings.domain.exceptions import ReconditioningAlreadyRunning
-from modules.inspections.domain.exceptions import InspectionNotFound, InspectionNotCompleted
-from modules.vehicles.domain.enums import VehicleStatus
-from modules.reconditionings.api.schemas import StartReconditioningResponse
-
 import logging
+from uuid import uuid4
+
+
+from modules.inspections.domain.enums import (
+    InspectionStatus,
+)
+from modules.inspections.domain.exceptions import (
+    InspectionNotCompleted,
+    InspectionNotFound,
+)
+
+from modules.reconditionings.domain.entities.reconditioning import (
+    Reconditioning,
+)
+from modules.reconditionings.domain.enums import (
+    ReconditioningStatus,
+)
+from modules.reconditionings.domain.exceptions import (
+    ReconditioningAlreadyRunning,
+)
+
+from modules.reconditionings.application.dtos.admin.start_reconditioning_dto import (
+    StartReconditioningDTO,
+)
+from modules.reconditionings.application.results.admin.start_reconditioning_result import (
+    StartReconditioningResult,
+)
+
+from modules.vehicles.domain.enums import (
+    VehicleStatus,
+)
+from modules.vehicles.domain.exceptions import (
+    VehicleNotEligibleForReconditioning,
+    VehicleNotFound,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +64,7 @@ class StartReconditioningUseCase:
 
     def execute(
         self,
-        vehicle_id: str,
-        admin_id: str,
+        dto: StartReconditioningDTO
     ):
 
         try:
@@ -53,7 +75,7 @@ class StartReconditioningUseCase:
 
             vehicle = (
                 self.vehicle_repository
-                .get_by_id(vehicle_id)
+                .get_by_id(dto.vehicle_id)
             )
 
             if vehicle is None:
@@ -84,7 +106,7 @@ class StartReconditioningUseCase:
 
             inspection = (
                 self.inspection_repository
-                .get_by_vehicle_id(vehicle_id)
+                .get_by_vehicle_id(dto.vehicle_id)
             )
 
             if inspection is None:
@@ -104,7 +126,7 @@ class StartReconditioningUseCase:
 
             existing = (
                 self.reconditioning_repository
-                .get_by_vehicle_id(vehicle_id)
+                .get_by_vehicle_id(dto.vehicle_id)
             )
 
             if (
@@ -124,7 +146,7 @@ class StartReconditioningUseCase:
             reconditioning = (
                 Reconditioning.create(
                     id=str(uuid4()),
-                    vehicle_id=vehicle_id,
+                    vehicle_id=dto.vehicle_id,
                 )
             )
 
@@ -167,7 +189,7 @@ class StartReconditioningUseCase:
                         reconditioning.id
                     ),
                     "vehicle_id": vehicle.id,
-                    "admin_id": admin_id,
+                    "admin_id": dto.admin_id,
                 }
             )
 
@@ -180,7 +202,7 @@ class StartReconditioningUseCase:
 
                 self.job_queue.enqueue_reconditioning(
                     reconditioning.id,
-                    admin_id,
+                    dto.admin_id,
                 )
 
             except Exception:
@@ -192,7 +214,7 @@ class StartReconditioningUseCase:
                             reconditioning.id
                         ),
                         "vehicle_id": vehicle.id,
-                        "admin_id": admin_id,
+                        "admin_id": dto.admin_id,
                     }
                 )
 
@@ -210,28 +232,16 @@ class StartReconditioningUseCase:
                         reconditioning.id
                     ),
                     "vehicle_id": vehicle.id,
-                    "admin_id": admin_id,
+                    "admin_id": dto.admin_id,
                 }
             )
 
 
-            return StartReconditioningResponse(
-
-                reconditioning_id=(
-                    reconditioning.id
-                ),
-
-                vehicle_id=(
-                    vehicle.id
-                ),
-
-                status=(
-                    reconditioning.status.value
-                ),
-
-                message=(
-                    "Reconditionnement lancé"
-                ),
+            return StartReconditioningResult(
+                reconditioning_id=reconditioning.id,
+                vehicle_id=vehicle.id,
+                status=reconditioning.status.value,
+                message="Reconditionnement lancé",
             )
 
 
@@ -242,8 +252,8 @@ class StartReconditioningUseCase:
             logger.exception(
                 "Erreur démarrage reconditionnement",
                 extra={
-                    "vehicle_id": vehicle_id,
-                    "admin_id": admin_id,
+                    "vehicle_id": dto.vehicle_id,
+                    "admin_id": dto.admin_id,
                 }
             )
 

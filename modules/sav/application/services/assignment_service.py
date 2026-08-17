@@ -5,11 +5,11 @@ class AssignmentService:
 
     def __init__(
         self,
-        user_repo: UserRepository,
-        ticket_repo: SupportTicketRepository
+        user_repository: UserRepository,
+        ticket_repository: SupportTicketRepository
     ):
-        self.user_repo = user_repo
-        self.ticket_repo = ticket_repo
+        self.user_repo = user_repository
+        self.ticket_repo = ticket_repository
 
     def get_next_agent(self):
 

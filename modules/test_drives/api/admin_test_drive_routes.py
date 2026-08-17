@@ -1,114 +1,208 @@
-
 from fastapi import APIRouter, Depends
+
 # =========================
 # CORE
 # =========================
+
 from core.security.dependencies import get_current_admin
+
 
 # =========================
 # DEPENDENCIES
 # =========================
+
 from modules.test_drives.api.dependencies import (
-    get_test_drives_admin_usecase,
-    get_test_drive_detail_usecase,
+    get_get_test_drives_admin_usecase,
+    get_get_test_drive_detail_usecase,
     get_update_test_drive_status_usecase,
-    get_pending_test_drive_count_usecase
+    get_pending_test_drive_count_usecase,
+)
+
+
+# =========================
+# USE CASES
+# =========================
+
+from modules.test_drives.application.use_cases.admin.get_test_drives_admin import (
+    GetTestDrivesAdminUseCase,
+)
+
+from modules.test_drives.application.use_cases.get_test_drive_detail import (
+    GetTestDriveDetailsUseCase,
+)
+
+from modules.test_drives.application.use_cases.update_test_drive_status import (
+    UpdateTestDriveStatusUseCase,
+)
+
+
+# =========================
+# DTO
+# =========================
+
+from modules.test_drives.application.dtos.admin.get_test_drives_admin_dto import (
+    GetTestDrivesAdminDTO,
+)
+
+from modules.test_drives.application.dtos.update_test_drive_status_dto import (
+    UpdateTestDriveStatusDTO,
 )
 
 
 # =========================
 # SCHEMAS
 # =========================
+
 from modules.test_drives.api.schemas import (
-    TestDriveDetailsAdminResponse,
-    TestDriveAdminListResponse,
+    GetTestDrivesAdminQuery,
+    PaginatedTestDriveAdminResponse,
+    TestDriveDetailsResponse,
     UpdateTestDriveStatusRequest,
     TestDriveStatusResponse,
-    PendingTestDriveCountResponse
+    PendingTestDriveCountResponse,
 )
 
+
 # =========================
-# MAPPER
+# MAPPERS
 # =========================
-from modules.test_drives.infrastructure.mappers.test_drive_detail_admin_mapper import TestDriveDetailAdminMapper
-from modules.test_drives.infrastructure.mappers.test_drive_admin_list_mapper import TestDriveAdminListMapper
 
-router = APIRouter(tags=["AdminTestDrive"])
+from modules.test_drives.infrastructure.mappers.test_drive_mapper import (
+    TestDriveMapper,
+)
+
+from modules.test_drives.infrastructure.mappers.test_drive_admin_list_mapper import (
+    TestDriveAdminListMapper,
+)
 
 
+router = APIRouter(
+    tags=["AdminTestDrive"]
+)
+
+
+# =====================================================
+# PENDING COUNT
+# =====================================================
 
 @router.get(
     "/pending-count",
-    response_model=PendingTestDriveCountResponse
+    response_model=PendingTestDriveCountResponse,
 )
 def get_pending_count(
     current_admin=Depends(get_current_admin),
-    use_case=Depends(get_pending_test_drive_count_usecase)
+    use_case=Depends(
+        get_pending_test_drive_count_usecase
+    ),
 ):
 
-    return use_case.execute()
+    result = use_case.execute()
+
+    return PendingTestDriveCountResponse(
+        count=result.count
+    )
 
 
+# =====================================================
+# LIST
+# =====================================================
 
 @router.get(
     "",
-    response_model=TestDriveAdminListResponse
+    response_model=PaginatedTestDriveAdminResponse,
 )
-def get_test_drives(
-    status: str | None = None,
-    search: str | None = None,
-    page: int = 1,
-    limit: int = 20,
-    use_case=Depends(get_test_drives_admin_usecase)
+def get_test_drives_admin(
+    query: GetTestDrivesAdminQuery = Depends(),
+
+    current_admin=Depends(
+        get_current_admin
+    ),
+
+    use_case: GetTestDrivesAdminUseCase = Depends(
+        get_get_test_drives_admin_usecase
+    ),
 ):
 
-    result = use_case.execute(
-        status=status,
-        search=search,
-        page=page,
-        limit=limit
+    dto = GetTestDrivesAdminDTO(
+        status=query.status,
+        search=query.search,
+        page=query.page,
+        limit=query.limit,
     )
 
-    return TestDriveAdminListMapper.to_response(result)
+    result = use_case.execute(dto)
 
+    return TestDriveAdminListMapper.to_paginated_response(
+        result
+    )
+
+
+# =====================================================
+# UPDATE STATUS
+# =====================================================
 
 @router.post(
     "/{test_drive_id}/status",
-    response_model=TestDriveStatusResponse
+    response_model=TestDriveStatusResponse,
 )
 async def update_test_drive_status(
     test_drive_id: str,
+
     data: UpdateTestDriveStatusRequest,
-    current_user=Depends(get_current_admin),
-    use_case=Depends(get_update_test_drive_status_usecase)
+
+    current_admin=Depends(
+        get_current_admin
+    ),
+
+    use_case: UpdateTestDriveStatusUseCase = Depends(
+        get_update_test_drive_status_usecase
+    ),
 ):
 
-    test_drive = await use_case.execute(
+    dto = UpdateTestDriveStatusDTO(
         test_drive_id=test_drive_id,
         status=data.status,
-        actor_id=current_user.id,
-        actor_role=current_user.role
+        actor_id=current_admin.id,
+        actor_role=current_admin.role,
     )
 
+    result = await use_case.execute(dto)
+
+    test_drive = result.test_drive
 
     return TestDriveStatusResponse(
         id=test_drive.id,
         status=test_drive.status.value,
         appointment_date=test_drive.appointment_date,
-        message="Statut de l’essai routier mis à jour"
+        message="Statut de l’essai routier mis à jour",
     )
 
 
+# =====================================================
+# DETAIL
+# =====================================================
 
-
-@router.get("/{test_drive_id}", response_model=TestDriveDetailsAdminResponse)
+@router.get(
+    "/{test_drive_id}",
+    response_model=TestDriveDetailsResponse,
+)
 def get_test_drive_details(
     test_drive_id: str,
-    current_admin=Depends(get_current_admin),
-    usecase=Depends(get_test_drive_detail_usecase),
+
+    current_admin=Depends(
+        get_current_admin
+    ),
+
+    use_case: GetTestDriveDetailsUseCase = Depends(
+        get_get_test_drive_detail_usecase
+    ),
 ):
 
-    result = usecase.execute(test_drive_id)
+    result = use_case.execute(
+        test_drive_id=test_drive_id,
+    )
 
-    return TestDriveDetailAdminMapper.to_response(result)
-
+    return TestDriveMapper.to_detail_response(
+        test_drive=result.test_drive,
+        events=result.events,
+    )

@@ -1,17 +1,42 @@
-from modules.notifications.domain.enums import NotificationType, NotificationEntityType
-from modules.quotes.domain.enums import QuoteStatus
-from modules.quotes.domain.exceptions import QuoteNotFound, QuoteAlreadySent
-from modules.leads.domain.exceptions import LeadNotFound
-from modules.leads.domain.enums import LeadStatus
-from modules.applications.domain.enums import (
-    EventType
-)
 import logging
+
+from modules.notifications.domain.enums import (
+    NotificationType,
+    NotificationEntityType,
+)
+
+from modules.quotes.domain.enums import QuoteStatus
+
+from modules.quotes.domain.exceptions import (
+    QuoteNotFound,
+    QuoteAlreadySent,
+)
+
+from modules.leads.domain.exceptions import (
+    LeadNotFound,
+)
+
+from modules.leads.domain.enums import (
+    LeadStatus,
+)
+
+from modules.applications.domain.enums import (
+    EventType,
+)
+
+from modules.quotes.application.dtos.agent.send_quote_dto import (
+    SendQuoteDTO,
+)
+
+from modules.quotes.application.results.quote_action_result import (
+    QuoteActionResult,
+)
+
 
 logger = logging.getLogger(__name__)
 
-class SendQuoteUseCase:
 
+class SendQuoteUseCase:
 
     def __init__(
         self,
@@ -24,6 +49,7 @@ class SendQuoteUseCase:
         event_service,
         unit_of_work,
     ):
+
         self.quote_repository = quote_repository
         self.lead_repository = lead_repository
         self.lead_authorization = lead_authorization
@@ -33,30 +59,30 @@ class SendQuoteUseCase:
         self.event_service = event_service
         self.unit_of_work = unit_of_work
 
-
-
     async def execute(
-    self,
-    quote_id: str,
-    agent_id: str,
-):
+        self,
+        dto: SendQuoteDTO,
+    ) -> QuoteActionResult:
 
         try:
 
-            # =========================
+            # =================================================
             # FIND QUOTE
-            # =========================
+            # =================================================
 
             quote = (
-                self.quote_repository.find_by_id(
-                    quote_id
+                self.quote_repository
+                .find_by_id(
+                    dto.quote_id
                 )
             )
 
             if quote is None:
                 raise QuoteNotFound()
 
-
+            # =================================================
+            # FIND LEAD
+            # =================================================
 
             lead = (
                 self.lead_repository
@@ -68,31 +94,28 @@ class SendQuoteUseCase:
             if lead is None:
                 raise LeadNotFound()
 
-
             vehicle = lead.vehicle
 
-
-            # =========================
+            # =================================================
             # AUTHORIZATION
-            # =========================
+            # =================================================
 
             self.lead_authorization.check_owner(
                 lead,
-                agent_id,
+                dto.agent_id,
             )
 
-
-            # =========================
+            # =================================================
             # STATUS
-            # =========================
+            # =================================================
 
             if quote.status != QuoteStatus.DRAFT:
+
                 raise QuoteAlreadySent()
 
-
-            # =========================
+            # =================================================
             # CUSTOMER ACCOUNT
-            # =========================
+            # =================================================
 
             account = (
                 self.customer_account_service
@@ -103,12 +126,12 @@ class SendQuoteUseCase:
             )
 
             customer = account["user"]
+
             activation_token = account["token"]
 
-
-            # =========================
+            # =================================================
             # UPDATE QUOTE
-            # =========================
+            # =================================================
 
             quote.send()
 
@@ -116,23 +139,45 @@ class SendQuoteUseCase:
                 quote
             )
 
-            self.event_service.log(
-    type=EventType.QUOTE_SENT,
-    message="Devis envoyé au client",
-    quote_id=quote.id,
-    user_id=customer.id
-)
+            # =================================================
+            # LEAD STATUS
+            # =================================================
 
-            lead.change_status(LeadStatus.QUOTE_SENT)
+            lead.change_status(
+                LeadStatus.QUOTE_SENT
+            )
 
             self.lead_repository.update(
-    lead
-)
+                lead
+            )
 
+            # =================================================
+            # EVENT
+            # =================================================
 
-            # =========================
-            # NOTIFICATION CLIENT
-            # =========================
+            self.event_service.log(
+
+                type=EventType.QUOTE_SENT,
+
+                message="Devis envoyé au client",
+
+                quote_id=quote.id,
+
+                lead_id=lead.id,
+
+                user_id=dto.agent_id,
+
+                vehicle_id=vehicle.id,
+
+                event_metadata={
+                    "customer_id": customer.id,
+                    "customer_email": customer.email,
+                },
+            )
+
+            # =================================================
+            # NOTIFICATION
+            # =================================================
 
             await self.notification_service.send(
 
@@ -140,51 +185,67 @@ class SendQuoteUseCase:
 
                 email=customer.email,
 
-                title=(
-                    "Nouvelle offre commerciale"
-                ),
+                title="Nouvelle offre commerciale",
 
                 message=(
                     "Votre conseiller vous a envoyé "
                     "une nouvelle offre."
                 ),
 
-                notif_type=(
-                    NotificationType.QUOTE_SENT
-                ),
+                notif_type=NotificationType.QUOTE_SENT,
 
-                entity_type=(
-                    NotificationEntityType.QUOTE
-                ),
+                entity_type=NotificationEntityType.QUOTE,
 
-                entity_id=(
-                    quote.id
-                ),
+                entity_id=quote.id,
             )
-            # =========================
+
+            # =================================================
             # COMMIT
-            # =========================
+            # =================================================
 
             self.unit_of_work.commit()
 
-            # =========================
+            # =================================================
             # EMAIL
-            # =========================
+            # =================================================
 
             self.email_service.send_quote_email(
-        quote=quote,
-        customer=customer,
-        vehicle=vehicle,
-        activation_token=activation_token,
-    )
-            logger.info(
-        "Devis envoyé",
-        extra={
-            "quote_id": quote.id
-        }
-    )
-            return quote
 
+                quote=quote,
+
+                customer=customer,
+
+                vehicle=vehicle,
+
+                activation_token=activation_token,
+            )
+
+            # =================================================
+            # SUCCESS LOG
+            # =================================================
+
+            logger.info(
+                "Devis envoyé avec succès",
+                extra={
+                    "quote_id": quote.id,
+                    "lead_id": lead.id,
+                    "customer_id": customer.id,
+                    "agent_id": dto.agent_id,
+                },
+            )
+
+            # =================================================
+            # RESULT
+            # =================================================
+
+            return QuoteActionResult(
+
+                quote_id=quote.id,
+
+                message=(
+                    "Devis envoyé avec succès"
+                ),
+            )
 
         except Exception:
 
@@ -193,8 +254,9 @@ class SendQuoteUseCase:
             logger.exception(
                 "Erreur envoi devis",
                 extra={
-                    "quote_id": quote_id
-                }
+                    "quote_id": dto.quote_id,
+                    "agent_id": dto.agent_id,
+                },
             )
 
-
+            raise

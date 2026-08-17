@@ -1,14 +1,38 @@
-from modules.sav.infrastructure.db.support_ticket_model import SupportTicketModel
-from modules.sav.infrastructure.db.ticket_message_model import TicketMessageModel
-from modules.sav.infrastructure.db.ticket_read_state_model import TicketReadStateModel
-from modules.sav.domain.repositories.support_ticket_repository import SupportTicketRepository
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, asc, func, case, or_, and_
-from modules.sav.domain.enums import TicketStatus, TicketPriority
-from modules.auth.domain.enums import UserRole
-from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
-from modules.auth.infrastructure.db.user_model import UserModel
 from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import asc, case, desc, func, or_
+from sqlalchemy.orm import Session
+from typing import Literal
+
+from modules.auth.domain.enums import UserRole
+from modules.auth.infrastructure.db.user_model import UserModel
+
+from modules.sav.application.results.support_ticket_list_item import (
+    SupportTicketListItem,
+)
+
+from modules.sav.domain.enums import (
+    TicketCategory,
+    TicketPriority,
+    TicketStatus,
+)
+
+from modules.sav.domain.repositories.support_ticket_repository import (
+    SupportTicketRepository,
+)
+
+from modules.sav.infrastructure.db.support_ticket_model import (
+    SupportTicketModel,
+)
+
+from modules.sav.infrastructure.db.ticket_message_model import (
+    TicketMessageModel,
+)
+
+from modules.sav.infrastructure.db.ticket_read_state_model import (
+    TicketReadStateModel,
+)
+from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 
 class SupportTicketSQLRepository(SupportTicketRepository):
 
@@ -36,32 +60,54 @@ class SupportTicketSQLRepository(SupportTicketRepository):
 
         return SupportTicketMapper.to_domain(model)
 
+    def update(
+            self,
+            ticket
+        ):
 
+            model = (
+                self.db.query(SupportTicketModel)
+                .filter(
+                    SupportTicketModel.id == ticket.id
+                )
+                .first()
+            )
+
+            if model is None:
+                return None
+
+            SupportTicketMapper.update_model(
+                model,
+                ticket
+            )
+
+            return SupportTicketMapper.to_domain(model)
+    
     def find_all(
         self,
         page: int,
         limit: int,
         search: str | None,
-        status,
-        category: str,
-        priority,
+        status: TicketStatus | list[TicketStatus] | Literal["ALL"],
+        category: TicketCategory | Literal["ALL"],
+        priority: TicketPriority | Literal["ALL"],
         sort: str,
         archive: bool,
-        user,
-    ):
+        user_id: str,
+        user_role: UserRole,
+    ) -> tuple[list[SupportTicketListItem], int]:
 
-        # =======================
+        # =====================================================
         # BASE QUERY
-        # =======================
+        # =====================================================
 
         query = self.db.query(
             SupportTicketModel
         )
 
-
-        # =======================
-        # ARCHIVE FILTER
-        # =======================
+        # =====================================================
+        # ARCHIVE
+        # =====================================================
 
         if archive:
 
@@ -75,57 +121,57 @@ class SupportTicketSQLRepository(SupportTicketRepository):
                 SupportTicketModel.archived_at.is_(None)
             )
 
-
-
-        # =======================
+        # =====================================================
         # SECURITY
-        # =======================
+        # =====================================================
 
-        if user.role == UserRole.CLIENT:
-
-            query = query.filter(
-                SupportTicketModel.user_id == user.id
-            )
-
-
-        elif user.role == UserRole.SAV_AGENT:
+        if user_role == UserRole.CLIENT:
 
             query = query.filter(
-                SupportTicketModel.assigned_to == user.id
+                SupportTicketModel.user_id == user_id
             )
 
+        elif user_role == UserRole.SAV_AGENT:
 
+            query = query.filter(
+                SupportTicketModel.assigned_to == user_id
+            )
 
-        # =======================
-        # FILTER SEARCH
-        # =======================
+        elif user_role == UserRole.ADMIN:
+
+            pass
+
+        else:
+
+            return [], 0
+
+        # =====================================================
+        # SEARCH
+        # =====================================================
 
         if search:
 
             query = query.join(
                 UserModel,
-                UserModel.id == SupportTicketModel.user_id
+                UserModel.id
+                == SupportTicketModel.user_id,
             ).filter(
                 or_(
                     SupportTicketModel.subject.ilike(
                         f"%{search}%"
                     ),
-
                     UserModel.first_name.ilike(
                         f"%{search}%"
                     ),
-
                     UserModel.last_name.ilike(
                         f"%{search}%"
-                    )
+                    ),
                 )
             )
 
-
-
-        # =======================
-        # STATUS FILTER
-        # =======================
+        # =====================================================
+        # STATUS
+        # =====================================================
 
         if status and status != "ALL":
 
@@ -141,11 +187,9 @@ class SupportTicketSQLRepository(SupportTicketRepository):
                     SupportTicketModel.status == status
                 )
 
-
-
-        # =======================
-        # CATEGORY FILTER
-        # =======================
+        # =====================================================
+        # CATEGORY
+        # =====================================================
 
         if category and category != "ALL":
 
@@ -153,11 +197,9 @@ class SupportTicketSQLRepository(SupportTicketRepository):
                 SupportTicketModel.category == category
             )
 
-
-
-        # =======================
-        # PRIORITY FILTER
-        # =======================
+        # =====================================================
+        # PRIORITY
+        # =====================================================
 
         if priority and priority != "ALL":
 
@@ -165,108 +207,86 @@ class SupportTicketSQLRepository(SupportTicketRepository):
                 SupportTicketModel.priority == priority
             )
 
-
-
-        # =======================
-        # TOTAL COUNT
-        # AVANT LES JOINS
-        # =======================
+        # =====================================================
+        # TOTAL
+        #
+        # IMPORTANT :
+        # Calculé avant les joins d'enrichissement.
+        # =====================================================
 
         total = query.count()
 
+        # =====================================================
+        # LAST MESSAGE
+        #
+        # ROW_NUMBER permet de garantir un seul message
+        # par ticket même si deux messages ont le même
+        # created_at.
+        # =====================================================
 
-
-        # =======================
-        # LAST MESSAGE DATE
-        # =======================
-
-        last_msg_sq = (
-            self.db.query(
-                TicketMessageModel.ticket_id,
-                func.max(
-                    TicketMessageModel.created_at
-                ).label("last_activity_at")
-            )
-            .group_by(
-                TicketMessageModel.ticket_id
-            )
-            .subquery()
-        )
-
-
-
-        # =======================
-        # LAST MESSAGE CONTENT
-        # =======================
-
-        last_msg_full_sq = (
-
+        message_ranked_sq = (
             self.db.query(
                 TicketMessageModel.ticket_id,
                 TicketMessageModel.message,
                 TicketMessageModel.sender_id,
                 TicketMessageModel.created_at,
-            )
 
-            .join(
-                last_msg_sq,
-
-                and_(
-                    TicketMessageModel.ticket_id
-                    ==
-                    last_msg_sq.c.ticket_id,
-
-                    TicketMessageModel.created_at
-                    ==
-                    last_msg_sq.c.last_activity_at
+                func.row_number()
+                .over(
+                    partition_by=(
+                        TicketMessageModel.ticket_id
+                    ),
+                    order_by=(
+                        TicketMessageModel.created_at.desc(),
+                        TicketMessageModel.id.desc(),
+                    ),
                 )
+                .label("message_rank"),
             )
-
             .subquery()
-
         )
 
+        last_message_sq = (
+            self.db.query(
+                message_ranked_sq.c.ticket_id,
+                message_ranked_sq.c.message,
+                message_ranked_sq.c.sender_id,
+                message_ranked_sq.c.created_at,
+            )
+            .filter(
+                message_ranked_sq.c.message_rank == 1
+            )
+            .subquery()
+        )
 
-
-        # =======================
+        # =====================================================
         # READ STATE
-        # =======================
+        # =====================================================
 
         read_sq = (
-
             self.db.query(
-
                 TicketReadStateModel.ticket_id,
-
-                TicketReadStateModel.last_read_at
-
+                TicketReadStateModel.last_read_at,
             )
-
             .filter(
-                TicketReadStateModel.user_id == user.id
+                TicketReadStateModel.user_id == user_id
             )
-
             .subquery()
-
         )
 
-
-
-        # =======================
-        # USER JOIN
-        # =======================
+        # =====================================================
+        # USER
+        # =====================================================
 
         query = query.outerjoin(
             UserModel,
-            UserModel.id ==
-            SupportTicketModel.user_id
+            UserModel.id
+            == SupportTicketModel.user_id,
         )
 
-
-
-        # =======================
-        # FINAL SELECT
-        # =======================
+        # =====================================================
+        # SELECT
+        # =====================================================
 
         query = query.with_entities(
 
@@ -275,129 +295,107 @@ class SupportTicketSQLRepository(SupportTicketRepository):
             func.concat(
                 UserModel.first_name,
                 " ",
-                UserModel.last_name
+                UserModel.last_name,
             ).label(
                 "user_name"
             ),
 
-
-            last_msg_full_sq.c.message.label(
+            last_message_sq.c.message.label(
                 "last_message_preview"
             ),
 
-            last_msg_full_sq.c.sender_id.label(
+            last_message_sq.c.sender_id.label(
                 "last_actor"
             ),
 
-            last_msg_sq.c.last_activity_at,
+            last_message_sq.c.created_at.label(
+                "last_activity_at"
+            ),
 
-
-            read_sq.c.last_read_at
-
+            read_sq.c.last_read_at,
         )
 
-
-
-        # =======================
-        # JOINS
-        # =======================
+        # =====================================================
+        # LAST MESSAGE JOIN
+        # =====================================================
 
         query = query.outerjoin(
-
-            last_msg_sq,
-
-            last_msg_sq.c.ticket_id
-            ==
-            SupportTicketModel.id
-
+            last_message_sq,
+            last_message_sq.c.ticket_id
+            == SupportTicketModel.id,
         )
 
+        # =====================================================
+        # READ STATE JOIN
+        # =====================================================
 
         query = query.outerjoin(
-
-            last_msg_full_sq,
-
-            last_msg_full_sq.c.ticket_id
-            ==
-            SupportTicketModel.id
-
-        )
-
-
-        query = query.outerjoin(
-
             read_sq,
-
             read_sq.c.ticket_id
-            ==
-            SupportTicketModel.id
-
+            == SupportTicketModel.id,
         )
 
-
-
-        # =======================
-        # SORT
-        # =======================
+        # =====================================================
+        # PRIORITY ORDER
+        # =====================================================
 
         priority_order = case(
 
             (
                 SupportTicketModel.priority
-                ==
-                TicketPriority.URGENT,
-                4
+                == TicketPriority.URGENT,
+                4,
             ),
 
             (
                 SupportTicketModel.priority
-                ==
-                TicketPriority.HIGH,
-                3
+                == TicketPriority.HIGH,
+                3,
             ),
 
             (
                 SupportTicketModel.priority
-                ==
-                TicketPriority.MEDIUM,
-                2
+                == TicketPriority.MEDIUM,
+                2,
             ),
 
             (
                 SupportTicketModel.priority
-                ==
-                TicketPriority.LOW,
-                1
+                == TicketPriority.LOW,
+                1,
             ),
 
-            else_=0
+            else_=0,
         )
 
+        # =====================================================
+        # SORT
+        # =====================================================
 
         if sort == "activity_desc":
 
             query = query.order_by(
                 desc(
-                    last_msg_sq.c.last_activity_at
+                    last_message_sq.c.created_at
                 )
             )
-
 
         elif sort == "activity_asc":
 
             query = query.order_by(
                 asc(
-                    last_msg_sq.c.last_activity_at
+                    last_message_sq.c.created_at
                 )
             )
-
 
         elif sort == "priority":
 
             query = query.order_by(
-                desc(priority_order)
+                desc(priority_order),
+                desc(
+                    SupportTicketModel.created_at
+                ),
             )
-
 
         elif sort == "created_at_asc":
 
@@ -407,7 +405,6 @@ class SupportTicketSQLRepository(SupportTicketRepository):
                 )
             )
 
-
         else:
 
             query = query.order_by(
@@ -416,28 +413,50 @@ class SupportTicketSQLRepository(SupportTicketRepository):
                 )
             )
 
-
-
-        # =======================
+        # =====================================================
         # PAGINATION
-        # =======================
+        # =====================================================
 
         results = (
-
             query
-
             .offset(
                 (page - 1) * limit
             )
-
             .limit(limit)
-
             .all()
-
         )
+        items = []
 
+        for row in results:
 
-        return results, total
+            unread = (
+                row.last_read_at is None
+                or (
+                    row.last_activity_at is not None
+                    and row.last_read_at < row.last_activity_at
+                )
+            )
+
+            items.append(
+                SupportTicketListItem(
+                    id=row.ticket.id,
+                    subject=row.ticket.subject,
+                    category=row.ticket.category,
+                    status=row.ticket.status,
+                    priority=row.ticket.priority,
+                    user_id=row.ticket.user_id,
+                    user_name=row.user_name,
+                    last_message_preview=row.last_message_preview,
+                    last_actor=row.last_actor,
+                    last_activity_at=row.last_activity_at,
+                    unread=unread,
+                    created_at=row.ticket.created_at,
+                    updated_at=row.ticket.updated_at,
+                    archived_at=row.ticket.archived_at,
+                )
+            )
+
+        return items, total
 
     def get_dashboard_stats(self, user):
 
@@ -483,29 +502,134 @@ class SupportTicketSQLRepository(SupportTicketRepository):
             "recent_tickets": recent_tickets,
         }
     
-    def update(
-            self,
-            ticket
-        ):
 
-            model = (
-                self.db.query(SupportTicketModel)
-                .filter(
-                    SupportTicketModel.id == ticket.id
+    def get_sav_statistics(
+        self,
+        user_id: str,
+    ):
+
+        # =========================
+        # BASE QUERY
+        # =========================
+
+        query = (
+            self.db
+            .query(SupportTicketModel)
+            .filter(
+                SupportTicketModel.assigned_to == user_id
+            )
+        )
+
+
+        # =========================
+        # TOTAL
+        # =========================
+
+        total = query.count()
+
+
+        # =========================
+        # CLOSED
+        # =========================
+
+        closed = (
+            query
+            .filter(
+                SupportTicketModel.status
+                == TicketStatus.CLOSED
+            )
+            .count()
+        )
+
+
+        # =========================
+        # DATES
+        # =========================
+
+        now = datetime.now(timezone.utc)
+
+        last_7_days = (
+            query
+            .filter(
+                SupportTicketModel.created_at
+                >= now - timedelta(days=7)
+            )
+            .count()
+        )
+
+        last_30_days = (
+            query
+            .filter(
+                SupportTicketModel.created_at
+                >= now - timedelta(days=30)
+            )
+            .count()
+        )
+
+
+        # =========================
+        # CATEGORY DISTRIBUTION
+        # =========================
+
+        category_distribution = (
+            self.db
+            .query(
+                SupportTicketModel.category,
+                func.count(
+                    SupportTicketModel.id
+                ).label("count"),
+            )
+            .filter(
+                SupportTicketModel.assigned_to == user_id
+            )
+            .group_by(
+                SupportTicketModel.category
+            )
+            .all()
+        )
+
+
+        # =========================
+        # RESOLUTION RATE
+        # =========================
+
+        resolved = (
+            query
+            .filter(
+                SupportTicketModel.status.in_(
+                    [
+                        TicketStatus.RESOLVED,
+                        TicketStatus.CLOSED,
+                    ]
                 )
-                .first()
             )
+            .count()
+        )
 
-            if model is None:
-                return None
 
-            SupportTicketMapper.update_model(
-                model,
-                ticket
+        resolution_rate = (
+            round(
+                (resolved / total) * 100,
+                2,
             )
+            if total > 0
+            else 0
+        )
 
-            return SupportTicketMapper.to_domain(model)
-    
+
+        # =========================
+        # RESULT
+        # =========================
+
+        return {
+            "total": total,
+            "closed": closed,
+            "last_7_days": last_7_days,
+            "last_30_days": last_30_days,
+            "category_distribution": category_distribution,
+            "resolution_rate": resolution_rate,
+        }
+
     def count_open_tickets_by_agent(self, agent_id: str):
 
         return (
@@ -517,189 +641,102 @@ class SupportTicketSQLRepository(SupportTicketRepository):
             .count()
         )
 
-    def get_sav_statistics(self, user):
+    def count_unread(
+        self,
+        user_id: str,
+        user_role: UserRole,
+    ) -> int:
 
-        query = self.db.query(SupportTicketModel)
+        # =====================================
+        # DERNIER MESSAGE DE CHAQUE TICKET
+        # =====================================
 
-        # =====================
-        # SCOPE
-        # =====================
-        query = query.filter(
-            SupportTicketModel.assigned_to == user.id
-        )
-
-        # =====================
-        # TOTAL
-        # =====================
-        total = query.count()
-
-        # =====================
-        # CLOSED TICKETS
-        # =====================
-        closed = query.filter(
-            SupportTicketModel.status == TicketStatus.CLOSED
-        ).count()
-
-        # =====================
-        # TREND
-        # =====================
-        now = datetime.now(timezone.utc)
-
-        last_7_days = query.filter(
-            SupportTicketModel.created_at >= now - timedelta(days=7)
-        ).count()
-
-        last_30_days = query.filter(
-            SupportTicketModel.created_at >= now - timedelta(days=30)
-        ).count()
-
-        # =====================
-        # DISTRIBUTION PAR CATEGORIE
-        # =====================
-        category_distribution = (
-            self.db.query(
-                SupportTicketModel.category,
-                func.count(SupportTicketModel.id)
-            )
-            .filter(
-                SupportTicketModel.assigned_to == user.id
-            )
-            .group_by(SupportTicketModel.category)
-            .all()
-        )
-
-        # =====================
-        # PERFORMANCE
-        # =====================
-        resolved = query.filter(
-            SupportTicketModel.status == TicketStatus.RESOLVED
-        ).count()
-
-        resolution_rate = 0
-
-        if total > 0:
-            resolution_rate = round(
-                (resolved / total) * 100,
-                2
-            )
-
-        return {
-            "total": total,
-            "closed": closed,
-            "last_7_days": last_7_days,
-            "last_30_days": last_30_days,
-            "category_distribution": category_distribution,
-            "resolution_rate": resolution_rate,
-        }
-    
-    def get_unread_ticket_ids(self, user) -> list[str]:
-
-        subquery_last_message = (
+        last_message_subquery = (
             self.db.query(
                 TicketMessageModel.ticket_id,
-                func.max(TicketMessageModel.created_at).label("last_message_at"),
+                func.max(
+                    TicketMessageModel.created_at
+                ).label("last_message_at"),
             )
-            .group_by(TicketMessageModel.ticket_id)
+            .group_by(
+                TicketMessageModel.ticket_id
+            )
             .subquery()
         )
 
-        subquery_read = (
-            self.db.query(TicketReadStateModel)
-            .filter(TicketReadStateModel.user_id == user.id)
-            .subquery()
-        )
+        # =====================================
+        # DERNIÈRE LECTURE DE L'UTILISATEUR
+        # =====================================
 
-        query = (
-            self.db.query(SupportTicketModel.id)
-            .join(
-                subquery_last_message,
-                subquery_last_message.c.ticket_id == SupportTicketModel.id,
-            )
-            .outerjoin(
-                subquery_read,
-                subquery_read.c.ticket_id == SupportTicketModel.id,
-            )
-        )
-
-        # =====================
-        # VISIBILITÉ (IMPORTANT)
-        # =====================
-        if user.role == UserRole.CLIENT:
-            query = query.filter(
-                SupportTicketModel.user_id == user.id
-            )
-
-        elif user.role == UserRole.SAV_AGENT:
-            query = query.filter(
-                SupportTicketModel.assigned_to == user.id
-            )
-
-        # =====================
-        # UNREAD LOGIC
-        # =====================
-        query = query.filter(
-            (subquery_read.c.last_read_at.is_(None))
-            |
-            (subquery_read.c.last_read_at < subquery_last_message.c.last_message_at)
-        )
-
-        return [row[0] for row in query.all()]
-    
-    def count_unread(self, user) -> int:
-
-        subquery_last_message = (
-            self.db.query(
-                TicketMessageModel.ticket_id,
-                func.max(TicketMessageModel.created_at).label("last_message_at"),
-            )
-            .group_by(TicketMessageModel.ticket_id)
-            .subquery()
-        )
-
-        subquery_read = (
+        read_state_subquery = (
             self.db.query(
                 TicketReadStateModel.ticket_id,
                 TicketReadStateModel.last_read_at,
             )
-            .filter(TicketReadStateModel.user_id == user.id)
+            .filter(
+                TicketReadStateModel.user_id == user_id
+            )
             .subquery()
         )
 
+        # =====================================
+        # BASE QUERY
+        # =====================================
+
         query = (
-            self.db.query(func.count())
-            .select_from(SupportTicketModel)
+            self.db.query(
+                func.count(
+                    SupportTicketModel.id
+                )
+            )
             .join(
-                subquery_last_message,
-                subquery_last_message.c.ticket_id == SupportTicketModel.id,
+                last_message_subquery,
+                last_message_subquery.c.ticket_id
+                == SupportTicketModel.id,
             )
             .outerjoin(
-                subquery_read,
-                subquery_read.c.ticket_id == SupportTicketModel.id,
+                read_state_subquery,
+                read_state_subquery.c.ticket_id
+                == SupportTicketModel.id,
             )
         )
 
-        # =====================
+        # =====================================
         # VISIBILITÉ
-        # =====================
-        if user.role == UserRole.CLIENT:
+        # =====================================
+
+        if user_role == UserRole.CLIENT:
+
             query = query.filter(
-                SupportTicketModel.user_id == user.id
+                SupportTicketModel.user_id == user_id
             )
 
-        elif user.role == UserRole.SAV_AGENT:
+        elif user_role == UserRole.SAV_AGENT:
+
             query = query.filter(
-                SupportTicketModel.assigned_to == user.id
+                SupportTicketModel.assigned_to == user_id
             )
 
-        # =====================
-        # UNREAD LOGIC
-        # =====================
+        elif user_role == UserRole.ADMIN:
+
+            # ADMIN voit tous les tickets
+            pass
+
+        else:
+
+            # Aucun accès
+            return 0
+
+        # =====================================
+        # UNREAD
+        # =====================================
+
         query = query.filter(
-            (subquery_read.c.last_read_at.is_(None))
-            |
-            (
-                subquery_read.c.last_read_at
-                < subquery_last_message.c.last_message_at
+            or_(
+                read_state_subquery.c.last_read_at.is_(None),
+
+                read_state_subquery.c.last_read_at
+                < last_message_subquery.c.last_message_at,
             )
         )
 

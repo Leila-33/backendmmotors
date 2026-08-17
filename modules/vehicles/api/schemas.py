@@ -17,29 +17,33 @@ class AssignOptionsToVehicleRequest(BaseModel):
 import re
 
 class CreateVehicleRequest(BaseModel):
+
     brand: str
     model: str
     price: float
+
     type: VehicleType
+
     mileage: int
     year: int
+
+    description: str | None = None
+
+    engine_type: EngineType
+
+    equipments: list[str] = []
+
     condition: VehicleCondition
 
-    # 🚗 IMMATRICULATION (OBLIGATOIRE)
-    license_plate: str
+    images: list[str] = []
 
+    license_plate: str | None = None
 
-    # 🛡️ GARANTIE (OPTIONNEL)
-    warranty_plan_id: Optional[str] = None
+    warranty_plan_id: str | None = None
 
-    # optionnel côté backend
-    description: Optional[str] = None
-    engine_type: Optional[EngineType] = None
+    included_options: list[str] = []
 
-    equipments: List[str] = []
-    included_options: List[str] = []
-    optional_options: List[str] = []
-    images: List[str] = []
+    optional_options: list[str] = []
 
     # =========================
     # VALIDATORS
@@ -379,3 +383,19 @@ class UnavailableDateResponse(BaseModel):
 # =========================
 class SetAvailabilityRequest(BaseModel):
     value: bool
+
+# =========================
+# delete_vehicle
+# =========================
+from enum import Enum
+
+
+class VehicleDeletionAction(str, Enum):
+    ARCHIVED = "ARCHIVED"
+    DELETED = "DELETED"
+
+
+class DeleteVehicleResponse(BaseModel):
+    vehicle_id: str
+    action: VehicleDeletionAction
+    message: str

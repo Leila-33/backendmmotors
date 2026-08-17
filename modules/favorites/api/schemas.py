@@ -1,40 +1,47 @@
+from datetime import datetime
+
 from pydantic import BaseModel
-from typing import List, Optional
+
+from modules.vehicles.domain.enums import VehicleType
 
 
-# add favorites
+# ============================================================
+# ADD FAVORITE
+# ============================================================
 
 class AddFavoriteResponse(BaseModel):
-
     id: str
-
     message: str
 
-# remove favorite
+
+# ============================================================
+# REMOVE FAVORITE
+# ============================================================
 
 class RemoveFavoriteResponse(BaseModel):
-
     message: str
 
-# get favorites
 
-class FavoriteVehicleSchema(BaseModel):
+# ============================================================
+# GET FAVORITES
+# ============================================================
+
+class FavoriteVehicleResponse(BaseModel):
     id: str
     brand: str
     model: str
     year: int
     price: float
     mileage: int
-    type: str
-    images: List[str] = []
+    type: VehicleType
+    images: list[str]
 
 
-class FavoriteSchema(BaseModel):
+class FavoriteItemResponse(BaseModel):
     id: str
-    created_at: Optional[str]
-
-    vehicle: FavoriteVehicleSchema
+    created_at: datetime | None
+    vehicle: FavoriteVehicleResponse
 
 
 class GetFavoritesResponse(BaseModel):
-    items: List[FavoriteSchema]
+    items: list[FavoriteItemResponse]

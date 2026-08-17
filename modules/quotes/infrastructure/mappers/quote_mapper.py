@@ -1,9 +1,41 @@
 from modules.quotes.domain.entities.quote import Quote
-
 from modules.quotes.infrastructure.db.quote_model import QuoteModel
 from modules.leads.infrastructure.mappers.lead_mapper import LeadMapper
 from modules.quotes.infrastructure.mappers.quote_trade_in_mapper import QuoteTradeInMapper
+from modules.quotes.application.results.agent.create_quote_result import (
+    CreateQuoteResult,
+)
+from modules.quotes.application.results.agent.get_quote_detail_result import (
+    GetQuoteDetailResult,
+)
+from modules.quotes.application.results.get_customer_quotes_result import (
+    GetCustomerQuotesResult,
+)
+from modules.quotes.application.results.get_customer_quote_detail_result import (
+    GetCustomerQuoteDetailResult,
+)
+from modules.quotes.application.results.quote_action_result import (
+    QuoteActionResult,
+)
+from modules.quotes.application.results.accept_quote_result import (
+    AcceptQuoteResult,
+)
+from modules.quotes.application.results.get_client_quote_action_required_count_result import (
+    GetClientQuoteActionRequiredCountResult,
+)
+
+from modules.quotes.api.schemas import (
+    CreateQuoteResponse,
+    QuoteDetailResponse,
+    CustomerQuoteListResponse,
+    QuoteCustomerDetailResponse,
+    QuoteActionResponse,
+    AcceptQuoteResponse,
+    QuoteActionRequiredCountResponse,
+)
+
 from modules.quotes.domain.enums import QuoteStatus
+
 
 class QuoteMapper:
 
@@ -154,97 +186,97 @@ class QuoteMapper:
         model.expires_at = quote.expires_at
 
 
+
+    # =====================================================
+    # CREATE
+    # =====================================================
+
     @staticmethod
-    def to_detail_response(model):
+    def to_create_response(
+        result: CreateQuoteResult,
+    ) -> CreateQuoteResponse:
 
-        return {
+        return CreateQuoteResponse(
+            quote_id=result.quote_id,
+            lead_id=result.lead_id,
+            vehicle_id=result.vehicle_id,
+            message=result.message,
+        )
 
-            "id": model.id,
+    # =====================================================
+    # AGENT - DETAIL
+    # =====================================================
 
-            "status": (
-                model.status.value
-                if hasattr(model.status, "value")
-                else model.status
+    @staticmethod
+    def to_detail_response(
+        result: GetQuoteDetailResult,
+    ) -> QuoteDetailResponse:
+
+        quote = result.quote
+
+        return QuoteDetailResponse(
+            id=quote.id,
+
+            status=(
+                quote.status.value
+                if hasattr(quote.status, "value")
+                else quote.status
             ),
 
-            "base_price": model.base_price,
+            base_price=quote.base_price,
+            discount=quote.discount,
+            down_payment=quote.down_payment,
+            trade_in_value=quote.trade_in_value,
+            financed_amount=quote.financed_amount,
+            duration_months=quote.duration_months,
+            monthly_payment=quote.monthly_payment,
 
-            "discount": model.discount,
-
-            "down_payment": model.down_payment,
-
-            "trade_in_value": model.trade_in_value,
-
-            "financed_amount": model.financed_amount,
-
-            "duration_months": model.duration_months,
-
-            "monthly_payment": model.monthly_payment,
-
-            "lead": {
-
-                "id": model.lead.id,
-
-                "first_name": model.lead.first_name,
-
-                "last_name": model.lead.last_name,
-
-                "email": model.lead.email,
-
-                "phone": model.lead.phone,
-
+            lead={
+                "id": quote.lead.id,
+                "first_name": quote.lead.first_name,
+                "last_name": quote.lead.last_name,
+                "email": quote.lead.email,
+                "phone": quote.lead.phone,
             },
 
-            "vehicle": {
+            vehicle={
+                "id": quote.lead.vehicle.id,
+                "brand": quote.lead.vehicle.brand,
+                "model": quote.lead.vehicle.model,
+                "price": quote.lead.vehicle.price,
+            },
 
-        "id": model.lead.vehicle.id,
-
-        "brand": model.lead.vehicle.brand,
-
-        "model": model.lead.vehicle.model,
-
-        "price": model.lead.vehicle.price,
-
-    },
-
-            "trade_in": (
-
+            trade_in=(
                 {
-
-                    "brand": model.trade_in.brand,
-
-                    "model": model.trade_in.model,
-
-                    "year": model.trade_in.year,
-
-                    "mileage": model.trade_in.mileage,
-
-                    "condition": model.trade_in.condition,
-
-                    "estimated_value": model.trade_in.estimated_value,
-
+                    "brand": quote.trade_in.brand,
+                    "model": quote.trade_in.model,
+                    "year": quote.trade_in.year,
+                    "mileage": quote.trade_in.mileage,
+                    "condition": quote.trade_in.condition,
+                    "estimated_value": (
+                        quote.trade_in.estimated_value
+                    ),
                 }
-
-                if model.trade_in
-
+                if quote.trade_in
                 else None
-
             ),
 
-            "created_at": model.created_at,
+            created_at=quote.created_at,
+        )
 
-        }
+    # =====================================================
+    # AGENT / CUSTOMER - LIST
+    # =====================================================
 
     @staticmethod
     def to_list_response(
         quote,
-    ):
+    ) -> CustomerQuoteListResponse:
 
-        return {
+        return CustomerQuoteListResponse(
+            id=quote.id,
 
-            "id": quote.id,
-
-            "status": (
+            status=(
                 quote.status.value
                 if hasattr(
                     quote.status,
@@ -253,123 +285,148 @@ class QuoteMapper:
                 else quote.status
             ),
 
-            "base_price": quote.base_price,
+            base_price=quote.base_price,
+            monthly_payment=quote.monthly_payment,
+            created_at=quote.created_at,
 
-            "monthly_payment": quote.monthly_payment,
+            vehicle={
+                "id": quote.lead.vehicle.id,
+                "brand": quote.lead.vehicle.brand,
+                "model": quote.lead.vehicle.model,
+                "price": quote.lead.vehicle.price,
+            },
 
-            "created_at": quote.created_at,
+            requires_action=(
+                quote.status == QuoteStatus.SENT
+            ),
+        )
 
-            "vehicle": {
+    # =====================================================
+    # CUSTOMER - LIST
+    # =====================================================
 
-    "id": quote.lead.vehicle.id,
+    @staticmethod
+    def to_customer_list_response(
+        result: GetCustomerQuotesResult,
+    ) -> list[CustomerQuoteListResponse]:
 
-    "brand": quote.lead.vehicle.brand,
+        return [
+            QuoteMapper.to_list_response(
+                quote
+            )
+            for quote in result.quotes
+        ]
 
-    "model": quote.lead.vehicle.model,
-
-    "price": quote.lead.vehicle.price,
-
-},
-            "requires_action": (
-                    quote.status == QuoteStatus.SENT
-                ),
-
-        }
-    
+    # =====================================================
+    # CUSTOMER - DETAIL
+    # =====================================================
 
     @staticmethod
     def to_customer_detail_response(
-            quote,
-    application_id=None,
-    ):
+        result: GetCustomerQuoteDetailResult,
+    ) -> QuoteCustomerDetailResponse:
 
-        return {
+        quote = result.quote
 
-            "id": quote.id,
+        return QuoteCustomerDetailResponse(
+            id=quote.id,
 
-
-            "status": (
+            status=(
                 quote.status.value
                 if hasattr(
                     quote.status,
-                    "value"
+                    "value",
                 )
                 else quote.status
             ),
 
+            base_price=quote.base_price,
+            discount=quote.discount,
+            down_payment=quote.down_payment,
+            trade_in_value=quote.trade_in_value,
+            financed_amount=quote.financed_amount,
+            duration_months=quote.duration_months,
+            monthly_payment=quote.monthly_payment,
 
-            "base_price": quote.base_price,
-
-            "discount": quote.discount,
-
-            "down_payment": quote.down_payment,
-
-            "trade_in_value": quote.trade_in_value,
-
-            "financed_amount": quote.financed_amount,
-
-            "duration_months": quote.duration_months,
-
-            "monthly_payment": quote.monthly_payment,
-
-
-            "vehicle": {
-
+            vehicle={
                 "id": quote.lead.vehicle.id,
-
                 "brand": quote.lead.vehicle.brand,
-
                 "model": quote.lead.vehicle.model,
-
                 "price": quote.lead.vehicle.price,
-
             },
 
-
-
-            "trade_in": (
-
+            trade_in=(
                 {
                     "brand": quote.trade_in.brand,
-
                     "model": quote.trade_in.model,
-
                     "year": quote.trade_in.year,
-
                     "mileage": quote.trade_in.mileage,
-
                     "condition": quote.trade_in.condition,
-
-                    "estimated_value": quote.trade_in.estimated_value,
+                    "estimated_value": (
+                        quote.trade_in.estimated_value
+                    ),
                 }
-
                 if quote.trade_in
-
                 else None
-
             ),
 
+            sales_agent=(
+                {
+                    "id": quote.lead.assigned_agent.id,
+                    "first_name": (
+                        quote.lead.assigned_agent.first_name
+                    ),
+                    "last_name": (
+                        quote.lead.assigned_agent.last_name
+                    ),
+                }
+                if quote.lead.assigned_agent
+                else None
+            ),
 
+            created_at=quote.created_at,
 
-            "sales_agent": (
+            application_id=result.application_id,
+        )
 
-    {
-        "id": quote.lead.assigned_agent.id,
+    # =====================================================
+    # GENERIC ACTION
+    # =====================================================
 
-        "first_name": quote.lead.assigned_agent.first_name,
+    @staticmethod
+    def to_action_response(
+        result: QuoteActionResult,
+    ) -> QuoteActionResponse:
 
-        "last_name": quote.lead.assigned_agent.last_name,
-    }
+        return QuoteActionResponse(
+            id=result.quote_id,
+            message=result.message,
+        )
 
-    if quote.lead.assigned_agent
+    # =====================================================
+    # ACCEPT
+    # =====================================================
 
-    else None
-),
+    @staticmethod
+    def to_accept_response(
+        result: AcceptQuoteResult,
+    ) -> AcceptQuoteResponse:
 
+        return AcceptQuoteResponse(
+            quote_id=result.quote_id,
+            application_id=result.application_id,
+            message=result.message,
+        )
 
+    # =====================================================
+    # ACTION REQUIRED COUNT
+    # =====================================================
 
-            "created_at": quote.created_at,
-            "application_id": application_id
+    @staticmethod
+    def to_action_required_count_response(
+        result: GetClientQuoteActionRequiredCountResult,
+    ) -> QuoteActionRequiredCountResponse:
 
-
-        }
+        return QuoteActionRequiredCountResponse(
+            count=result.count,
+        )

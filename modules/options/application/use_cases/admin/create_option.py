@@ -1,14 +1,22 @@
-from uuid import uuid4
-from modules.options.domain.entities.option import Option
-from modules.options.api.schemas import CreateOptionResponse
-from modules.options.domain.exceptions import OptionAlreadyExists
-from modules.options.domain.enums import OptionType
-from modules.applications.domain.enums import EventType
 import logging
+from uuid import uuid4
+
+from modules.options.domain.entities.option import Option
+from modules.options.domain.enums import OptionType
+from modules.options.domain.exceptions import OptionAlreadyExists
+from modules.applications.domain.enums import EventType
+
+from modules.options.application.dtos.admin.create_option_dto import (
+    CreateOptionDTO,
+)
+from modules.options.application.results.admin.create_option_result import (
+    CreateOptionResult,
+)
+
 logger = logging.getLogger(__name__)
 
-class CreateOptionUseCase:
 
+class CreateOptionUseCase:
 
     def __init__(
         self,
@@ -20,24 +28,18 @@ class CreateOptionUseCase:
         self.event_service = event_service
         self.unit_of_work = unit_of_work
 
-
-
     def execute(
         self,
-        request,
-        current_admin
+        dto: CreateOptionDTO,
     ):
 
         try:
+
             # =========================
-            # NORMALIZE NAME
+            # NORMALIZE
             # =========================
 
-            name = (
-                request.name
-                .strip()
-            )
-
+            name = dto.name.strip()
 
             # =========================
             # BUSINESS RULE
@@ -45,41 +47,27 @@ class CreateOptionUseCase:
 
             exists = (
                 self.option_repository
-                .exists_by_name(
-                    name
-                )
+                .exists_by_name(name)
             )
 
-
             if exists:
-                raise OptionAlreadyExists(
-                    name
-                )
-
+                raise OptionAlreadyExists(name)
 
             # =========================
-            # CREATE DOMAIN
+            # CREATE DOMAIN ENTITY
             # =========================
 
             option = Option(
-
                 id=str(uuid4()),
-
                 name=name,
-
                 type=OptionType.CUSTOM,
-
-                price=request.price,
-
-                billing_type=request.billing_type,
-
+                price=dto.price,
+                billing_type=dto.billing_type,
                 is_active=True,
-
             )
 
-
             # =========================
-            # SAVE
+            # PERSIST
             # =========================
 
             option = (
@@ -87,36 +75,62 @@ class CreateOptionUseCase:
                 .save(option)
             )
 
+            # =========================
+            # EVENT
+            # =========================
+
             self.event_service.log(
-            type=EventType.OPTION_CREATED,
-            message="Option créée",
-            user_id=current_admin.id,
-            event_metadata={
-                "option_id": option.id,
-                "name": option.name,
-            }
-        )
+                type=EventType.OPTION_CREATED,
+                message="Option créée",
+                user_id=dto.admin_id,
+                event_metadata={
+                    "option_id": option.id,
+                    "name": option.name,
+                },
+            )
+
+            # =========================
+            # COMMIT
+            # =========================
+
             self.unit_of_work.commit()
 
+            logger.info(
+                "Option créée avec succès",
+                extra={
+                    "option_id": option.id,
+                    "admin_id": dto.admin_id,
+                    "option_name": option.name,
+                },
+            )
 
+            # =========================
+            # RESULT
+            # =========================
 
-            return CreateOptionResponse(
-
-                id=option.id,
-
-                message="Option créée avec succès"
-
+            return CreateOptionResult(
+                option_id=option.id,
+                message="Option créée avec succès",
             )
 
         except Exception:
 
-            self.uow.rollback()
+            self.unit_of_work.rollback()
 
             logger.exception(
                 "Erreur lors de la création d'une option",
                 extra={
-                    "option_name": option.name,
-                }
+                    "option_name": (
+                        dto.name
+                        if dto
+                        else None
+                    ),
+                    "admin_id": (
+                        dto.admin_id
+                        if dto
+                        else None
+                    ),
+                },
             )
 
             raise

@@ -1,97 +1,105 @@
-from modules.sav.domain.exceptions import SupportTicketNotFound, TicketAccessDenied
-from modules.auth.domain.enums import UserRole
-from modules.sav.infrastructure.mappers.support_ticket_mapper import SupportTicketMapper
 from datetime import datetime, timezone
 
-from datetime import datetime, timezone
+from modules.auth.domain.enums import UserRole
+
+from modules.sav.domain.exceptions import (
+    SupportTicketNotFound,
+    TicketAccessDenied,
+)
+
+from modules.sav.application.dtos.get_support_ticket_dto import (
+    GetSupportTicketDTO,
+)
+
+from modules.sav.application.results.get_support_ticket_result import (
+    GetSupportTicketResult,
+)
+
 
 class GetSupportTicketUseCase:
 
     def __init__(
         self,
-        repo,
-        read_state_repo,
-        connection_manager,
-        unit_of_work
+        ticket_repository,
+        read_state_repository,
+        unit_of_work,
     ):
-        self.repo = repo
-        self.read_state_repo = read_state_repo
-        self.connection_manager = connection_manager
-        self.uow = unit_of_work
-        
-    async def execute(
+        self.ticket_repository = (
+            ticket_repository
+        )
+
+        self.read_state_repository = (
+            read_state_repository
+        )
+
+        self.unit_of_work = unit_of_work
+
+    def execute(
         self,
-        ticket_id: str,
-        user
-    ):
+        dto: GetSupportTicketDTO,
+    ) -> GetSupportTicketResult:
 
-        # =====================
+        # =========================
         # GET TICKET
-        # =====================
+        # =========================
 
-        ticket = self.repo.get_by_id(ticket_id)
+        ticket = (
+            self.ticket_repository
+            .get_by_id(
+                dto.ticket_id
+            )
+        )
 
-        if not ticket:
+        if ticket is None:
             raise SupportTicketNotFound()
 
-
-        # =====================
+        # =========================
         # ACCESS CONTROL
-        # =====================
+        # =========================
 
-        allowed_roles = [
+        allowed_roles = (
             UserRole.ADMIN,
-            UserRole.SAV_AGENT
-        ]
+            UserRole.SAV_AGENT,
+        )
 
         if (
-            user.role not in allowed_roles
-            and ticket.user_id != user.id
+            dto.user_role not in allowed_roles
+            and ticket.user_id != dto.user_id
         ):
             raise TicketAccessDenied()
 
-
-
-        # =====================
+        # =========================
         # MARK AS READ
-        # =====================
+        # =========================
 
-        self.read_state_repo.mark_last_read(
-            ticket_id=ticket_id,
-            user_id=user.id,
-            last_read_at=datetime.now(timezone.utc)
+        self.read_state_repository.mark_last_read(
+            ticket_id=ticket.id,
+            user_id=dto.user_id,
+            last_read_at=datetime.now(
+                timezone.utc
+            ),
         )
 
+        # =========================
+        # UNREAD COUNT
+        # =========================
 
-        # =====================
-        # SAVE
-        # =====================
+        unread_count = self.repo.count_unread(
+    user_id=dto.user_id,
+    user_role=dto.user_role,
+)
 
-        self.uow.commit()
+        # =========================
+        # COMMIT
+        # =========================
 
+        self.unit_of_work.commit()
 
+        # =========================
+        # RESULT
+        # =========================
 
-        # =====================
-        # UPDATE UNREAD COUNT
-        # =====================
-
-        unread_count = (
-            self.repo.count_unread(user)
+        return GetSupportTicketResult(
+            ticket=ticket,
+            unread_count=unread_count,
         )
-
-
-
-        # =====================
-        # WEBSOCKET
-        # =====================
-
-        await self.connection_manager.send(
-            user.id,
-            {
-                "type": "UNREAD_UPDATED",
-                "count": unread_count
-            }
-        )
-
-
-        return ticket

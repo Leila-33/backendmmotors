@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 from modules.notifications.domain.enums import NotificationType
 from modules.applications.domain.enums import ApplicationStatus
 
