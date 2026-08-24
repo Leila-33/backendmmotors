@@ -31,7 +31,7 @@ class CreateUserUseCase:
     def execute(
         self,
         dto : CreateUserDTO,
-        current_admin,
+        admin_id: str,
     ) -> CreateUserResult:
 
         try:
@@ -60,7 +60,7 @@ class CreateUserUseCase:
                 message=(
                     "Utilisateur créé par un administrateur"
                 ),
-                user_id=current_admin.id,
+                user_id=admin_id,
                 event_metadata={
                     "email": user.email,
                     "role": user.role.value,
@@ -78,7 +78,7 @@ class CreateUserUseCase:
                 extra={
                     "user_id": user.id,
                     "role": user.role.value,
-                    "admin_id": current_admin.id,
+                    "admin_id": admin_id,
                 },
             )
 
@@ -99,11 +99,7 @@ class CreateUserUseCase:
             logger.exception(
                 "Erreur création utilisateur",
                 extra={
-                    "admin_id": (
-                        current_admin.id
-                        if current_admin
-                        else None
-                    ),
+                    "admin_id": admin_id,
                 },
             )
 

@@ -2,8 +2,9 @@ from dataclasses import dataclass
 
 from modules.vehicles.domain.enums import (
     VehicleType,
-    VehicleOptionType,
-)
+    EngineType,
+    VehicleCondition,
+    )
 
 
 @dataclass(frozen=True)
@@ -15,9 +16,9 @@ class CreateVehicleDTO:
     mileage: int
     year: int
     description: str | None
-    engine_type: str
+    engine_type: EngineType
     equipments: list[str]
-    condition: str
+    condition: VehicleCondition
     images: list[str]
     license_plate: str | None
     warranty_plan_id: str | None

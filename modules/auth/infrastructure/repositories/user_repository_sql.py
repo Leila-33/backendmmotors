@@ -185,7 +185,7 @@ class UserRepositorySQL(UserRepository):
             if role != "ALL":
 
                 query = query.filter(
-                    UserModel.role == UserRole(role)
+                    UserModel.role == role
                 )
 
 

@@ -8,7 +8,6 @@ from pydantic import (
     Field,
     field_validator,
     model_validator,
-    ValidationInfo
 )
 
 from modules.applications.domain.enums import EventType
@@ -650,7 +649,6 @@ class EventResponse(BaseModel):
     message: str
     event_metadata: dict[str, Any] | None = None
     created_at: datetime
-
 
 class ApplicationDetailResponse(BaseModel):
 

@@ -1,5 +1,5 @@
 from modules.applications.domain.repositories.document_repository import DocumentRepository
-from modules.applications.api.schemas import DocumentDTO
+from modules.applications.application.dtos.document_dto import DocumentDTO
 from uuid import uuid4
 from modules.applications.domain.enums import (
     DocumentStatus

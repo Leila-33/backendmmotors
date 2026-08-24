@@ -1,4 +1,4 @@
-from modules.sav.application.dtos.get_sav_statistics_result import (
+from modules.sav.application.results.agent.get_sav_statistics_result import (
     GetSavStatisticsResult,
     CategoryStatResult,
 )

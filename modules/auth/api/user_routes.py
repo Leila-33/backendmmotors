@@ -1,58 +1,4 @@
-# FastAPI
 from fastapi import APIRouter, Cookie, Depends, Request, Response
-
-# API
-from modules.auth.api.schemas import (
-    RegisterRequest,
-    RegisterResponse,
-    LoginUserRequest,
-    LoginUserResponse,
-    RefreshTokenResponse,
-    VerifyEmailResponse,
-    LogoutResponse,
-    UserResponse,
-    CheckActivationTokenResponse,
-    ActivateAccountRequest,
-    ActivateAccountResponse
-)
-
-from modules.auth.api.dependencies import (
-    get_register_user_usecase,
-    get_login_user_usecase,
-    get_refresh_token_usecase,
-    get_logout_user_usecase,
-    get_verify_email_usecase,
-    get_check_activation_token_usecase,
-    get_activate_account_usecase
-    )
-
-# Application - DTO
-from modules.auth.application.dtos.activate_account_dto import ActivateAccountDTO
-from modules.auth.application.dtos.login_user_dto import LoginUserDTO
-from modules.auth.application.dtos.register_dto import RegisterDTO
-
-# Application - Use Cases
-from modules.auth.application.use_cases.activate_account import ActivateAccountUseCase
-from modules.auth.application.use_cases.check_activation_token import CheckActivationTokenUseCase
-from modules.auth.application.use_cases.login_user import LoginUser
-from modules.auth.application.use_cases.logout_user import LogoutUser
-from modules.auth.application.use_cases.refresh_token import RefreshTokenUseCase
-from modules.auth.application.use_cases.register_user import RegisterUser
-from modules.auth.application.use_cases.verify_email import VerifyEmail
-
-# Domain
-from modules.auth.domain.entities.user import User
-from modules.auth.domain.exceptions import RefreshTokenMissing
-
-# Security
-from core.security.dependencies import get_current_user
-
-
-
-router = APIRouter(tags=["auth"])
-
-
-from fastapi import APIRouter, Depends, Request, Response, Cookie
 
 from modules.auth.application.dtos.register_dto import RegisterDTO
 from modules.auth.application.dtos.login_user_dto import LoginUserDTO
@@ -62,12 +8,9 @@ from modules.auth.application.dtos.activate_account_dto import (
 
 from modules.auth.api.schemas import (
     RegisterRequest,
-    RegisterResponse,
+    MessageResponse,
     LoginUserRequest,
-    LoginUserResponse,
-    RefreshTokenResponse,
-    VerifyEmailResponse,
-    LogoutResponse,
+    AccessTokenResponse,
     UserResponse,
     CheckActivationTokenResponse,
     ActivateAccountRequest,
@@ -113,7 +56,6 @@ from modules.auth.domain.exceptions import RefreshTokenMissing
 
 
 router = APIRouter(
-    prefix="/auth",
     tags=["auth"],
 )
 
@@ -124,7 +66,7 @@ router = APIRouter(
 
 @router.post(
     "/register",
-    response_model=RegisterResponse,
+    response_model=MessageResponse,
 )
 def register(
     data: RegisterRequest,
@@ -142,7 +84,7 @@ def register(
 
     result = usecase.execute(dto)
 
-    return RegisterResponse(
+    return MessageResponse(
         message=result.message,
     )
 
@@ -153,7 +95,7 @@ def register(
 
 @router.post(
     "/login",
-    response_model=LoginUserResponse,
+    response_model=AccessTokenResponse,
 )
 def login(
     request: LoginUserRequest,
@@ -178,7 +120,7 @@ def login(
         max_age=60 * 60 * 24 * 7,
     )
 
-    return LoginUserResponse(
+    return AccessTokenResponse(
         access_token=result.access_token,
     )
 
@@ -189,7 +131,7 @@ def login(
 
 @router.post(
     "/refresh",
-    response_model=RefreshTokenResponse,
+    response_model=AccessTokenResponse,
 )
 def refresh(
     response: Response,
@@ -212,7 +154,7 @@ def refresh(
         max_age=60 * 60 * 24 * 7,
     )
 
-    return RefreshTokenResponse(
+    return AccessTokenResponse(
         access_token=result.access_token,
     )
 
@@ -222,7 +164,7 @@ def refresh(
 
 @router.post(
     "/logout",
-    response_model=LogoutResponse,
+    response_model=MessageResponse,
 )
 def logout(
     response: Response,
@@ -233,21 +175,21 @@ def logout(
         get_logout_user_usecase
     ),
 ):
-    if not refresh_token:
-        raise RefreshTokenMissing()
 
-    result = usecase.execute(
-        refresh_token
-    )
+    if refresh_token:
+
+        usecase.execute(
+            refresh_token
+        )
 
     response.delete_cookie(
         key="refresh_token",
+        path="/",
     )
 
-    return LogoutResponse(
-        message=result.message,
+    return MessageResponse(
+        message="Déconnexion réussie",
     )
-
 
 # ============================================================
 # VERIFY EMAIL
@@ -255,7 +197,7 @@ def logout(
 
 @router.get(
     "/verify-email",
-    response_model=VerifyEmailResponse,
+    response_model=MessageResponse,
 )
 def verify_email(
     token: str,
@@ -267,7 +209,7 @@ def verify_email(
         token
     )
 
-    return VerifyEmailResponse(
+    return MessageResponse(
         message=result.message,
     )
 

@@ -41,3 +41,5 @@ class Event:
     vehicle_id: str | None = None
 
     quote_id: str | None = None
+
+    lead_id: str | None = None

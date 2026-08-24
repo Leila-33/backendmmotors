@@ -31,7 +31,7 @@ class ToggleUserActiveUseCase:
         self,
         user_id: str,
         dto: ToggleUserActiveDTO,
-        current_admin,
+        admin_id: str,
     ) -> ToggleUserActiveResult:
 
         try:
@@ -80,7 +80,7 @@ class ToggleUserActiveUseCase:
             self.event_service.log(
                 type=event_type,
                 message=message,
-                user_id=current_admin.id,
+                user_id=admin_id,
                 event_metadata={
                     "email": user.email,
                     "old_status": old_status,
@@ -100,7 +100,7 @@ class ToggleUserActiveUseCase:
                     "user_id": user.id,
                     "old_status": old_status,
                     "new_status": user.is_active,
-                    "admin_id": current_admin.id,
+                    "admin_id": admin_id,
                 },
             )
 
@@ -121,11 +121,7 @@ class ToggleUserActiveUseCase:
                 "Erreur activation compte",
                 extra={
                     "user_id": user_id,
-                    "admin_id": (
-                        current_admin.id
-                        if current_admin
-                        else None
-                    ),
+                    "admin_id": admin_id,
                 },
             )
 

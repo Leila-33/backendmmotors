@@ -2,8 +2,8 @@ from modules.leads.domain.entities.lead import Lead
 from modules.leads.infrastructure.db.lead_model import LeadModel
 from modules.vehicles.infrastructure.mappers.vehicle_mapper import VehicleMapper
 from modules.auth.infrastructure.mappers.user_mapper import UserMapper
-from modules.leads.application.results.admin.get_lead_detail_result import GetLeadDetailResult
-from modules.leads.application.results.admin.get_sales_leads_result import GetSalesLeadsResult
+from modules.leads.application.results.agent.get_lead_detail_result import GetLeadDetailResult
+from modules.leads.application.results.agent.get_sales_leads_result import GetSalesLeadsResult
 class LeadMapper:
 
     # =====================================================

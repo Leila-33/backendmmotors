@@ -1,16 +1,18 @@
+import logging
+
 from modules.warranties.domain.exceptions import (
     WarrantyPlanNotFound,
-    WarrantyPlanAlreadyExists
+    WarrantyPlanAlreadyExists,
 )
-from modules.warranties.api.schemas import UpdateWarrantyPlanResponse
-from modules.warranties.infrastructure.mappers.warranty_plan_mapper import WarrantyPlanMapper
 from modules.applications.domain.enums import EventType
-import logging
+from modules.warranties.application.dtos.admin.update_warranty_plan_dto import (
+    UpdateWarrantyPlanDTO,
+)
 
 logger = logging.getLogger(__name__)
 
-class UpdateWarrantyPlanUseCase:
 
+class UpdateWarrantyPlanUseCase:
 
     def __init__(
         self,
@@ -22,14 +24,12 @@ class UpdateWarrantyPlanUseCase:
         self.event_service = event_service
         self.unit_of_work = unit_of_work
 
-
-
     def execute(
         self,
-        plan_id: str,
-        dto,
-        current_admin
+        dto: UpdateWarrantyPlanDTO,
     ):
+
+        updated_fields = []
 
         try:
 
@@ -37,29 +37,31 @@ class UpdateWarrantyPlanUseCase:
             # GET PLAN
             # =========================
 
-            plan = (
-                self.repository
-                .get_by_id(plan_id)
+            plan = self.repository.get_by_id(
+                dto.plan_id
             )
 
             if not plan:
                 raise WarrantyPlanNotFound()
 
-
             # =========================
-            # NORMALIZE
+            # NORMALIZE NAME
             # =========================
 
-            name = dto.name.strip()
-
+            name = (
+                " ".join(
+                    dto.name
+                    .strip()
+                    .split()
+                )
+            )
 
             # =========================
             # DUPLICATE NAME
             # =========================
 
-            existing = (
-                self.repository
-                .find_by_name(name)
+            existing = self.repository.find_by_name(
+                name
             )
 
             if existing and existing.id != plan.id:
@@ -67,14 +69,15 @@ class UpdateWarrantyPlanUseCase:
                     "Plan déjà existant"
                 )
 
-
             # =========================
             # DUPLICATE TYPE
             # =========================
 
             existing = (
                 self.repository
-                .find_by_plan_type(dto.plan_type)
+                .find_by_plan_type(
+                    dto.plan_type
+                )
             )
 
             if existing and existing.id != plan.id:
@@ -82,67 +85,105 @@ class UpdateWarrantyPlanUseCase:
                     "Un plan existe déjà pour ce type"
                 )
 
-            old_plan = {
-    "name": plan.name,
-    "description": plan.description,
-    "plan_type": plan.plan_type.value,
-    "duration_months": plan.duration_months,
-    "mileage_limit": plan.mileage_limit,
-    "price": plan.price,
-    "covers_engine": plan.covers_engine,
-    "covers_transmission": plan.covers_transmission,
-    "covers_electronics": plan.covers_electronics,
-    "covers_assistance": plan.covers_assistance,
-    "covers_wear_parts": plan.covers_wear_parts,
-}
-
             # =========================
-            # UPDATE
+            # OLD VALUES
             # =========================
 
-            plan = WarrantyPlanMapper.update_model(
-                plan,
-                dto,
+            old_values = {
+                "name": plan.name,
+                "description": plan.description,
+                "plan_type": plan.plan_type,
+                "duration_months": plan.duration_months,
+                "mileage_limit": plan.mileage_limit,
+                "price": plan.price,
+                "covers_engine": plan.covers_engine,
+                "covers_transmission": plan.covers_transmission,
+                "covers_electronics": plan.covers_electronics,
+                "covers_assistance": plan.covers_assistance,
+                "covers_wear_parts": plan.covers_wear_parts,
+            }
+
+            # =========================
+            # UPDATE DOMAIN
+            # =========================
+
+            plan.name = name
+            plan.description = dto.description
+            plan.plan_type = dto.plan_type
+            plan.duration_months = dto.duration_months
+            plan.mileage_limit = dto.mileage_limit
+
+            plan.price = dto.price
+
+            plan.covers_engine = dto.covers_engine
+            plan.covers_transmission = (
+                dto.covers_transmission
             )
-            updated_fields = []
+            plan.covers_electronics = (
+                dto.covers_electronics
+            )
+            plan.covers_assistance = (
+                dto.covers_assistance
+            )
+            plan.covers_wear_parts = (
+                dto.covers_wear_parts
+            )
 
-            for field, old_value in old_plan.items():
+            # =========================
+            # DETECT CHANGES
+            # =========================
+
+            for field, old_value in old_values.items():
 
                 new_value = getattr(
                     plan,
-                    field
+                    field,
                 )
 
                 if old_value != new_value:
                     updated_fields.append(field)
+
             # =========================
             # SAVE
             # =========================
 
+            self.repository.update(plan)
+
+            # =========================
+            # EVENT
+            # =========================
+
             self.event_service.log(
                 type=EventType.WARRANTY_PLAN_UPDATED,
-
                 message="Plan de garantie modifié",
-
-                user_id=current_admin.id,
-
+                user_id=dto.admin_id,
                 event_metadata={
                     "plan_id": plan.id,
-
                     "updated_fields": updated_fields,
                 },
             )
-            self.repository.update(plan)
+
+            # =========================
+            # COMMIT
+            # =========================
 
             self.unit_of_work.commit()
 
             logger.info(
-    "Plan de garantie modifié",
-    extra={
-        "plan_id": plan.id,
-        "updated_fields": updated_fields,
-    },
-)
+                "Plan de garantie modifié",
+                extra={
+                    "plan_id": plan.id,
+                    "admin_id": dto.admin_id,
+                    "updated_fields": updated_fields,
+                },
+            )
+
+            # =========================
+            # RETURN DOMAIN
+            # =========================
+
+            return plan
+
         except Exception:
 
             self.unit_of_work.rollback()
@@ -150,21 +191,10 @@ class UpdateWarrantyPlanUseCase:
             logger.exception(
                 "Erreur modification plan de garantie",
                 extra={
-                    "plan_id": plan_id,
+                    "plan_id": dto.plan_id,
+                    "admin_id": dto.admin_id,
                     "updated_fields": updated_fields,
                 },
             )
 
             raise
-
-        # =========================
-        # RESPONSE
-        # =========================
-
-        return UpdateWarrantyPlanResponse(
-
-                id=plan.id,
-
-                message="Plan modifié avec succès"
-
-            )

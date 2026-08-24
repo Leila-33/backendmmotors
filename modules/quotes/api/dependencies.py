@@ -125,7 +125,6 @@ from modules.dependencies.dependencies import (
     get_lead_repository,
     get_quote_repository,
     get_quote_trade_in_repository,
-    get_vehicle_repository,
     get_event_service,
     get_trade_in_repository,
     get_financing_repository
@@ -135,6 +134,9 @@ from modules.financing.api.dependencies import (
     get_financing_service
 )
 
+# =========================
+#  ADMIN USE CASES
+# =========================
 def get_create_quote_usecase(
     quote_repository = Depends(
         get_quote_repository
@@ -165,53 +167,6 @@ def get_create_quote_usecase(
 ):
 
     return CreateQuoteUseCase(
-
-        quote_repository=quote_repository,
-
-        quote_trade_in_repository=
-            quote_trade_in_repository,
-
-        lead_repository=lead_repository,
-
-        financing_service=financing_service,
-
-        trade_in_service=trade_in_service,
-
-        authorization=authorization,
-        event_service=event_service,
-        unit_of_work = unit_of_work
-    )
-
-def get_update_quote_usecase(
-    quote_repository = Depends(
-        get_quote_repository
-    ),
-
-    quote_trade_in_repository = Depends(
-        get_quote_trade_in_repository
-    ),
-
-    lead_repository = Depends(
-        get_lead_repository
-    ),
-
-    financing_service = Depends(
-        get_financing_service
-    ),
-
-    trade_in_service = Depends(
-        get_trade_in_service
-    ),
-
-    authorization = Depends(
-        get_lead_authorization
-    ),
-    event_service=Depends(get_event_service),
-    unit_of_work = Depends(get_unit_of_work)
-
-):
-
-    return UpdateQuoteUseCase(
 
         quote_repository=quote_repository,
 
@@ -273,7 +228,6 @@ def get_get_quote_detail_usecase(
         authorization=authorization,
     )
 
-
 def get_send_quote_usecase(
 
     quote_repository: QuoteRepository = Depends(
@@ -315,49 +269,56 @@ def get_send_quote_usecase(
 
     )
 
-
-def get_get_customer_quotes_usecase(
-
-    quote_repository: QuoteRepository = Depends(
-        get_quote_repository,
+def get_update_quote_usecase(
+    quote_repository = Depends(
+        get_quote_repository
     ),
+
+    quote_trade_in_repository = Depends(
+        get_quote_trade_in_repository
+    ),
+
+    lead_repository = Depends(
+        get_lead_repository
+    ),
+
+    financing_service = Depends(
+        get_financing_service
+    ),
+
+    trade_in_service = Depends(
+        get_trade_in_service
+    ),
+
+    authorization = Depends(
+        get_lead_authorization
+    ),
+    event_service=Depends(get_event_service),
+    unit_of_work = Depends(get_unit_of_work)
 
 ):
 
-    return GetCustomerQuotesUseCase(
-        quote_repository
+    return UpdateQuoteUseCase(
+
+        quote_repository=quote_repository,
+
+        quote_trade_in_repository=
+            quote_trade_in_repository,
+
+        lead_repository=lead_repository,
+
+        financing_service=financing_service,
+
+        trade_in_service=trade_in_service,
+
+        authorization=authorization,
+        event_service=event_service,
+        unit_of_work = unit_of_work
     )
 
-
-def get_customer_quote_detail_usecase(
-
-    quote_repository: QuoteRepository = Depends(
-        get_quote_repository,
-    ),
-    application_repository : ApplicationRepository = Depends(get_application_repository),
-
-
-):
-
-    return GetCustomerQuoteDetailUseCase(
-        quote_repository = quote_repository,
-        application_repository=application_repository
-
-    )
-
-
-def get_client_quote_action_required_count_usecase(
-
-    quote_repository: QuoteRepository = Depends(
-        get_quote_repository,
-    ),
-
-):
-
-    return GetClientQuoteActionRequiredCountUseCase(
-        quote_repository
-    )
-
+# =========================
+#  CLIENT USE CASES
+# =========================
 
 def get_accept_quote_usecase(
     quote_repository: QuoteRepository = Depends(get_quote_repository),
@@ -380,6 +341,40 @@ def get_accept_quote_usecase(
         unit_of_work = unit_of_work
     )
 
+def get_client_quote_action_required_count_usecase(
+
+    quote_repository: QuoteRepository = Depends(
+        get_quote_repository,
+    ),
+
+):
+
+    return GetClientQuoteActionRequiredCountUseCase(
+        quote_repository
+    )
+
+def get_get_customer_quote_detail_usecase(
+
+    quote_repository: QuoteRepository = Depends(
+        get_quote_repository,
+    ),
+    application_repository : ApplicationRepository = Depends(get_application_repository),
+):
+
+    return GetCustomerQuoteDetailUseCase(
+        quote_repository = quote_repository,
+        application_repository=application_repository
+
+    )
+
+def get_get_customer_quotes_usecase(
+    quote_repository: QuoteRepository = Depends(
+        get_quote_repository,
+    ),
+):
+    return GetCustomerQuotesUseCase(
+        quote_repository
+    )
 
 def get_refuse_quote_usecase(
         quote_repository: QuoteRepository = Depends(

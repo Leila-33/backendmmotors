@@ -1,4 +1,4 @@
-from modules.auth.application.results.register_result import RegisterResult
+from modules.auth.application.results.message_result import MessageResult
 from modules.applications.domain.enums import EventType
 from modules.auth.application.dtos.register_dto import RegisterDTO
 import logging
@@ -24,7 +24,7 @@ class RegisterUserUseCase:
     def execute(
     self,
     data: RegisterDTO,
-) -> RegisterResult:
+) -> MessageResult:
 
         try:
 
@@ -64,7 +64,7 @@ class RegisterUserUseCase:
                 token=token,
             )
 
-            return RegisterResult(
+            return MessageResult(
                 message="Utilisateur créé avec succès."
             )
 

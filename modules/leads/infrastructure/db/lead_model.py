@@ -150,7 +150,10 @@ class LeadModel(Base):
     back_populates="lead",
     cascade="all, delete-orphan",
 )
-
+    events = relationship(
+        "EventModel",
+        back_populates="lead",
+    )
     # =====================================================
     # INDEXES
     # =====================================================

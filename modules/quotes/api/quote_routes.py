@@ -14,7 +14,7 @@ from modules.quotes.api.schemas import (
 )
 
 from modules.quotes.api.dependencies import (
-    get_customer_quotes_usecase,
+    get_get_customer_quotes_usecase,
     get_get_customer_quote_detail_usecase,
     get_client_quote_action_required_count_usecase,
     get_refuse_quote_usecase,
@@ -85,7 +85,7 @@ def get_customer_quotes(
     ),
 
     usecase: GetCustomerQuotesUseCase = Depends(
-        get_customer_quotes_usecase
+        get_get_customer_quotes_usecase
     ),
 ):
 

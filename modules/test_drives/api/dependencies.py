@@ -134,7 +134,7 @@ def get_my_test_drives_usecase(
 # SHARED — DETAIL
 # =========================================================
 
-def get_test_drive_detail_usecase(
+def get_get_test_drive_detail_usecase(
     repository=Depends(
         get_test_drive_repository
     ),
@@ -188,7 +188,7 @@ def get_pending_test_drive_count_usecase(
     )
 
 
-def get_test_drives_admin_usecase(
+def get_get_test_drives_admin_usecase(
     repository=Depends(
         get_test_drive_repository
     ),

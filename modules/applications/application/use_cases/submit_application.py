@@ -19,7 +19,7 @@ from modules.applications.domain.policies.submit_application_policy import (
 from modules.applications.domain.repositories.application_repository import (
     ApplicationRepository,
 )
-from modules.applications.api.schemas import (
+from modules.applications.application.dtos.submit_application_dto import (
     SubmitApplicationDTO,
 )
 from modules.auth.domain.entities.user import (
@@ -35,6 +35,7 @@ from modules.reservations.domain.repositories.reservation_repository import (
 
 
 logger = logging.getLogger(__name__)
+
 class SubmitApplicationUseCase:
 
     def __init__(

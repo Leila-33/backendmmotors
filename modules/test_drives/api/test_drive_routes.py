@@ -42,7 +42,7 @@ from modules.test_drives.api.dependencies import (
     get_create_test_drive_usecase,
     get_get_availability_usecase,
     get_my_test_drives_usecase,
-    get_test_drive_detail_usecase,
+    get_get_test_drive_detail_usecase,
     get_update_test_drive_status_usecase,
 )
 
@@ -50,9 +50,6 @@ from modules.test_drives.domain.enums import TestDriveStatus
 
 from modules.test_drives.infrastructure.mappers.test_drive_mapper import (
     TestDriveMapper,
-)
-from modules.test_drives.infrastructure.mappers.my_test_drive_mapper import (
-    MyTestDriveMapper,
 )
 
 
@@ -143,7 +140,7 @@ def get_my_test_drives(
     )
 
     return [
-        MyTestDriveMapper.to_response(test_drive)
+        TestDriveMapper.to_customer_response(test_drive)
         for test_drive in result.items
     ]
 
@@ -160,7 +157,7 @@ def get_test_drive_detail(
     test_drive_id: str,
     current_user=Depends(get_current_user),
     use_case: GetTestDriveDetailUseCase = Depends(
-        get_test_drive_detail_usecase
+        get_get_test_drive_detail_usecase
     ),
 ):
 

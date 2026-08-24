@@ -1,4 +1,6 @@
-from modules.reservations.api.schemas import CheckAvailabilityDTO
+from modules.reservations.application.dtos.check_availability_dto import (
+    CheckAvailabilityDTO,
+)
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 
 class CheckReservationAvailabilityUseCase:

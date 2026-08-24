@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Optional
-
 from modules.warranties.domain.enums import WarrantyPlanType
 
 

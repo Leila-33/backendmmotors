@@ -3,19 +3,102 @@ from datetime import datetime
 from pydantic import BaseModel, field_validator, model_validator, Field
 from modules.vehicles.domain.enums import VehicleType, VehicleCondition, EngineType, VehicleStatus
 from modules.warranties.api.schemas import WarrantyPlanResponse
-from modules.options.api.schemas import OptionResponse
-
-# =========================
-# REQUEST MODELS
-# =========================
-
-class AssignOptionsToVehicleRequest(BaseModel):
-    selected_options: List[str]
-
-
-
+from modules.options.domain.enums import OptionType
+from modules.inspections.api.schemas import InspectionResponse
+from modules.reconditionings.api.schemas import ReconditioningResponse
+from pydantic import BaseModel
+from typing import Literal
 import re
 
+
+
+# =========================
+# COMMON - VEHICLE RESPONSE
+# =========================
+class OptionResponse(BaseModel):
+
+    id: str
+    name: str
+    type: OptionType
+    price: float
+    billing_type: str
+    is_active: bool
+
+class WarrantyPlanResponse(BaseModel):
+
+    id: str
+
+    name: str
+
+    description: Optional[str]
+
+    plan_type: str
+
+    duration_months: int
+
+    mileage_limit: Optional[int]
+
+    covers_engine: bool
+
+    covers_transmission: bool
+
+    covers_electronics: bool
+
+    covers_assistance: bool
+
+    covers_wear_parts: bool
+
+    price: float
+
+    active: bool
+
+
+    class Config:
+        from_attributes = True
+
+class VehicleResponse(BaseModel):
+    id: str
+    brand: str
+    model: str
+    price: float
+    type: VehicleType
+    mileage: int
+    year: int
+
+    description: str | None = None
+    engine_type: EngineType | None = None
+
+    equipments: list[str] = Field(default_factory=list)
+    condition: VehicleCondition
+
+    is_available: bool
+    images: list[str] = Field(default_factory=list)
+    status: VehicleStatus
+
+    published_at: datetime | None = None
+    final_check_at: datetime | None = None
+
+    # 🚗 NEW FIELD
+    license_plate: Optional[str] = Field(
+        default=None,
+        pattern=r"^[A-Z]{2}-\d{3}-[A-Z]{2}$"
+    )
+
+    included_options: list[OptionResponse] = Field(default_factory=list)
+    optional_options: list[OptionResponse] = Field(default_factory=list)
+    warranty_plan: WarrantyPlanResponse | None = None
+
+# =========================
+# COMMON - VEHICLE ACTION RESPONSE
+# =========================
+class VehicleActionResponse(BaseModel):
+    vehicle_id: str
+    status: str
+    message: str
+
+# =========================
+# ADMIN - CREATE VEHICLE
+# =========================
 class CreateVehicleRequest(BaseModel):
 
     brand: str
@@ -117,42 +200,23 @@ class CreateVehicleRequest(BaseModel):
             raise ValueError("Le prix est trop élevé pour un véhicule ancien")
 
         return self
-    
 
-# get vehicle detail
-class VehicleResponse(BaseModel):
-    id: str
-    brand: str
-    model: str
-    price: float
-    type: VehicleType
-    mileage: int
-    year: int
-
-    description: str | None = None
-    engine_type: EngineType | None = None
-
-    equipments: list[str] = Field(default_factory=list)
-    condition: VehicleCondition
-
-    is_available: bool
-    images: list[str] = Field(default_factory=list)
-    status: VehicleStatus
-
-    published_at: datetime | None = None
-    final_check_at: datetime | None = None
-
-    # 🚗 NEW FIELD
-    license_plate: Optional[str] = Field(
-        default=None,
-        pattern=r"^[A-Z]{2}-\d{3}-[A-Z]{2}$"
-    )
-
-    included_options: list[OptionResponse] = Field(default_factory=list)
-    optional_options: list[OptionResponse] = Field(default_factory=list)
-    warranty_plan: WarrantyPlanResponse | None = None
 # =========================
-# update_vehicle
+# ADMIN - DELETE VEHICLE
+# =========================
+class DeleteVehicleResponse(BaseModel):
+
+    vehicle_id: str
+
+    action: Literal[
+        "ARCHIVED",
+        "DELETED",
+    ]
+
+    message: str
+
+# =========================
+# ADMIN - UPDATE VEHICLE
 # =========================
 class UpdateVehicleRequest(BaseModel):
     brand: Optional[str] = None
@@ -170,6 +234,7 @@ class UpdateVehicleRequest(BaseModel):
     condition: Optional[VehicleCondition] = None
 
     images: Optional[List[str]] = None
+    is_available: bool | None = None
 
     # 🚗 IMMATRICULATION
     license_plate: Optional[str] = None
@@ -281,9 +346,35 @@ class UpdateVehicleRequest(BaseModel):
         return v
 
 
+# =========================
+# ADMIN - GET VEHICLE LIFECYCLE
+# =========================
+
+class VehicleLifecycleResponse(BaseModel):
+    inspection: Optional[InspectionResponse] = None
+    reconditioning: Optional[ReconditioningResponse] = None
 
 # =========================
-# get_vehicles
+# ADMIN - FINAL CHECK
+# =========================
+class FinalCheckResponse(BaseModel):
+
+    vehicle_id: str
+
+    vehicle_status: str
+
+    reconditioning_status: str
+
+    final_check_at: datetime
+
+# =========================
+# ADMIN - SET VEHICLE AVAILABILITY
+# =========================
+class SetAvailabilityRequest(BaseModel):
+    value: bool
+
+# =========================
+# SHARED - GET VEHICLES
 # =========================
 class VehicleSearchFilters(BaseModel):
     page: int = 1
@@ -322,44 +413,16 @@ class VehicleSearchFilters(BaseModel):
 
         return value
 
-class VehicleListResponse(BaseModel):
+class PaginatedVehicleResponse(BaseModel):
     items: List[VehicleResponse]
     total: int
     page: int
     size: int
 
-
-
 # =========================
-# get_vehicle_lifecycle
+# CLIENT - GET VEHICLE INTEREST STATUS
 # =========================
-from modules.inspections.api.schemas import InspectionResponse
-from modules.reconditionings.api.schemas import ReconditioningResponse
 
-class VehicleLifecycleDTO(BaseModel):
-    inspection: Optional[InspectionResponse] = None
-    reconditioning: Optional[ReconditioningResponse] = None
-
-
-
-# =========================
-# final_check
-# =========================
-class FinalCheckResponse(BaseModel):
-
-    vehicle_id: str
-
-    vehicle_status: str
-
-    reconditioning_status: str
-
-    final_check_at: datetime
-
-
-
-# =========================
-# get_interest_status
-# =========================
 class VehicleInterestStatusResponse(BaseModel):
 
     already_interested: bool
@@ -371,31 +434,8 @@ class VehicleInterestStatusResponse(BaseModel):
     application_id: str | None = None
 
 # =========================
-# get_vehicle_availability
+# CLIENT - GET VEHICLE AVAILABILITY
 # =========================
 class UnavailableDateResponse(BaseModel):
     start: datetime
     end: datetime
-
-
-# =========================
-# set_availabiliy
-# =========================
-class SetAvailabilityRequest(BaseModel):
-    value: bool
-
-# =========================
-# delete_vehicle
-# =========================
-from enum import Enum
-
-
-class VehicleDeletionAction(str, Enum):
-    ARCHIVED = "ARCHIVED"
-    DELETED = "DELETED"
-
-
-class DeleteVehicleResponse(BaseModel):
-    vehicle_id: str
-    action: VehicleDeletionAction
-    message: str

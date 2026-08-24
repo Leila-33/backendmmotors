@@ -1,42 +1,46 @@
-from modules.vehicles.api.schemas import VehicleInterestStatusResponse
+from modules.vehicles.application.results.get_vehicle_interest_status_result import (
+    GetVehicleInterestStatusResult,
+)
 
-class GetVehicleInterestStatus:
 
+class GetVehicleInterestStatusUseCase:
 
     def __init__(
         self,
         lead_repository,
         quote_repository,
-        application_repository
+        application_repository,
     ):
-
         self.lead_repository = lead_repository
         self.quote_repository = quote_repository
         self.application_repository = application_repository
 
-
-
     def execute(
-    self,
-    vehicle_id: str,
-    user_id: str
-):
+        self,
+        vehicle_id: str,
+        user_id: str,
+    ) -> GetVehicleInterestStatusResult:
+
+        # =========================
+        # LEAD
+        # =========================
 
         lead = (
             self.lead_repository
             .find_active_by_user_and_vehicle(
                 user_id=user_id,
-                vehicle_id=vehicle_id
+                vehicle_id=vehicle_id,
             )
         )
 
-
-        if not lead:
-
-            return VehicleInterestStatusResponse(
-                already_interested=False
+        if lead is None:
+            return GetVehicleInterestStatusResult(
+                already_interested=False,
             )
 
+        # =========================
+        # QUOTE
+        # =========================
 
         quote = (
             self.quote_repository
@@ -45,13 +49,14 @@ class GetVehicleInterestStatus:
             )
         )
 
-
-        if not quote:
-
-            return VehicleInterestStatusResponse(
-                already_interested=True
+        if quote is None:
+            return GetVehicleInterestStatusResult(
+                already_interested=True,
             )
 
+        # =========================
+        # APPLICATION
+        # =========================
 
         application = (
             self.application_repository
@@ -60,20 +65,17 @@ class GetVehicleInterestStatus:
             )
         )
 
+        # =========================
+        # RESULT
+        # =========================
 
-        return VehicleInterestStatusResponse(
-
+        return GetVehicleInterestStatusResult(
             already_interested=True,
-
             quote_id=quote.id,
-
-            quote_status=(
-                quote.status.value
-            ),
-
+            quote_status=quote.status.value,
             application_id=(
                 application.id
                 if application
                 else None
-            )
+            ),
         )

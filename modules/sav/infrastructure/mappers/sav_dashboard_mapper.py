@@ -1,5 +1,5 @@
 from modules.sav.api.schemas import (
-    SavDashboardTicketDTO,
+    SavDashboardTicketResponse,
     SavDashboardResponse,
 )
 from modules.sav.application.results.agent.get_sav_dashboard_result import GetSavDashboardResult
@@ -12,7 +12,7 @@ class SavDashboardMapper:
     ) -> SavDashboardResponse:
 
         recent_tickets = [
-            SavDashboardTicketDTO(
+            SavDashboardTicketResponse(
                 id=ticket.id,
                 subject=ticket.subject,
                 priority=ticket.priority,

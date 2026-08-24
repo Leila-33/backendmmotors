@@ -14,8 +14,8 @@ from modules.auth.domain.entities.user import (
     User,
 )
 
-from modules.applications.api.schemas import (
-    SaveDraftApplicationDTO
+from modules.applications.application.dtos.save_draft_application_dto import (
+    SaveDraftApplicationDTO,
 )
 logger = logging.getLogger(__name__)
 

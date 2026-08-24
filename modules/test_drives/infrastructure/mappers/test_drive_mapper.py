@@ -3,6 +3,7 @@ from modules.test_drives.infrastructure.db.test_drive_model import TestDriveMode
 from modules.test_drives.api.schemas import TestDriveResponse
 from modules.test_drives.api.schemas import (
     TestDriveDetailResponse,
+    MyTestDriveResponse
 )
 
 class TestDriveMapper:
@@ -74,6 +75,28 @@ class TestDriveMapper:
             status=test_drive.status,
             comment=test_drive.comment,
             created_at=test_drive.created_at,
+        )
+
+    @staticmethod
+    def to_customer_response(model):
+
+        return MyTestDriveResponse(
+
+            id=model.id,
+
+            vehicle_id=model.vehicle_id,
+
+            vehicle_name=(
+                f"{model.vehicle.brand} {model.vehicle.model}"
+                if model.vehicle
+                else ""
+            ),
+
+            appointment_date=model.appointment_date,
+
+            status=model.status,
+
+            comment=model.comment,
         )
 
     @staticmethod

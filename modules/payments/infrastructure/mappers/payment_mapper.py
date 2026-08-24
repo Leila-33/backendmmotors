@@ -1,7 +1,8 @@
 from modules.payments.infrastructure.db.payment_model import PaymentModel
 
 from modules.payments.domain.entities.payment import Payment
-
+from modules.payments.api.schemas import CreateCheckoutSessionResponse
+from modules.payments.application.results.create_checkout_session_result import CreateCheckoutSessionResult
 
 class PaymentMapper:
 

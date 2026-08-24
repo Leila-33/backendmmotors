@@ -4,9 +4,13 @@ from modules.sav.infrastructure.mappers.ticket_message_mapper import TicketMessa
 from modules.sav.api.schemas import (
     SupportTicketResponse,
     TicketMessageResponse,
-    SupportTicketListItemResponse
+    SupportTicketListItemResponse,
+    PaginatedSupportTicketsResponse,
 )
 from modules.auth.domain.enums import UserRole
+from modules.sav.application.results.find_support_tickets_result import (
+    FindSupportTicketsResult
+)
 
 class SupportTicketMapper:
 

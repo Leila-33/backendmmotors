@@ -295,15 +295,6 @@ from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import 
 from modules.vehicles.infrastructure.repositories.vehicle_option_repository_sql import (
     VehicleOptionRepositorySQL,
 )
-from modules.vehicles.infrastructure.mappers.vehicle_mapper import VehicleResponseMapper
-
-
-def get_vehicle_response_mapper(
-    s3_service = Depends(get_s3_service)
-):
-    return VehicleResponseMapper(
-        s3_service=s3_service
-    )
 
 def get_vehicle_repository(
     db: Session = Depends(get_db),

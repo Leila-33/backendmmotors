@@ -11,3 +11,4 @@ class UserStatusFilter(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     ARCHIVED = "archived"
+    PENDING = "pending"

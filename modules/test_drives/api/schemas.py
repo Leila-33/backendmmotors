@@ -1,8 +1,7 @@
-from datetime import datetime
-
-from pydantic import BaseModel, Field
-
+from datetime import datetime, date as Date
+from pydantic import BaseModel, Field, field_validator
 from modules.test_drives.domain.enums import TestDriveStatus
+from uuid import UUID
 
 
 # =========================================================
@@ -42,7 +41,41 @@ class MyTestDriveResponse(BaseModel):
 # =========================================================
 # CLIENT — AVAILABILITY
 # =========================================================
+class GetAvailabilityRequest(BaseModel):
+    vehicle_id: str
+    date: Date
 
+    @field_validator("vehicle_id")
+    @classmethod
+    def validate_vehicle_id(cls, value: str) -> str:
+
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "L'identifiant du véhicule est requis"
+            )
+
+        try:
+            UUID(value)
+        except ValueError:
+            raise ValueError(
+                "L'identifiant du véhicule est invalide"
+            )
+
+        return value
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: Date) -> Date:
+
+        if value < Date.today():
+            raise ValueError(
+                "La date ne peut pas être dans le passé"
+            )
+
+        return value
+    
 class GetAvailabilityResponse(BaseModel):
 
     date: str
@@ -130,20 +163,6 @@ class TestDriveDetailResponse(BaseModel):
 
     timeline: list[TestDriveTimelineItem]
 
-# =========================================================
-# ADMIN — PAGINATION
-# =========================================================
-
-class PaginatedTestDriveAdminResponse(BaseModel):
-
-    items: list[TestDriveAdminItemResponse]
-
-    page: int
-
-    limit: int
-
-    total: int
-
 
 # =========================================================
 # SHARED - STATUS
@@ -163,6 +182,8 @@ class TestDriveStatusResponse(BaseModel):
     appointment_date: datetime
 
     message: str
+
+
 
 # =========================================================
 # ADMIN — LIST QUERY
@@ -204,7 +225,19 @@ class TestDriveAdminItemResponse(BaseModel):
 
     comment: str | None = None
 
+# =========================================================
+# ADMIN — PAGINATION
+# =========================================================
 
+class PaginatedTestDriveAdminResponse(BaseModel):
+
+    items: list[TestDriveAdminItemResponse]
+
+    page: int
+
+    limit: int
+
+    total: int
 # =========================================================
 # ADMIN - PENDING COUNT
 # =========================================================

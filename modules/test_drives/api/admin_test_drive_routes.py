@@ -12,10 +12,9 @@ from core.security.dependencies import get_current_admin
 # =========================
 
 from modules.test_drives.api.dependencies import (
-    get_get_test_drives_admin_usecase,
-    get_get_test_drive_detail_usecase,
     get_update_test_drive_status_usecase,
     get_pending_test_drive_count_usecase,
+    get_get_test_drives_admin_usecase,
 )
 
 
@@ -25,10 +24,6 @@ from modules.test_drives.api.dependencies import (
 
 from modules.test_drives.application.use_cases.admin.get_test_drives_admin import (
     GetTestDrivesAdminUseCase,
-)
-
-from modules.test_drives.application.use_cases.get_test_drive_detail import (
-    GetTestDriveDetailsUseCase,
 )
 
 from modules.test_drives.application.use_cases.update_test_drive_status import (
@@ -56,7 +51,6 @@ from modules.test_drives.application.dtos.update_test_drive_status_dto import (
 from modules.test_drives.api.schemas import (
     GetTestDrivesAdminQuery,
     PaginatedTestDriveAdminResponse,
-    TestDriveDetailsResponse,
     UpdateTestDriveStatusRequest,
     TestDriveStatusResponse,
     PendingTestDriveCountResponse,
@@ -175,34 +169,4 @@ async def update_test_drive_status(
         status=test_drive.status.value,
         appointment_date=test_drive.appointment_date,
         message="Statut de l’essai routier mis à jour",
-    )
-
-
-# =====================================================
-# DETAIL
-# =====================================================
-
-@router.get(
-    "/{test_drive_id}",
-    response_model=TestDriveDetailsResponse,
-)
-def get_test_drive_details(
-    test_drive_id: str,
-
-    current_admin=Depends(
-        get_current_admin
-    ),
-
-    use_case: GetTestDriveDetailsUseCase = Depends(
-        get_get_test_drive_detail_usecase
-    ),
-):
-
-    result = use_case.execute(
-        test_drive_id=test_drive_id,
-    )
-
-    return TestDriveMapper.to_detail_response(
-        test_drive=result.test_drive,
-        events=result.events,
     )

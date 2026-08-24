@@ -20,6 +20,13 @@ from modules.auth.domain.enums import (
 # =========================================================
 
 # =========================
+# MESSAGE RESPONSE
+# =========================
+class MessageResponse(BaseModel):
+
+    message: str
+
+# =========================
 # REGISTER
 # =========================
 
@@ -76,8 +83,6 @@ class RegisterRequest(BaseModel):
         return value
 
 
-class RegisterResponse(BaseModel):
-    message: str
 
 
 # =========================
@@ -91,36 +96,9 @@ class LoginUserRequest(BaseModel):
     password: str
 
 
-class LoginUserResponse(BaseModel):
+class AccessTokenResponse(BaseModel):
 
     access_token: str
-
-
-# =========================
-# REFRESH
-# =========================
-
-class RefreshTokenResponse(BaseModel):
-
-    access_token: str
-
-
-# =========================
-# VERIFY EMAIL
-# =========================
-
-class VerifyEmailResponse(BaseModel):
-
-    message: str
-
-
-# =========================
-# LOGOUT
-# =========================
-
-class LogoutResponse(BaseModel):
-
-    message: str
 
 
 # =========================

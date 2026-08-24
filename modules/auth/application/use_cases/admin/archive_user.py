@@ -26,7 +26,7 @@ class ArchiveUserUseCase:
     def execute(
         self,
         user_id: str,
-        current_admin,
+        admin_id: str,
     ):
 
         try:
@@ -47,7 +47,7 @@ class ArchiveUserUseCase:
             # =====================================================
 
             if user.role == UserRole.ADMIN:
-                raise CannotArchiveAdmin()
+                raise CannotArchiveAdmin(admin_id)
 
             # =====================================================
             # ARCHIVE
@@ -66,7 +66,7 @@ class ArchiveUserUseCase:
             self.event_service.log(
                 type=EventType.USER_ARCHIVED,
                 message="Utilisateur archivé",
-                user_id=current_admin.id,
+                user_id=admin_id,
                 event_metadata={
                     "email": user.email,
                     "role": user.role.value,
@@ -83,7 +83,7 @@ class ArchiveUserUseCase:
                 "Utilisateur archivé",
                 extra={
                     "user_id": user.id,
-                    "admin_id": current_admin.id,
+                    "admin_id": admin_id,
                 },
             )
 

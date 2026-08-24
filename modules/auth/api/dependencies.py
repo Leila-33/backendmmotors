@@ -159,7 +159,7 @@ def get_logout_user_usecase(
 
     return LogoutUserUseCase(
         jwt_service=jwt_service,
-        refresh_repo=refresh_repo,
+        refresh_repository=refresh_repo,
         uow=uow
     )
 
@@ -331,7 +331,7 @@ def get_find_users_usecase(
     ),
 ):
     return FindUsersUseCase(
-        user_repository=user_repository
+        user_repo=user_repository
     )
 
 

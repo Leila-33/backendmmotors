@@ -1,89 +1,140 @@
-# modules/quotes/application/schemas.py
+# modules/quotes/api/schemas.py
 
 from datetime import datetime
-from pydantic import BaseModel, Field
-from typing import Optional
-from modules.applications.domain.enums import TradeInVehicleCondition
-from modules.quotes.domain.enums import QuoteRefusalReason
 
-# create quote
+from pydantic import BaseModel, ConfigDict, Field
+
+from modules.applications.domain.enums import (
+    TradeInVehicleCondition,
+)
+from modules.quotes.domain.enums import (
+    QuoteRefusalReason,
+)
+
+
+# =========================================================
+# COMMON
+# =========================================================
+
+class QuoteActionResponse(BaseModel):
+    id: str
+    message: str
+
+
+# =========================================================
+# AGENT - CREATE QUOTE
+# =========================================================
+
 class QuoteTradeInRequest(BaseModel):
 
     brand: str = Field(
         ...,
         min_length=1,
-        max_length=100
+        max_length=100,
     )
 
     model: str = Field(
         ...,
         min_length=1,
-        max_length=100
+        max_length=100,
     )
 
     year: int = Field(
         ...,
-        ge=1900
+        ge=1900,
     )
 
     mileage: int = Field(
         ...,
-        ge=0
+        ge=0,
     )
 
     condition: TradeInVehicleCondition
-
 
 
 class CreateQuoteRequest(BaseModel):
 
     lead_id: str
 
-    discount: float = 0
+    discount: float = Field(
+        default=0,
+        ge=0,
+    )
 
-    down_payment: float = 0
+    down_payment: float = Field(
+        default=0,
+        ge=0,
+    )
 
-    duration_months: int = 36
+    duration_months: int = Field(
+        default=36,
+        gt=0,
+    )
 
     trade_in: QuoteTradeInRequest | None = None
-
-from pydantic import BaseModel
 
 
 class CreateQuoteResponse(BaseModel):
 
     quote_id: str
+
     lead_id: str
+
     vehicle_id: str
+
     message: str
 
 
-# get quote detail
+# =========================================================
+# AGENT - GET QUOTE DETAIL
+# =========================================================
 
 class QuoteTradeInResponse(BaseModel):
 
     brand: str
+
     model: str
 
     year: int
+
     mileage: int
 
     condition: str
 
     estimated_value: float
 
+
 class QuoteLeadResponse(BaseModel):
 
     id: str
 
     first_name: str
+
     last_name: str
 
     email: str
+
     phone: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
+class VehicleMiniResponse(BaseModel):
+
+    id: str
+
+    brand: str
+
+    model: str
+
+    price: float
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
 
 class QuoteDetailResponse(BaseModel):
 
@@ -112,9 +163,39 @@ class QuoteDetailResponse(BaseModel):
     trade_in: QuoteTradeInResponse | None = None
 
     created_at: datetime
-    
 
-# get quotes
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
+# =========================================================
+# AGENT - UPDATE QUOTE
+# =========================================================
+
+class UpdateQuoteRequest(BaseModel):
+
+    discount: float = Field(
+        ...,
+        ge=0,
+    )
+
+    down_payment: float = Field(
+        ...,
+        ge=0,
+    )
+
+    duration_months: int = Field(
+        ...,
+        gt=0,
+    )
+
+    trade_in: QuoteTradeInRequest | None = None
+
+
+# =========================================================
+# CUSTOMER - GET QUOTES
+# =========================================================
 
 class CustomerQuoteListResponse(BaseModel):
 
@@ -132,11 +213,14 @@ class CustomerQuoteListResponse(BaseModel):
 
     requires_action: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
 
-# get customer quote detail
+# =========================================================
+# CUSTOMER - GET QUOTE DETAIL
+# =========================================================
 
 class AgentMiniResponse(BaseModel):
 
@@ -146,11 +230,12 @@ class AgentMiniResponse(BaseModel):
 
     last_name: str
 
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
-    class Config:
-        from_attributes = True
 
-class QuoteDetailCustomerResponse(BaseModel):
+class QuoteCustomerDetailResponse(BaseModel):
 
     id: str
 
@@ -170,39 +255,46 @@ class QuoteDetailCustomerResponse(BaseModel):
 
     monthly_payment: float
 
-
     vehicle: VehicleMiniResponse
-
 
     trade_in: QuoteTradeInResponse | None = None
 
-
     sales_agent: AgentMiniResponse | None = None
 
-
     created_at: datetime
+
     application_id: str | None = None
 
-
-    class Config:
-        from_attributes = True
-
-
-# get client quote action required count
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
 
+# =========================================================
+# CUSTOMER - ACTION REQUIRED COUNT
+# =========================================================
 
-class QuoteActionRequiredCountResponse(
-    BaseModel
-):
+class QuoteActionRequiredCountResponse(BaseModel):
 
     count: int
 
 
-# accept/refuse quote
+# =========================================================
+# CUSTOMER - ACCEPT QUOTE
+# =========================================================
+
+class AcceptQuoteResponse(BaseModel):
+
+    quote_id: str
+
+    application_id: str
+
+    message: str
 
 
-
+# =========================================================
+# CUSTOMER - REFUSE QUOTE
+# =========================================================
 
 class RefuseQuoteRequest(BaseModel):
 
@@ -211,43 +303,5 @@ class RefuseQuoteRequest(BaseModel):
     comment: str | None = None
 
 
-class QuoteActionResponse(BaseModel):
-
-    message: str
-
-from pydantic import BaseModel
 
 
-class AcceptQuoteResponse(BaseModel):
-    quote_id: str
-
-    message: str
-
-    application_id: str
-
-
-# update
-
-class UpdateQuoteRequest(BaseModel):
-
-    discount: float
-
-    down_payment: float
-
-    duration_months: int
-
-    trade_in_value: float = 0
-
-    trade_in: Optional[QuoteTradeInRequest] = None
-
-
-
-
-
-
-
-class QuoteActionResponse(BaseModel):
-
-    id: str
-
-    message: str

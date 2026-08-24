@@ -17,8 +17,8 @@ from modules.applications.domain.entities.application_trade_in import (
 from modules.notifications.domain.enums import (
     NotificationType,
 )
-from modules.quotes.application.results.accept_quote_result import (
-    AcceptQuoteResult,
+from modules.quotes.application.dtos.accept_quote_dto import (
+    AcceptQuoteDTO,
 )
 from modules.quotes.application.results.accept_quote_result import (
     AcceptQuoteResult,

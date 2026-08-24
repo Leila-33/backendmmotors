@@ -1,10 +1,15 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from modules.warranties.domain.enums import WarrantyPlanType
-
+# =====================================================
+# COMMON - ACTION RESPONSE
+# =====================================================
+class WarrantyPlanActionResponse(BaseModel):
+    id: str
+    message: str
 
 # =====================================================
-# DTO
+# WARRANTY PLAN PAYLOAD
 # =====================================================
 
 class WarrantyPlanPayload(BaseModel):
@@ -99,43 +104,23 @@ class WarrantyPlanPayload(BaseModel):
         return value
 
 # =====================================================
-# CREATE
+# ADMIN - CREATE
 # =====================================================
+
 class CreateWarrantyPlanRequest(WarrantyPlanPayload):
     pass
 
-
-class CreateWarrantyPlanResponse(BaseModel):
-
-    id: str
-
-    message: str
-
 # =====================================================
-# TOGGLE
+# ADMIN - UPDATE
 # =====================================================
 
-class ToggleWarrantyPlanRequest(BaseModel):
-
-    active: bool
-
-
-class UpdateWarrantyPlanResponse(BaseModel):
-
-    id: str
-
-    message: str
-
-
-# =====================================================
-# UPDATE
-# =====================================================
 class UpdateWarrantyPlanRequest(WarrantyPlanPayload):
     pass
 
 # =====================================================
-# WARRANTY PLAN RESPONSE
+# ADMIN - WARRANTY PLAN RESPONSE
 # =====================================================
+
 class WarrantyPlanResponse(BaseModel):
 
     id: str
@@ -167,3 +152,13 @@ class WarrantyPlanResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# =====================================================
+# ADMIN - TOGGLE
+# =====================================================
+
+class ToggleWarrantyPlanRequest(BaseModel):
+
+    active: bool
+
+

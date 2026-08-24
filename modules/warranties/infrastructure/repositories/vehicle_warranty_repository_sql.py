@@ -4,10 +4,7 @@ from modules.warranties.domain.repositories.vehicle_warranty_respository import 
 )
 from modules.warranties.infrastructure.mappers.vehicle_warranty_mapper import VehicleWarrantyMapper
 from modules.warranties.infrastructure.db.vehicle_warranty_model import VehicleWarrantyModel
-from modules.warranties.domain.entities.vehicle_warranty import VehicleWarranty
-from modules.warranties.domain.repositories.vehicle_warranty_respository import (
-    VehicleWarrantyRepository,
-)
+
 
 class VehicleWarrantyRepositorySQL(VehicleWarrantyRepository):
 

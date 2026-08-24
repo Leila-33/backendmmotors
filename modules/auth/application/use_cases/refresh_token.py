@@ -1,8 +1,10 @@
+import logging
+
 from datetime import datetime, timedelta, timezone
 
 from jwt import ExpiredSignatureError, InvalidTokenError
 
-from modules.auth.api.schemas import RefreshTokensResult
+from modules.auth.application.results.refresh_tokens_result import RefreshTokensResult
 from modules.auth.domain.entities.refresh_token import RefreshToken
 from modules.auth.domain.enums import UserRole
 from modules.auth.domain.exceptions import (
@@ -10,6 +12,7 @@ from modules.auth.domain.exceptions import (
     TokenExpired,
 )
 
+logger = logging.getLogger(__name__)
 
 class RefreshTokenUseCase:
 
@@ -152,6 +155,10 @@ class RefreshTokenUseCase:
             )
 
         except Exception:
-
             self.uow.rollback()
+
+            logger.exception(
+                "Échec du renouvellement du refresh token"
+            )
+
             raise

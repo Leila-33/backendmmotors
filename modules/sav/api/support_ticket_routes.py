@@ -208,7 +208,7 @@ async def get_support_ticket(
     ),
 
     connection_manager=Depends(
-        get_connection_manager
+        get_websocket_manager
     ),
 ):
 

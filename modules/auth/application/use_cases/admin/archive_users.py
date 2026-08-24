@@ -32,7 +32,7 @@ class ArchiveUsersUseCase:
     def execute(
         self,
         dto: ArchiveUsersDTO,
-        current_admin,
+        admin_id: str,
     ) -> ArchiveUsersResult:
 
         try:
@@ -84,7 +84,7 @@ class ArchiveUsersUseCase:
             self.event_service.log(
                 type=EventType.ADMIN_ACTION,
                 message="Archivage de plusieurs utilisateurs",
-                user_id=current_admin.id,
+                user_id=admin_id,
                 event_metadata={
                     "action": "archive_users",
                     "user_ids": dto.user_ids,
@@ -102,7 +102,7 @@ class ArchiveUsersUseCase:
                 "Archivage utilisateurs en masse effectué",
                 extra={
                     "count": len(users),
-                    "admin_id": current_admin.id,
+                    "admin_id": admin_id,
                 },
             )
 
@@ -125,7 +125,7 @@ class ArchiveUsersUseCase:
             logger.exception(
                 "Erreur archivage utilisateurs en masse",
                 extra={
-                    "admin_id": current_admin.id,
+                    "admin_id": admin_id,
                     "user_ids": dto.user_ids,
                 },
             )

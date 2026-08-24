@@ -31,7 +31,7 @@ class UpdateUserRoleUseCase:
         self,
         user_id: str,
         dto: UpdateUserRoleDTO,
-        current_admin,
+        admin_id: str,
     ) -> UpdateUserRoleResult:
 
         try:
@@ -73,7 +73,7 @@ class UpdateUserRoleUseCase:
             self.event_service.log(
                 type=EventType.USER_ROLE_UPDATED,
                 message="Rôle utilisateur modifié",
-                user_id=current_admin.id,
+                user_id=admin_id,
                 event_metadata={
                     "email": user.email,
                     "old_role": old_role.value,
@@ -93,7 +93,7 @@ class UpdateUserRoleUseCase:
                     "user_id": user.id,
                     "old_role": old_role.value,
                     "dto.role": user.role.value,
-                    "admin_id": current_admin.id,
+                    "admin_id": admin_id,
                 },
             )
 
@@ -114,11 +114,7 @@ class UpdateUserRoleUseCase:
                 "Erreur modification rôle",
                 extra={
                     "user_id": user_id,
-                    "admin_id": (
-                        current_admin.id
-                        if current_admin
-                        else None
-                    ),
+                    "admin_id": admin_id,
                 },
             )
 

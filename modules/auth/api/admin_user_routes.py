@@ -99,7 +99,7 @@ def create_user(
 
     result = usecase.execute(
         dto=dto,
-        current_admin=current_admin,
+        admin_id=current_admin.id,
     )
 
     return CreateUserResponse(
@@ -197,7 +197,7 @@ def update_user_role(
     result = usecase.execute(
         user_id=user_id,
         dto=dto,
-        current_admin=current_admin,
+        admin_id=current_admin.id,
     )
 
     return UpdateUserRoleResponse(
@@ -233,7 +233,7 @@ def toggle_user_active(
     result = usecase.execute(
         user_id=user_id,
         dto=dto,
-        current_admin=current_admin,
+        admin_id=current_admin.id,
     )
 
     return ToggleUserActiveResponse(
@@ -263,7 +263,7 @@ def archive_user(
 
     result = usecase.execute(
         user_id=user_id,
-        current_admin=current_admin,
+        admin_id=current_admin.id,
     )
 
     return ArchiveUserResponse(
@@ -296,7 +296,7 @@ def archive_users(
 
     result = usecase.execute(
         dto=dto,
-        current_admin=current_admin,
+        admin_id=current_admin.id,
     )
 
     return ArchiveUsersResponse(

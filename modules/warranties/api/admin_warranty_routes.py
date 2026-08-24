@@ -1,87 +1,238 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
-from modules.warranties.application.use_cases.admin.create_warranty_plan import CreateWarrantyPlanUseCase
-from modules.warranties.application.use_cases.admin.get_warranty_plans import GetWarrantyPlansUseCase
-from modules.warranties.application.use_cases.admin.toggle_warranty_plan import ToggleWarrantyPlanUseCase
-from modules.warranties.application.use_cases.admin.update_warranty_plan import UpdateWarrantyPlanUseCase
+# =====================================================
+# AUTH
+# =====================================================
+
+from core.security.dependencies import get_current_admin
+
+
+# =====================================================
+# API SCHEMAS
+# =====================================================
 
 from modules.warranties.api.schemas import (
     CreateWarrantyPlanRequest,
-    CreateWarrantyPlanResponse,
+    WarrantyPlanActionResponse,
     WarrantyPlanResponse,
     ToggleWarrantyPlanRequest,
-    UpdateWarrantyPlanResponse,
-    UpdateWarrantyPlanRequest
+    UpdateWarrantyPlanRequest,
 )
 
-router = APIRouter(tags=["Warranty Plans"])
+
+# =====================================================
+# DTOs
+# =====================================================
+
+from modules.warranties.application.dtos.admin.create_warranty_plan_dto import (
+    CreateWarrantyPlanDTO,
+)
+
+from modules.warranties.application.dtos.admin.toggle_warranty_plan_dto import (
+    ToggleWarrantyPlanDTO,
+)
+
+from modules.warranties.application.dtos.admin.update_warranty_plan_dto import (
+    UpdateWarrantyPlanDTO,
+)
+
+
+# =====================================================
+# USE CASES
+# =====================================================
+
+from modules.warranties.application.use_cases.admin.create_warranty_plan import (
+    CreateWarrantyPlanUseCase,
+)
+
+from modules.warranties.application.use_cases.admin.get_warranty_plans import (
+    GetWarrantyPlansUseCase,
+)
+
+from modules.warranties.application.use_cases.admin.toggle_warranty_plan import (
+    ToggleWarrantyPlanUseCase,
+)
+
+from modules.warranties.application.use_cases.admin.update_warranty_plan import (
+    UpdateWarrantyPlanUseCase,
+)
+
+
+# =====================================================
+# MAPPERS
+# =====================================================
+
+from modules.warranties.infrastructure.mappers.warranty_plan_mapper import (
+    WarrantyPlanMapper,
+)
+
+
+# =====================================================
+# DEPENDENCIES
+# =====================================================
+
 from modules.warranties.api.dependencies import (
-    get_create_warranty_usecase,
+    get_create_warranty_plan_usecase,
     get_get_warranty_plans_usecase,
-    get_toggle_warranty_usecase,
-    get_update_warranty_plan_usecase
-    )
-from core.security.dependencies import get_current_admin
+    get_toggle_warranty_plan_usecase,
+    get_update_warranty_plan_usecase,
+)
+
+
+# =====================================================
+# ROUTER
+# =====================================================
+
+router = APIRouter(
+    tags=["Warranty Plans"]
+)
+
 
 # =====================================================
 # CREATE WARRANTY PLAN
 # =====================================================
 
-@router.post("", response_model=CreateWarrantyPlanResponse)
+@router.post(
+    "",
+    response_model=WarrantyPlanActionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_warranty_plan(
-
-    dto: CreateWarrantyPlanRequest,
+    request: CreateWarrantyPlanRequest,
     current_admin=Depends(get_current_admin),
-    usecase: CreateWarrantyPlanUseCase = Depends(get_create_warranty_usecase)
-
+    use_case: CreateWarrantyPlanUseCase = Depends(
+        get_create_warranty_plan_usecase
+    ),
 ):
 
-    return usecase.execute(dto, current_admin)
+    # API → APPLICATION
+
+    dto = CreateWarrantyPlanDTO(
+        name=request.name,
+        description=request.description,
+        plan_type=request.plan_type,
+        duration_months=request.duration_months,
+        mileage_limit=request.mileage_limit,
+        covers_engine=request.covers_engine,
+        covers_transmission=request.covers_transmission,
+        covers_electronics=request.covers_electronics,
+        covers_assistance=request.covers_assistance,
+        covers_wear_parts=request.covers_wear_parts,
+        price=request.price,
+        admin_id=current_admin.id,
+    )
+
+    # APPLICATION
+
+    result = use_case.execute(dto)
+
+    # APPLICATION → API
+
+    return WarrantyPlanActionResponse(
+        id=result.plan_id,
+        message="Plan de garantie créé avec succès",
+    )
+
+
 # =====================================================
 # GET WARRANTY PLANS
 # =====================================================
+
 @router.get(
     "",
-    response_model=list[WarrantyPlanResponse]
+    response_model=list[WarrantyPlanResponse],
 )
 def get_warranty_plans(
-    current_admin=Depends(get_current_admin),
     use_case: GetWarrantyPlansUseCase = Depends(
         get_get_warranty_plans_usecase
-    )
+    ),
 ):
 
-    return use_case.execute()
+    # APPLICATION
 
-@router.patch("/{plan_id}", response_model=UpdateWarrantyPlanResponse)
+    results = use_case.execute()
+
+    # APPLICATION → API
+
+    return [
+        WarrantyPlanMapper.to_response(result)
+        for result in results
+    ]
+
+
+# =====================================================
+# TOGGLE WARRANTY PLAN
+# =====================================================
+
+@router.patch(
+    "/{plan_id}/status",
+    response_model=WarrantyPlanActionResponse,
+)
 def toggle_warranty_plan(
-
     plan_id: str,
     request: ToggleWarrantyPlanRequest,
-    usecase : ToggleWarrantyPlanUseCase = Depends(get_toggle_warranty_usecase),
-    current_admin=Depends(get_current_admin)
-
+    current_admin=Depends(get_current_admin),
+    use_case: ToggleWarrantyPlanUseCase = Depends(
+        get_toggle_warranty_plan_usecase
+    ),
 ):
 
-    return usecase.execute(
+    # API → APPLICATION
+
+    dto = ToggleWarrantyPlanDTO(
         plan_id=plan_id,
         active=request.active,
-        current_admin=current_admin
+        admin_id=current_admin.id,
     )
+
+    # APPLICATION
+
+    result = use_case.execute(dto)
+
+    # APPLICATION → API
+
+    return WarrantyPlanActionResponse(
+        id=result.plan_id,
+        message=(
+            "Plan activé avec succès"
+            if result.active
+            else "Plan désactivé avec succès"
+        ),
+    )
+
+
+# =====================================================
+# UPDATE WARRANTY PLAN
+# =====================================================
 
 @router.put(
     "/{plan_id}",
-    response_model=UpdateWarrantyPlanResponse
+    response_model=WarrantyPlanActionResponse,
 )
 def update_warranty_plan(
     plan_id: str,
     request: UpdateWarrantyPlanRequest,
-    use_case: UpdateWarrantyPlanUseCase = Depends(get_update_warranty_plan_usecase),
-    current_admin=Depends(get_current_admin)
+    current_admin=Depends(get_current_admin),
+    use_case: UpdateWarrantyPlanUseCase = Depends(
+        get_update_warranty_plan_usecase
+    ),
 ):
 
-    return use_case.execute(
-        plan_id=plan_id,
-        dto=request,
-        current_admin=current_admin 
+    # API → APPLICATION
+
+    dto = UpdateWarrantyPlanDTO(
+    plan_id=plan_id,
+    admin_id=current_admin.id,
+    **request.model_dump(),
+)
+
+    # APPLICATION
+
+    result = use_case.execute(dto)
+
+    # APPLICATION → API
+
+    return WarrantyPlanActionResponse(
+        id=result.plan_id,
+        message="Plan modifié avec succès",
     )

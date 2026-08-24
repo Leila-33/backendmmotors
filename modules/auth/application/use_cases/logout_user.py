@@ -1,7 +1,7 @@
 import logging
 
-from modules.auth.application.results.logout_user_result import (
-    LogoutUserResult,
+from modules.auth.application.results.message_result import (
+    MessageResult,
 )
 from modules.auth.domain.exceptions import InvalidRefreshToken
 
@@ -28,7 +28,7 @@ class LogoutUserUseCase:
     def execute(
         self,
         refresh_token: str,
-    ) -> LogoutUserResult:
+    ) -> MessageResult:
 
         payload = None
 
@@ -85,7 +85,7 @@ class LogoutUserUseCase:
             # RESULT
             # =========================
 
-            return LogoutUserResult(
+            return MessageResult(
                 message="Déconnexion réussie",
             )
 

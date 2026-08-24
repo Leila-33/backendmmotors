@@ -1,101 +1,81 @@
-from modules.warranties.domain.repositories.warranty_plan_repository import WarrantyPlanRepository
-from modules.warranties.infrastructure.mappers.warranty_plan_mapper import WarrantyPlanMapper
-from modules.warranties.infrastructure.db.warranty_plan_model import WarrantyPlanModel
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-
+from modules.warranties.domain.entities.warranty_plan import WarrantyPlan
+from modules.warranties.domain.enums import WarrantyPlanType
+from modules.warranties.domain.repositories.warranty_plan_repository import (
+    WarrantyPlanRepository,
+)
+from modules.warranties.infrastructure.db.warranty_plan_model import (
+    WarrantyPlanModel,
+)
+from modules.warranties.infrastructure.mappers.warranty_plan_mapper import (
+    WarrantyPlanMapper,
+)
 
 
 class WarrantyPlanRepositorySQL(WarrantyPlanRepository):
 
-
     def __init__(
         self,
-        db: Session
+        db: Session,
     ):
         self.db = db
 
-
-
-    # =========================
+    # =====================================================
     # CREATE
-    # =========================
+    # =====================================================
 
     def save(
         self,
-        plan
-    ):
+        plan: WarrantyPlan,
+    ) -> WarrantyPlan:
 
-        try:
+        model = WarrantyPlanMapper.to_model(plan)
 
-            model = (
-                WarrantyPlanMapper
-                .to_model(plan)
-            )
+        self.db.add(model)
 
-            self.db.add(model)
+        self.db.flush()
 
-            self.db.commit()
+        return WarrantyPlanMapper.to_domain(model)
 
-            self.db.refresh(model)
-
-
-            return (
-                WarrantyPlanMapper
-                .to_domain(model)
-            )
-
-
-        except Exception:
-
-            self.db.rollback()
-
-            raise
-
-
-
-    # =========================
+    # =====================================================
     # FIND BY NAME
-    # =========================
+    # =====================================================
 
     def find_by_name(
         self,
-        name: str
-    ):
+        name: str,
+    ) -> WarrantyPlan | None:
+
+        normalized_name = " ".join(
+            name.strip().split()
+        )
 
         model = (
             self.db
-        .query(WarrantyPlanModel)
-        .filter(
-            func.lower(
-                WarrantyPlanModel.name
+            .query(WarrantyPlanModel)
+            .filter(
+                func.lower(
+                    WarrantyPlanModel.name
+                )
+                == normalized_name.lower()
             )
-            ==
-            name.lower()
-        )
-        .first()
+            .first()
         )
 
-
-        if not model:
+        if model is None:
             return None
 
+        return WarrantyPlanMapper.to_domain(model)
 
-        return (
-            WarrantyPlanMapper
-            .to_domain(model)
-        )
-
-
-
-    # =========================
+    # =====================================================
     # FIND ALL
-    # =========================
+    # =====================================================
 
     def find_all(
-        self
-    ):
+        self,
+    ) -> list[WarrantyPlan]:
 
         models = (
             self.db
@@ -106,22 +86,19 @@ class WarrantyPlanRepositorySQL(WarrantyPlanRepository):
             .all()
         )
 
-
         return [
             WarrantyPlanMapper.to_domain(model)
             for model in models
         ]
 
-
-
-    # =========================
+    # =====================================================
     # FIND BY TYPE
-    # =========================
+    # =====================================================
 
     def find_by_plan_type(
         self,
-        plan_type: str
-    ):
+        plan_type: WarrantyPlanType,
+    ) -> WarrantyPlan | None:
 
         model = (
             self.db
@@ -132,22 +109,19 @@ class WarrantyPlanRepositorySQL(WarrantyPlanRepository):
             .first()
         )
 
-        if not model:
+        if model is None:
             return None
 
         return WarrantyPlanMapper.to_domain(model)
 
-
-
-    # =========================
+    # =====================================================
     # GET BY ID
-    # =========================
+    # =====================================================
 
     def get_by_id(
         self,
-        plan_id: str
-    ):
-
+        plan_id: str,
+    ) -> WarrantyPlan | None:
 
         model = (
             self.db
@@ -158,27 +132,19 @@ class WarrantyPlanRepositorySQL(WarrantyPlanRepository):
             .first()
         )
 
-
-        if not model:
+        if model is None:
             return None
 
+        return WarrantyPlanMapper.to_domain(model)
 
-        return (
-            WarrantyPlanMapper
-            .to_domain(model)
-        )
-
-
-
-    # =========================
+    # =====================================================
     # UPDATE
-    # =========================
+    # =====================================================
 
     def update(
         self,
-        plan
-    ):
-
+        plan: WarrantyPlan,
+    ) -> WarrantyPlan | None:
 
         model = (
             self.db
@@ -189,39 +155,26 @@ class WarrantyPlanRepositorySQL(WarrantyPlanRepository):
             .first()
         )
 
-
-        if not model:
+        if model is None:
             return None
-
-
 
         WarrantyPlanMapper.update_model(
             model,
-            plan
+            plan,
         )
 
+        self.db.flush()
 
-        self.db.commit()
+        return WarrantyPlanMapper.to_domain(model)
 
-        self.db.refresh(model)
-
-
-        return (
-            WarrantyPlanMapper
-            .to_domain(model)
-        )
-
-
-
-    # =========================
+    # =====================================================
     # DELETE
-    # =========================
+    # =====================================================
 
     def delete(
         self,
-        plan_id: str
-    ):
-
+        plan_id: str,
+    ) -> bool:
 
         model = (
             self.db
@@ -232,14 +185,11 @@ class WarrantyPlanRepositorySQL(WarrantyPlanRepository):
             .first()
         )
 
-
-        if not model:
-            return None
-
+        if model is None:
+            return False
 
         self.db.delete(model)
 
-        self.db.commit()
-
+        self.db.flush()
 
         return True

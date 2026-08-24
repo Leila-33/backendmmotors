@@ -1,8 +1,8 @@
-"""initial
+"""initial schema
 
-Revision ID: 44fb4c263e2d
+Revision ID: eb4dc159ff96
 Revises: 
-Create Date: 2026-06-22 12:36:19.713090
+Create Date: 2026-08-21 19:43:17.932232
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '44fb4c263e2d'
+revision: str = 'eb4dc159ff96'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,11 +24,12 @@ def upgrade() -> None:
     op.create_table('options',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
-    sa.Column('type', sa.Enum('ASSURANCE', 'ASSISTANCE', 'ENTRETIEN', 'CONTROLE_TECHNIQUE', 'CUSTOM', name='optiontype'), nullable=False),
-    sa.Column('price', sa.Float(), nullable=True),
-    sa.Column('billing_type', sa.Enum('fixed', 'daily', name='billingtype'), nullable=False),
+    sa.Column('type', sa.Enum('INCLUDED', 'CUSTOM', name='optiontype'), nullable=False),
+    sa.Column('price', sa.Float(), nullable=False),
+    sa.Column('billing_type', sa.Enum('FIXED', 'DAILY', name='billingtype'), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('name', name='uq_option_name')
     )
     op.create_table('token_blacklist',
     sa.Column('id', sa.String(), nullable=False),
@@ -44,10 +45,13 @@ def upgrade() -> None:
     sa.Column('last_name', sa.String(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('password', sa.String(), nullable=False),
-    sa.Column('role', sa.Enum('ADMIN', 'CLIENT', name='userrole'), nullable=False),
+    sa.Column('role', sa.Enum('ADMIN', 'CLIENT', 'SAV_AGENT', 'SALES_AGENT', name='userrole'), nullable=False),
     sa.Column('is_verified', sa.Boolean(), nullable=False),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('accepted_cgu', sa.Boolean(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('is_deleted', sa.Boolean(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('deleted_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
@@ -59,14 +63,16 @@ def upgrade() -> None:
     sa.Column('type', sa.Enum('SALE', 'RENT', name='vehicle_type'), nullable=False),
     sa.Column('mileage', sa.Integer(), nullable=False),
     sa.Column('year', sa.Integer(), nullable=False),
+    sa.Column('final_check_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('engine_type', sa.Enum('DIESEL', 'PETROL', 'HYBRID', 'ELECTRIC', name='engine_type'), nullable=True),
     sa.Column('equipments', postgresql.ARRAY(sa.String()), nullable=False),
     sa.Column('condition', sa.Enum('NEW', 'USED', name='vehicle_condition'), nullable=False),
     sa.Column('license_plate', sa.String(), nullable=True),
     sa.Column('is_available', sa.Boolean(), nullable=False),
+    sa.Column('published_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('images', postgresql.ARRAY(sa.String()), nullable=False),
-    sa.Column('status', sa.Enum('DRAFT', 'AVAILABLE', 'INSPECTION_PENDING', 'INSPECTED', 'RECONDITIONING', 'READY', 'RESERVED', 'SOLD', name='vehiclestatus'), nullable=False),
+    sa.Column('status', sa.Enum('DRAFT', 'AVAILABLE', 'INSPECTION_PENDING', 'INSPECTED', 'RECONDITIONING', 'RECONDITIONED', 'READY', 'PUBLISHED', 'RESERVED', 'SOLD', name='vehiclestatus'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_vehicles_id'), 'vehicles', ['id'], unique=False)
@@ -83,34 +89,10 @@ def upgrade() -> None:
     sa.Column('covers_electronics', sa.Boolean(), nullable=True),
     sa.Column('covers_assistance', sa.Boolean(), nullable=True),
     sa.Column('covers_wear_parts', sa.Boolean(), nullable=True),
-    sa.Column('deductible', sa.Float(), nullable=True),
     sa.Column('price', sa.Float(), nullable=False),
     sa.Column('active', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('plan_type', 'duration_months', name='uq_warranty_plan_type_duration')
-    )
-    op.create_table('applications',
-    sa.Column('id', sa.String(), nullable=False),
-    sa.Column('user_id', sa.String(), nullable=False),
-    sa.Column('vehicle_id', sa.String(), nullable=False),
-    sa.Column('first_name', sa.String(), nullable=True),
-    sa.Column('last_name', sa.String(), nullable=True),
-    sa.Column('email', sa.String(), nullable=True),
-    sa.Column('phone', sa.String(), nullable=True),
-    sa.Column('address', sa.String(), nullable=True),
-    sa.Column('birth_date', sa.DateTime(), nullable=True),
-    sa.Column('monthly_income', sa.Float(), nullable=True),
-    sa.Column('monthly_expenses', sa.Float(), nullable=True),
-    sa.Column('employment_status', sa.String(), nullable=True),
-    sa.Column('status', sa.Enum('DRAFT', 'SUBMITTED', 'PROCESSING', 'APPROVED', 'REJECTED', 'PAID', 'COMPLETED', 'CANCELLED', name='applicationstatus'), nullable=False),
-    sa.Column('previous_status', sa.Enum('DRAFT', 'SUBMITTED', 'PROCESSING', 'APPROVED', 'REJECTED', 'PAID', 'COMPLETED', 'CANCELLED', name='applicationstatus'), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('submitted_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('is_archived', sa.Boolean(), nullable=False),
-    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
-    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('favorites',
     sa.Column('id', sa.String(), nullable=False),
@@ -131,8 +113,9 @@ def upgrade() -> None:
     sa.Column('tires_score', sa.Integer(), nullable=True),
     sa.Column('electronics_score', sa.Integer(), nullable=True),
     sa.Column('safety_score', sa.Integer(), nullable=True),
-    sa.Column('failures', sa.Text(), nullable=True),
-    sa.Column('recommended_repairs', sa.Text(), nullable=True),
+    sa.Column('overall_score', sa.Integer(), nullable=True),
+    sa.Column('failures', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('recommended_repairs', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
@@ -140,10 +123,50 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_inspections_vehicle_id'), 'inspections', ['vehicle_id'], unique=False)
+    op.create_table('leads',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('vehicle_id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=True),
+    sa.Column('assigned_to', sa.String(), nullable=True),
+    sa.Column('first_name', sa.String(), nullable=False),
+    sa.Column('last_name', sa.String(), nullable=False),
+    sa.Column('email', sa.String(), nullable=False),
+    sa.Column('phone', sa.String(), nullable=True),
+    sa.Column('message', sa.Text(), nullable=True),
+    sa.Column('status', sa.Enum('NEW', 'ASSIGNED', 'CONTACTED', 'QUOTE_SENT', 'WON', 'LOST', name='leadstatus'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.ForeignKeyConstraint(['assigned_to'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_leads_assigned_to', 'leads', ['assigned_to'], unique=False)
+    op.create_index('ix_leads_email', 'leads', ['email'], unique=False)
+    op.create_index(op.f('ix_leads_id'), 'leads', ['id'], unique=False)
+    op.create_index(op.f('ix_leads_status'), 'leads', ['status'], unique=False)
+    op.create_index('ix_leads_user_id', 'leads', ['user_id'], unique=False)
+    op.create_index('ix_leads_vehicle_id', 'leads', ['vehicle_id'], unique=False)
+    op.create_table('notifications',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=False),
+    sa.Column('entity_type', sa.Enum('QUOTE', 'APPLICATION', 'DOCUMENT', 'TEST_DRIVE', name='notificationentitytype'), nullable=True),
+    sa.Column('entity_id', sa.String(), nullable=True),
+    sa.Column('title', sa.String(), nullable=False),
+    sa.Column('message', sa.String(), nullable=False),
+    sa.Column('type', sa.Enum('APPLICATION_APPROVED', 'APPLICATION_REJECTED', 'APPLICATION_SUBMITTED', 'DOCUMENT_REJECTED', 'TEST_DRIVE_CONFIRMED', 'TEST_DRIVE_CANCELLED', 'TEST_DRIVE_REJECTED', 'TEST_DRIVE_COMPLETED', 'QUOTE_SENT', 'QUOTE_ACCEPTED', 'QUOTE_REFUSED', name='notification_type'), nullable=False),
+    sa.Column('status', sa.Enum('UNREAD', 'READ', name='notification_status'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_notifications_entity_id'), 'notifications', ['entity_id'], unique=False)
+    op.create_index(op.f('ix_notifications_entity_type'), 'notifications', ['entity_type'], unique=False)
+    op.create_index(op.f('ix_notifications_user_id'), 'notifications', ['user_id'], unique=False)
     op.create_table('reconditioning',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('vehicle_id', sa.String(), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', name='reconditioningstatus'), nullable=False),
+    sa.Column('status', sa.Enum('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'APPROVED', name='reconditioningstatus'), nullable=False),
     sa.Column('cost', sa.Float(), nullable=True),
     sa.Column('duration_days', sa.Integer(), nullable=True),
     sa.Column('tasks', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
@@ -157,7 +180,7 @@ def upgrade() -> None:
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('user_id', sa.String(), nullable=False),
     sa.Column('jti', sa.String(), nullable=False),
-    sa.Column('role', sa.Enum('ADMIN', 'CLIENT', name='userrole'), nullable=False),
+    sa.Column('role', sa.Enum('ADMIN', 'CLIENT', 'SAV_AGENT', 'SALES_AGENT', name='userrole'), nullable=False),
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('revoked', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -208,6 +231,82 @@ def upgrade() -> None:
     op.create_index(op.f('ix_vehicle_warranties_is_active'), 'vehicle_warranties', ['is_active'], unique=False)
     op.create_index(op.f('ix_vehicle_warranties_vehicle_id'), 'vehicle_warranties', ['vehicle_id'], unique=False)
     op.create_index(op.f('ix_vehicle_warranties_warranty_plan_id'), 'vehicle_warranties', ['warranty_plan_id'], unique=False)
+    op.create_table('quotes',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('lead_id', sa.String(), nullable=False),
+    sa.Column('base_price', sa.Float(), nullable=False),
+    sa.Column('discount', sa.Float(), nullable=True),
+    sa.Column('down_payment', sa.Float(), nullable=True),
+    sa.Column('trade_in_value', sa.Float(), nullable=True),
+    sa.Column('financed_amount', sa.Float(), nullable=False),
+    sa.Column('duration_months', sa.Integer(), nullable=False),
+    sa.Column('monthly_payment', sa.Float(), nullable=False),
+    sa.Column('status', sa.Enum('DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', name='quotestatus'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('sent_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('accepted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('refusal_reason', sa.Enum('PRICE', 'MONTHLY_PAYMENT', 'FINANCING', 'VEHICLE', 'PURCHASE_ELSEWHERE', 'OTHER', name='quoterefusalreason'), nullable=True),
+    sa.Column('refusal_comment', sa.String(), nullable=True),
+    sa.Column('refused_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_quotes_id'), 'quotes', ['id'], unique=False)
+    op.create_index(op.f('ix_quotes_lead_id'), 'quotes', ['lead_id'], unique=False)
+    op.create_table('applications',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=False),
+    sa.Column('vehicle_id', sa.String(), nullable=False),
+    sa.Column('quote_id', sa.String(), nullable=True),
+    sa.Column('first_name', sa.String(), nullable=True),
+    sa.Column('last_name', sa.String(), nullable=True),
+    sa.Column('email', sa.String(), nullable=True),
+    sa.Column('phone', sa.String(), nullable=True),
+    sa.Column('address', sa.String(), nullable=True),
+    sa.Column('birth_date', sa.Date(), nullable=True),
+    sa.Column('monthly_income', sa.Float(), nullable=True),
+    sa.Column('monthly_expenses', sa.Float(), nullable=True),
+    sa.Column('employment_status', sa.String(), nullable=True),
+    sa.Column('status', sa.Enum('DRAFT', 'SUBMITTED', 'PROCESSING', 'APPROVED', 'REJECTED', 'PAID', 'COMPLETED', 'CANCELLED', name='applicationstatus'), nullable=False),
+    sa.Column('previous_status', sa.Enum('DRAFT', 'SUBMITTED', 'PROCESSING', 'APPROVED', 'REJECTED', 'PAID', 'COMPLETED', 'CANCELLED', name='applicationstatus'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('submitted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('discount', sa.Float(), nullable=True),
+    sa.Column('is_archived', sa.Boolean(), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['quote_id'], ['quotes.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_applications_quote_id'), 'applications', ['quote_id'], unique=True)
+    op.create_table('quote_trade_in',
+    sa.Column('quote_id', sa.String(), nullable=False),
+    sa.Column('brand', sa.String(), nullable=False),
+    sa.Column('model', sa.String(), nullable=False),
+    sa.Column('year', sa.Integer(), nullable=False),
+    sa.Column('mileage', sa.Integer(), nullable=False),
+    sa.Column('condition', sa.String(), nullable=False),
+    sa.Column('estimated_value', sa.Float(), nullable=False),
+    sa.ForeignKeyConstraint(['quote_id'], ['quotes.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('quote_id')
+    )
+    op.create_table('user_activation_tokens',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=False),
+    sa.Column('quote_id', sa.String(), nullable=True),
+    sa.Column('token_hash', sa.String(), nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('used_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.ForeignKeyConstraint(['quote_id'], ['quotes.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_user_activation_tokens_quote_id'), 'user_activation_tokens', ['quote_id'], unique=False)
+    op.create_index(op.f('ix_user_activation_tokens_token_hash'), 'user_activation_tokens', ['token_hash'], unique=True)
+    op.create_index(op.f('ix_user_activation_tokens_user_id'), 'user_activation_tokens', ['user_id'], unique=False)
     op.create_table('application_financing',
     sa.Column('application_id', sa.String(), nullable=False),
     sa.Column('down_payment', sa.Float(), nullable=True),
@@ -251,22 +350,30 @@ def upgrade() -> None:
     op.create_index(op.f('ix_documents_application_id'), 'documents', ['application_id'], unique=False)
     op.create_table('events',
     sa.Column('id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=True),
+    sa.Column('vehicle_id', sa.String(), nullable=True),
+    sa.Column('quote_id', sa.String(), nullable=True),
     sa.Column('application_id', sa.String(), nullable=True),
     sa.Column('test_drive_id', sa.String(), nullable=True),
-    sa.Column('user_id', sa.String(), nullable=True),
     sa.Column('type', sa.String(length=100), nullable=False),
     sa.Column('message', sa.String(), nullable=False),
     sa.Column('event_metadata', sa.JSON(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], ),
+    sa.ForeignKeyConstraint(['quote_id'], ['quotes.id'], ),
     sa.ForeignKeyConstraint(['test_drive_id'], ['test_drives.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_events_application_id'), 'events', ['application_id'], unique=False)
+    op.create_index(op.f('ix_events_created_at'), 'events', ['created_at'], unique=False)
     op.create_index(op.f('ix_events_id'), 'events', ['id'], unique=False)
+    op.create_index(op.f('ix_events_quote_id'), 'events', ['quote_id'], unique=False)
     op.create_index(op.f('ix_events_test_drive_id'), 'events', ['test_drive_id'], unique=False)
+    op.create_index(op.f('ix_events_type'), 'events', ['type'], unique=False)
     op.create_index(op.f('ix_events_user_id'), 'events', ['user_id'], unique=False)
+    op.create_index(op.f('ix_events_vehicle_id'), 'events', ['vehicle_id'], unique=False)
     op.create_table('financing_contracts',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('application_id', sa.String(), nullable=False),
@@ -299,6 +406,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('application_id'),
     sa.UniqueConstraint('stripe_session_id')
     )
     op.create_table('reservations',
@@ -307,17 +415,37 @@ def upgrade() -> None:
     sa.Column('application_id', sa.String(), nullable=True),
     sa.Column('start_date', sa.Date(), nullable=False),
     sa.Column('end_date', sa.Date(), nullable=False),
-    sa.Column('status', sa.Enum('DRAFT', 'ACTIVE', 'CANCELLED', 'COMPLETED', name='reservationstatus'), nullable=False),
+    sa.Column('status', sa.Enum('DRAFT', 'PENDING', 'CONFIRMED', 'ACTIVE', 'CANCELLED', 'COMPLETED', name='reservationstatus'), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('application_id', name='uq_reservation_application')
     )
+    op.create_index('idx_reservation_vehicle_dates', 'reservations', ['vehicle_id', 'start_date', 'end_date'], unique=False)
     op.create_index(op.f('ix_reservations_application_id'), 'reservations', ['application_id'], unique=False)
     op.create_index(op.f('ix_reservations_id'), 'reservations', ['id'], unique=False)
     op.create_index(op.f('ix_reservations_status'), 'reservations', ['status'], unique=False)
     op.create_index(op.f('ix_reservations_vehicle_id'), 'reservations', ['vehicle_id'], unique=False)
+    op.create_table('support_tickets',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=False),
+    sa.Column('application_id', sa.String(), nullable=True),
+    sa.Column('assigned_to', sa.String(), nullable=True),
+    sa.Column('subject', sa.String(length=255), nullable=False),
+    sa.Column('description', sa.Text(), nullable=False),
+    sa.Column('category', sa.Enum('GENERAL', 'FINANCING', 'DELIVERY', 'WARRANTY', 'VEHICLE_ISSUE', 'DOCUMENTS', 'PAYMENT', 'OTHER', name='ticketcategory'), nullable=False),
+    sa.Column('status', sa.Enum('OPEN', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'RESOLVED', 'CLOSED', name='ticketstatus'), nullable=False),
+    sa.Column('priority', sa.Enum('LOW', 'MEDIUM', 'HIGH', 'URGENT', name='ticketpriority'), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('archived_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['application_id'], ['applications.id'], ),
+    sa.ForeignKeyConstraint(['assigned_to'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('installments',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('financing_contract_id', sa.String(), nullable=False),
@@ -331,49 +459,50 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['financing_contract_id'], ['financing_contracts.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('notifications',
+    op.create_table('ticket_messages',
     sa.Column('id', sa.String(), nullable=False),
-    sa.Column('user_id', sa.String(), nullable=False),
-    sa.Column('application_id', sa.String(), nullable=True),
-    sa.Column('test_drive_id', sa.String(), nullable=True),
-    sa.Column('document_id', sa.String(), nullable=True),
-    sa.Column('title', sa.String(), nullable=False),
+    sa.Column('ticket_id', sa.String(), nullable=False),
+    sa.Column('sender_id', sa.String(), nullable=False),
+    sa.Column('sender_role', sa.Enum('ADMIN', 'CLIENT', 'SAV_AGENT', 'SALES_AGENT', name='userrole'), nullable=False),
     sa.Column('message', sa.String(), nullable=False),
-    sa.Column('type', sa.Enum('APPLICATION_APPROVED', 'APPLICATION_REJECTED', 'APPLICATION_SUBMITTED', 'DOCUMENT_REJECTED', 'TEST_DRIVE_CONFIRMED', 'TEST_DRIVE_CANCELLED', 'TEST_DRIVE_REJECTED', 'TEST_DRIVE_COMPLETED', name='notification_type'), nullable=False),
-    sa.Column('status', sa.Enum('UNREAD', 'READ', name='notification_status'), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['application_id'], ['applications.id'], ),
-    sa.ForeignKeyConstraint(['document_id'], ['documents.id'], ),
-    sa.ForeignKeyConstraint(['test_drive_id'], ['test_drives.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['ticket_id'], ['support_tickets.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_notifications_application_id'), 'notifications', ['application_id'], unique=False)
-    op.create_index(op.f('ix_notifications_document_id'), 'notifications', ['document_id'], unique=False)
-    op.create_index(op.f('ix_notifications_test_drive_id'), 'notifications', ['test_drive_id'], unique=False)
-    op.create_index(op.f('ix_notifications_user_id'), 'notifications', ['user_id'], unique=False)
+    op.create_table('ticket_read_states',
+    sa.Column('ticket_id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=False),
+    sa.Column('last_read_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['ticket_id'], ['support_tickets.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('ticket_id', 'user_id')
+    )
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_index(op.f('ix_notifications_user_id'), table_name='notifications')
-    op.drop_index(op.f('ix_notifications_test_drive_id'), table_name='notifications')
-    op.drop_index(op.f('ix_notifications_document_id'), table_name='notifications')
-    op.drop_index(op.f('ix_notifications_application_id'), table_name='notifications')
-    op.drop_table('notifications')
+    op.drop_table('ticket_read_states')
+    op.drop_table('ticket_messages')
     op.drop_table('installments')
+    op.drop_table('support_tickets')
     op.drop_index(op.f('ix_reservations_vehicle_id'), table_name='reservations')
     op.drop_index(op.f('ix_reservations_status'), table_name='reservations')
     op.drop_index(op.f('ix_reservations_id'), table_name='reservations')
     op.drop_index(op.f('ix_reservations_application_id'), table_name='reservations')
+    op.drop_index('idx_reservation_vehicle_dates', table_name='reservations')
     op.drop_table('reservations')
     op.drop_table('payments')
     op.drop_table('financing_contracts')
+    op.drop_index(op.f('ix_events_vehicle_id'), table_name='events')
     op.drop_index(op.f('ix_events_user_id'), table_name='events')
+    op.drop_index(op.f('ix_events_type'), table_name='events')
     op.drop_index(op.f('ix_events_test_drive_id'), table_name='events')
+    op.drop_index(op.f('ix_events_quote_id'), table_name='events')
     op.drop_index(op.f('ix_events_id'), table_name='events')
+    op.drop_index(op.f('ix_events_created_at'), table_name='events')
     op.drop_index(op.f('ix_events_application_id'), table_name='events')
     op.drop_table('events')
     op.drop_index(op.f('ix_documents_application_id'), table_name='documents')
@@ -383,6 +512,16 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_application_options_application_id'), table_name='application_options')
     op.drop_table('application_options')
     op.drop_table('application_financing')
+    op.drop_index(op.f('ix_user_activation_tokens_user_id'), table_name='user_activation_tokens')
+    op.drop_index(op.f('ix_user_activation_tokens_token_hash'), table_name='user_activation_tokens')
+    op.drop_index(op.f('ix_user_activation_tokens_quote_id'), table_name='user_activation_tokens')
+    op.drop_table('user_activation_tokens')
+    op.drop_table('quote_trade_in')
+    op.drop_index(op.f('ix_applications_quote_id'), table_name='applications')
+    op.drop_table('applications')
+    op.drop_index(op.f('ix_quotes_lead_id'), table_name='quotes')
+    op.drop_index(op.f('ix_quotes_id'), table_name='quotes')
+    op.drop_table('quotes')
     op.drop_index(op.f('ix_vehicle_warranties_warranty_plan_id'), table_name='vehicle_warranties')
     op.drop_index(op.f('ix_vehicle_warranties_vehicle_id'), table_name='vehicle_warranties')
     op.drop_index(op.f('ix_vehicle_warranties_is_active'), table_name='vehicle_warranties')
@@ -397,10 +536,20 @@ def downgrade() -> None:
     op.drop_table('refresh_tokens')
     op.drop_index(op.f('ix_reconditioning_vehicle_id'), table_name='reconditioning')
     op.drop_table('reconditioning')
+    op.drop_index(op.f('ix_notifications_user_id'), table_name='notifications')
+    op.drop_index(op.f('ix_notifications_entity_type'), table_name='notifications')
+    op.drop_index(op.f('ix_notifications_entity_id'), table_name='notifications')
+    op.drop_table('notifications')
+    op.drop_index('ix_leads_vehicle_id', table_name='leads')
+    op.drop_index('ix_leads_user_id', table_name='leads')
+    op.drop_index(op.f('ix_leads_status'), table_name='leads')
+    op.drop_index(op.f('ix_leads_id'), table_name='leads')
+    op.drop_index('ix_leads_email', table_name='leads')
+    op.drop_index('ix_leads_assigned_to', table_name='leads')
+    op.drop_table('leads')
     op.drop_index(op.f('ix_inspections_vehicle_id'), table_name='inspections')
     op.drop_table('inspections')
     op.drop_table('favorites')
-    op.drop_table('applications')
     op.drop_table('warranty_plans')
     op.drop_index(op.f('ix_vehicles_license_plate'), table_name='vehicles')
     op.drop_index(op.f('ix_vehicles_id'), table_name='vehicles')

@@ -25,7 +25,9 @@ from modules.vehicles.domain.exceptions import (
 from modules.options.domain.exceptions import (
     OptionNotFound,
 )
-
+from modules.vehicles.domain.utils.license_plate import (
+    normalize_license_plate,
+)
 logger = logging.getLogger(__name__)
 
 
@@ -54,13 +56,16 @@ class CreateVehicleUseCase:
             # =========================
             # DUPLICATE
             # =========================
+            license_plate = normalize_license_plate(
+                dto.license_plate
+            )
 
-            if dto.license_plate:
+            if license_plate:
 
                 existing = (
                     self.vehicle_repository
                     .get_by_license_plate(
-                        dto.license_plate
+                        license_plate
                     )
                 )
 
@@ -101,7 +106,7 @@ class CreateVehicleUseCase:
                 condition=dto.condition,
                 is_available=False,
                 images=dto.images,
-                license_plate=dto.license_plate,
+                license_plate=license_plate,
                 status=VehicleStatus.AVAILABLE,
             )
 

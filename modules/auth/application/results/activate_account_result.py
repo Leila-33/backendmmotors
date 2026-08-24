@@ -5,4 +5,4 @@ from dataclasses import dataclass
 class ActivateAccountResult:
     access_token: str
     refresh_token: str
-    redirect: strs
+    redirect: str

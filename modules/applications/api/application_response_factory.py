@@ -9,7 +9,7 @@ from modules.applications.api.schemas import (
     TradeInResponse,
     DocumentResponse,
     EventResponse,
-    SelectedDatesDTO,
+    SelectedDatesRequest,
 )
 from modules.vehicles.domain.enums import VehicleOptionType
 
@@ -133,7 +133,7 @@ class ApplicationResponseFactory:
 
             # RESERVATION
             selected_dates=(
-                SelectedDatesDTO(
+                SelectedDatesRequest(
                     start=application.reservation.start_date,
                     end=application.reservation.end_date,
                 )

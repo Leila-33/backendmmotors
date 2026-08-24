@@ -1,61 +1,132 @@
-from fastapi import APIRouter, Depends, HTTPException
-# =========================
+from fastapi import APIRouter, Depends, status
+
+# =====================================================
 # AUTH
-# =========================
+# =====================================================
+
 from core.security.dependencies import get_current_admin
 
-# =========================
+
+# =====================================================
 # SCHEMAS
-# =========================
+# =====================================================
+
 from modules.vehicles.api.schemas import (
-CreateVehicleRequest,
-VehicleResponse,
-UpdateVehicleRequest,
-VehicleSearchFilters,
-VehicleListResponse,
-VehicleLifecycleDTO,
-SetAvailabilityRequest,
-DeleteVehicleResponse
+    CreateVehicleRequest,
+    VehicleResponse,
+    UpdateVehicleRequest,
+    VehicleSearchFilters,
+    PaginatedVehicleResponse,
+    VehicleLifecycleResponse,
+    SetAvailabilityRequest,
+    DeleteVehicleResponse,
+    FinalCheckResponse,
+    VehicleActionResponse,
 )
 
-# =========================
-# DEPENDENCIES (REPOSITORIES)
-# =========================
-from modules.vehicles.api.dependencies import(
-    get_create_vehicle_use_case,
-    get_update_vehicle_use_case,
-    get_get_vehicles_admin_uc,
-    get_delete_vehicle_use_case,
-    get_vehicle_lifecycle_uc,
-    get_final_check_uc,
-    get_publish_vehicle_uc,
-    get_set_availability_uc
-) 
-from modules.dependencies.dependencies import get_vehicle_response_mapper
-# =========================
+
+# =====================================================
+# DTOs
+# =====================================================
+
+from modules.vehicles.application.dtos.admin.create_vehicle_dto import (
+    CreateVehicleDTO,
+)
+
+from modules.vehicles.application.dtos.admin.update_vehicle_dto import (
+    UpdateVehicleDTO,
+)
+
+from modules.vehicles.application.dtos.vehicle_search_filters_dto import (
+    VehicleSearchFiltersDTO,
+)
+
+from modules.vehicles.application.dtos.admin.vehicle_admin_action_dto import (
+    VehicleAdminActionDTO,
+)  
+from modules.vehicles.application.dtos.admin.set_availability_dto import (
+    SetAvailabilityDTO,
+)
+
+
+# =====================================================
+# DEPENDENCIES
+# =====================================================
+
+from modules.vehicles.api.dependencies import (
+    get_create_vehicle_usecase,
+    get_update_vehicle_usecase,
+    get_get_vehicles_admin_usecase,
+    get_delete_vehicle_usecase,
+    get_vehicle_lifecycle_usecase,
+    get_final_check_usecase,
+    get_publish_vehicle_usecase,
+    get_set_availability_usecase,
+)
+
+
+# =====================================================
 # USE CASES
-# =========================
-from modules.vehicles.application.use_cases.admin.create_vehicle import CreateVehicle
-from modules.vehicles.application.use_cases.admin.update_vehicle import UpdateVehicle
-from modules.vehicles.application.use_cases.get_vehicles import GetVehiclesForAdminUseCase
-from modules.vehicles.application.use_cases.admin.delete_vehicle import DeleteVehicle
-from modules.vehicles.application.use_cases.admin.final_check import FinalCheckUseCase
-from modules.vehicles.application.use_cases.admin.publish_vehicle import PublishVehicleUseCase
-from modules.vehicles.application.use_cases.admin.set_availibity import SetAvailabilityUseCase
-from modules.vehicles.application.use_cases.admin.get_vehicle_lifecycle import GetVehicleLifecycleUseCase
+# =====================================================
+
+from modules.vehicles.application.use_cases.admin.create_vehicle import (
+    CreateVehicleUseCase,
+)
+
+from modules.vehicles.application.use_cases.admin.update_vehicle import (
+    UpdateVehicleUseCase,
+)
+
+from modules.vehicles.application.use_cases.get_vehicles import (
+    GetVehiclesForAdminUseCase,
+)
+
+from modules.vehicles.application.use_cases.admin.delete_vehicle import (
+    DeleteVehicleUseCase,
+)
+
+from modules.vehicles.application.use_cases.admin.final_check import (
+    FinalCheckUseCase,
+)
+
+from modules.vehicles.application.use_cases.admin.publish_vehicle import (
+    PublishVehicleUseCase,
+)
+
+from modules.vehicles.application.use_cases.admin.set_availability import (
+    SetAvailabilityUseCase,
+)
+
+from modules.vehicles.application.use_cases.admin.get_vehicle_lifecycle import (
+    GetVehicleLifecycleUseCase,
+)
 
 
-# =========================
-# MAPPER
-# =========================
-from modules.vehicles.infrastructure.mappers.vehicle_mapper import VehicleMapper
+# =====================================================
+# MAPPERS
+# =====================================================
 
-router = APIRouter(tags=["Admin Vehicles"])
+from modules.vehicles.infrastructure.mappers.vehicle_response_mapper import (
+    VehicleResponseMapper,
+)
 
 
-# =========================
-# ROUTE
-# =========================
+
+
+
+# =====================================================
+# ROUTER
+# =====================================================
+
+router = APIRouter(
+    tags=["Admin Vehicles"]
+)
+
+
+# =====================================================
+# CREATE VEHICLE
+# =====================================================
+
 @router.post(
     "",
     response_model=VehicleResponse,
@@ -68,6 +139,8 @@ def create_vehicle(
         get_create_vehicle_usecase
     ),
 ):
+
+    # API → APPLICATION DTO
 
     dto = CreateVehicleDTO(
         brand=payload.brand,
@@ -87,128 +160,294 @@ def create_vehicle(
         optional_options=payload.optional_options,
     )
 
-    vehicle = use_case.execute(
+    # APPLICATION
+
+    result = use_case.execute(
         dto=dto,
         admin_id=current_admin.id,
     )
 
-    return VehicleMapper.to_response(vehicle)
+    # APPLICATION → API
+
+    return VehicleResponseMapper.to_response(
+        result.vehicle
+    )
+
 
 # =====================================================
-#  UPDATE VEHICLE
+# UPDATE VEHICLE
 # =====================================================
-@router.put("/{vehicle_id}", response_model=VehicleResponse)
+
+@router.patch(
+    "/{vehicle_id}",
+    response_model=VehicleResponse,
+)
 def update_vehicle(
     vehicle_id: str,
-    data: UpdateVehicleRequest,
-    use_case: UpdateVehicle = Depends(get_update_vehicle_use_case),
-    mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
-    current_admin=Depends(get_current_admin)
+    request: UpdateVehicleRequest,
+    current_admin=Depends(get_current_admin),
+    use_case: UpdateVehicleUseCase = Depends(
+        get_update_vehicle_usecase
+    ),
 ):
-    vehicle = use_case.execute(
+
+    # =========================
+    # API → APPLICATION DTO
+    # =========================
+
+    dto = UpdateVehicleDTO(
         vehicle_id=vehicle_id,
-        data=data
+        admin_id=current_admin.id,
+        **request.model_dump(
+            exclude_unset=True
+        ),
     )
-    return mapper.to_response(vehicle, current_admin)
 
+    # =========================
+    # APPLICATION
+    # =========================
 
-# =========================
+    vehicle = use_case.execute(dto)
+
+    # =========================
+    # APPLICATION → API
+    # =========================
+
+    return VehicleResponseMapper.to_response(
+        vehicle
+    )
+
+# =====================================================
 # GET VEHICLES ADMIN
-# =========================
-@router.get("/", response_model=VehicleListResponse)
+# =====================================================
+
+@router.get(
+    "",
+    response_model=PaginatedVehicleResponse,
+)
 def get_vehicles_admin(
-    filters: VehicleSearchFilters = Depends(),
-    use_case: GetVehiclesForAdminUseCase = Depends(get_get_vehicles_admin_uc),
-    mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
-    admin=Depends(get_current_admin)
+    query: VehicleSearchFilters = Depends(),
+
+    current_admin=Depends(
+        get_current_admin
+    ),
+
+    use_case: GetVehiclesForAdminUseCase = Depends(
+        get_get_vehicles_admin_usecase
+    ),
 ):
-    result = use_case.execute(filters)
 
-    return {
-        "items": [
-            mapper.to_response(v)
-            for v in result["items"]
-        ],
-        "total": result["total"],
-        "page": result["page"],
-        "size": result["size"]
-    }
+    dto = VehicleSearchFiltersDTO(
+        page=query.page,
+        size=query.size,
 
-# =========================
+        sort_by=query.sort_by,
+        order=query.order,
+
+        search=query.search,
+
+        type=query.type,
+        brand=query.brand,
+        model=query.model,
+
+        price_min=query.price_min,
+        price_max=query.price_max,
+
+        year_min=query.year_min,
+        mileage_max=query.mileage_max,
+
+        is_available=query.is_available,
+
+        license_plate=query.license_plate,
+    )
+
+    result = use_case.execute(dto)
+
+    return VehicleResponseMapper.to_paginated_response(
+        result
+    )
+
+
+# =====================================================
 # DELETE VEHICLE
-# =========================
-@router.delete("/{vehicle_id}", response_model=DeleteVehicleResponse)
+# =====================================================
+
+@router.delete(
+    "/{vehicle_id}",
+    response_model=DeleteVehicleResponse,
+)
 def delete_vehicle(
     vehicle_id: str,
-    use_case: DeleteVehicle = Depends(get_delete_vehicle_use_case),
-    current_admin=Depends(get_current_admin)
+    current_admin=Depends(get_current_admin),
+
+    use_case: DeleteVehicleUseCase = Depends(
+        get_delete_vehicle_usecase
+    ),
 ):
-    return use_case.execute(vehicle_id, current_admin)
+
+    # API → APPLICATION DTO
+
+    dto = VehicleAdminActionDTO(
+    vehicle_id=vehicle_id,
+    admin_id=current_admin.id,
+)
+
+    # APPLICATION
+
+    result = use_case.execute(
+        dto
+    )
+
+    # APPLICATION → API
+    message = (
+        "Véhicule archivé"
+        if result.action == "ARCHIVED"
+        else "Véhicule supprimé définitivement"
+    )
+
+    return DeleteVehicleResponse(
+        vehicle_id=result.vehicle_id,
+        action=result.action,
+        message=message,
+    )
 
 
-
-
-
+# =====================================================
+# GET VEHICLE LIFECYCLE
+# =====================================================
 
 @router.get(
     "/{vehicle_id}/lifecycle",
-    response_model=VehicleLifecycleDTO
+    response_model=VehicleLifecycleResponse,
 )
-def get_lifecycle(
+def get_vehicle_lifecycle(
     vehicle_id: str,
-    use_case: GetVehicleLifecycleUseCase = Depends(get_vehicle_lifecycle_uc),
-    current_admin=Depends(get_current_admin)
+
+    current_admin=Depends(
+        get_current_admin
+    ),
+
+    use_case: GetVehicleLifecycleUseCase = Depends(
+        get_vehicle_lifecycle_usecase
+    ),
 ):
-        return use_case.execute(vehicle_id)
+
+    result = use_case.execute(
+        vehicle_id=vehicle_id
+    )
+
+    return VehicleResponseMapper.to_lifecycle_response(
+        result
+    )
+
+
+# =====================================================
+# FINAL CHECK
+# =====================================================
 
 @router.post(
-    "/{vehicle_id}/final-check"
+    "/{vehicle_id}/final-check",
+    response_model=FinalCheckResponse,
 )
 def final_check(
     vehicle_id: str,
-    uc: FinalCheckUseCase = Depends(
-        get_final_check_uc
+
+    current_admin=Depends(
+        get_current_admin
     ),
-    current_admin=Depends(get_current_admin)
+
+    use_case: FinalCheckUseCase = Depends(
+        get_final_check_usecase
+    ),
 ):
 
-    return uc.execute(vehicle_id, current_admin)
+    dto = VehicleAdminActionDTO(
+    vehicle_id=vehicle_id,
+    admin_id=current_admin.id,
+)
+
+    result = use_case.execute(
+        dto
+    )
+
+    return FinalCheckResponse(
+        vehicle_id=result.vehicle_id,
+        vehicle_status=result.vehicle_status,
+        reconditioning_status=result.reconditioning_status,
+        final_check_at=result.final_check_at,
+    )
+
+
+# =====================================================
+# PUBLISH VEHICLE
+# =====================================================
 
 @router.post(
-    "/{vehicle_id}/publish"
+    "/{vehicle_id}/publish",
+    response_model=VehicleActionResponse,
 )
 def publish_vehicle(
     vehicle_id: str,
-    uc: PublishVehicleUseCase = Depends(
-        get_publish_vehicle_uc
+
+    current_admin=Depends(
+        get_current_admin
     ),
-    current_admin=Depends(get_current_admin)
+
+    use_case: PublishVehicleUseCase = Depends(
+        get_publish_vehicle_usecase
+    ),
 ):
-    return uc.execute(vehicle_id)
 
-
-
-# =========================
-# SET AVAILABILIY
-# =========================
-@router.patch(
-    "/{vehicle_id}/availability",
-    response_model=VehicleResponse
+    dto = VehicleAdminActionDTO(
+    vehicle_id=vehicle_id,
+    admin_id=current_admin.id,
 )
-def set_availability(
-    vehicle_id: str,
-    request: SetAvailabilityRequest,
-    use_case: SetAvailabilityUseCase = Depends(
-        get_set_availability_uc
-    ),
-    mapper: VehicleMapper = Depends(get_vehicle_response_mapper),
-    current_admin=Depends(get_current_admin)
-):
 
-    vehicle = use_case.execute(
-        vehicle_id,
-        request.value,
-        current_admin
+    result = use_case.execute(
+        dto
     )
 
-    return mapper.to_response(vehicle, current_admin)
+    return VehicleActionResponse(
+        vehicle_id=result.vehicle_id,
+        status=result.status,
+        message=result.message,
+    )
+
+
+# =====================================================
+# SET AVAILABILITY
+# =====================================================
+
+@router.patch(
+    "/{vehicle_id}/availability",
+    response_model=VehicleActionResponse,
+)
+def set_vehicle_availability(
+    vehicle_id: str,
+
+    data: SetAvailabilityRequest,
+
+    current_admin=Depends(
+        get_current_admin
+    ),
+
+    use_case: SetAvailabilityUseCase = Depends(
+        get_set_availability_usecase
+    ),
+):
+
+    dto = SetAvailabilityDTO(
+        vehicle_id=vehicle_id,
+        value=data.value,
+        admin_id=current_admin.id,
+    )
+
+    result = use_case.execute(
+        dto
+    )
+
+    return VehicleActionResponse(
+        vehicle_id=result.vehicle_id,
+        status=result.status,
+        message=result.message,
+    )
