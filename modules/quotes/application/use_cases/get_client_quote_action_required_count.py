@@ -1,7 +1,9 @@
 from modules.quotes.application.results.get_client_quote_action_required_count_result import (
     GetClientQuoteActionRequiredCountResult,
 )
-
+from modules.quotes.application.dtos.customer_id_dto import (
+    CustomerIdDto,
+)
 
 class GetClientQuoteActionRequiredCountUseCase:
 
@@ -13,13 +15,13 @@ class GetClientQuoteActionRequiredCountUseCase:
 
     def execute(
         self,
-        user_id: str,
+        dto: CustomerIdDto,
     ) -> GetClientQuoteActionRequiredCountResult:
 
         count = (
             self.quote_repository
             .count_action_required_by_customer(
-                user_id
+                dto.customer_id
             )
         )
 

@@ -22,7 +22,7 @@ from modules.applications.domain.policies.cancel_application_policy import (
 from modules.applications.domain.repositories.application_repository import (
     ApplicationRepository,
 )
-from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+from modules.applications.application.dtos.application_id_dto import ApplicationIdDTO
 
 from modules.auth.domain.enums import (
     UserRole,

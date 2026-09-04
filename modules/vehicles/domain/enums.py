@@ -30,3 +30,4 @@ class VehicleStatus(str, Enum):
     PUBLISHED = "PUBLISHED"
     RESERVED = "RESERVED"
     SOLD = "SOLD"
+    ARCHIVED = "ARCHIVED"

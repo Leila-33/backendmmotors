@@ -142,6 +142,8 @@ class EventType(str, Enum):
     # PAYMENTS
     # =========================
     PAYMENT_INITIATED = "payment_initiated"
+    PAYMENT_SUCCEEDED = "payment_succeeded"
+    PAYMENT_FAILED = "payment_failed"
     DEPOSIT_PAID = "deposit_paid"
 
     # =========================

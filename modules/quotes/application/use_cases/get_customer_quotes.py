@@ -1,5 +1,5 @@
-from modules.quotes.application.dtos.get_customer_quotes_dto import (
-    GetCustomerQuotesDTO
+from modules.quotes.application.dtos.customer_id_dto import (
+    CustomerIdDto,
 )
 from modules.quotes.application.results.get_customer_quotes_result import (
     GetCustomerQuotesResult
@@ -16,7 +16,7 @@ class GetCustomerQuotesUseCase:
 
     def execute(
         self,
-        dto: GetCustomerQuotesDTO,
+        dto: CustomerIdDto,
     ) -> GetCustomerQuotesResult:
 
         quotes = (

@@ -48,7 +48,7 @@ class VehicleModel(Base):
     equipments = Column(
         ARRAY(String),
         nullable=False,
-        default=list   # ✔ mieux que []
+        default=list
     )
 
     condition = Column(

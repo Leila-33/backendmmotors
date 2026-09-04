@@ -36,14 +36,14 @@ class SaveDraftApplicationUseCase:
     def execute(
         self,
         dto: SaveDraftApplicationDTO,
-        current_user: User
+        current_user_id: str,
     ):
 
         try:
 
             result = self.application_form_service.save(
                 dto=dto,
-                current_user=current_user,
+                current_user_id=current_user_id,
             )
 
 
@@ -51,7 +51,7 @@ class SaveDraftApplicationUseCase:
 
                  self.event_service.log(
                         application_id=result.application.id,
-                        user_id=current_user.id,
+                        user_id=current_user_id,
                         vehicle_id=result.application.vehicle_id,
                         type=EventType.APPLICATION_CREATED,
                         message="Dossier créé.",
@@ -65,7 +65,7 @@ class SaveDraftApplicationUseCase:
     "Brouillon application sauvegardé",
     extra={
         "application_id": result.application.id,
-        "user_id": current_user.id,
+        "user_id": current_user_id,
         "status": result.application.status.value,
     }
 )
@@ -78,8 +78,12 @@ class SaveDraftApplicationUseCase:
             logger.exception(
                 "Erreur sauvegarde brouillon application",
                 extra={
-                    "user_id": current_user.id,
-                    "application_id": result.application.id,
+                    "user_id": current_user_id,
+                                    "application_id": (
+                    result.application.id
+                    if result.application
+                    else None
+                ),
                 }
             )
 

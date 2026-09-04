@@ -3,8 +3,8 @@ from modules.quotes.domain.exceptions import (
     QuoteNotAvailableForCustomer,
 )
 
-from modules.quotes.application.dtos.get_customer_quote_detail_dto import (
-    GetCustomerQuoteDetailDTO,
+from modules.quotes.application.dtos.customer_quote_dto import (
+    CustomerQuoteDTO,
 )
 
 from modules.quotes.application.results.get_customer_quote_detail_result import (
@@ -24,7 +24,7 @@ class GetCustomerQuoteDetailUseCase:
 
     def execute(
         self,
-        dto: GetCustomerQuoteDetailDTO,
+        dto: CustomerQuoteDTO,
     ) -> GetCustomerQuoteDetailResult:
 
         # =========================

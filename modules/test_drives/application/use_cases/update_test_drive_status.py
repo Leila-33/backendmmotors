@@ -133,28 +133,6 @@ class UpdateTestDriveStatusUseCase:
                     },
                 )
 
-            # =========================
-            # COMMIT
-            # =========================
-
-            self.uow.commit()
-
-            logger.info(
-                "Statut essai routier modifié",
-                extra={
-                    "test_drive_id":
-                        updated_test_drive.id,
-
-                    "actor_id":
-                        dto.actor_id,
-
-                    "old_status":
-                        old_status.value,
-
-                    "new_status":
-                        dto.status.value,
-                },
-            )
 
             # =========================
             # NOTIFICATION
@@ -189,6 +167,29 @@ class UpdateTestDriveStatusUseCase:
                     notif_type=notif["type"],
                 )
 
+            # =========================
+            # COMMIT
+            # =========================
+
+            self.uow.commit()
+
+            logger.info(
+                "Statut essai routier modifié",
+                extra={
+                    "test_drive_id":
+                        updated_test_drive.id,
+
+                    "actor_id":
+                        dto.actor_id,
+
+                    "old_status":
+                        old_status.value,
+
+                    "new_status":
+                        dto.status.value,
+                },
+            )
+            
             return test_drive
         
         except Exception:

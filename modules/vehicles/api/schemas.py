@@ -234,7 +234,6 @@ class UpdateVehicleRequest(BaseModel):
     condition: Optional[VehicleCondition] = None
 
     images: Optional[List[str]] = None
-    is_available: bool | None = None
 
     # 🚗 IMMATRICULATION
     license_plate: Optional[str] = None

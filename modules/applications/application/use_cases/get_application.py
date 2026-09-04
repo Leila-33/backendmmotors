@@ -1,6 +1,6 @@
 from modules.auth.domain.enums import UserRole
 from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+from modules.applications.application.dtos.application_id_dto import ApplicationIdDTO
 
 
 class GetApplicationUseCase:
@@ -16,13 +16,13 @@ class GetApplicationUseCase:
 
     def execute(
         self,
-        application_id,
+        dto: ApplicationIdDTO,
         current_user,
     ):
 
         application = (
             self.application_repository
-            .get_full_by_id(application_id)
+            .get_full_by_id(dto.application_id)
         )
 
         if not application:

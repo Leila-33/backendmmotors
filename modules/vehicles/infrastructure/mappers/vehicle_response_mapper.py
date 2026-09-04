@@ -11,7 +11,7 @@ from modules.vehicles.domain.enums import VehicleOptionType
 
 from core.pagination.paginated_result import PaginatedResult
 
-from modules.inspections.infrastructure.mapper.inspection_mapper import (
+from modules.inspections.infrastructure.mappers.inspection_mapper import (
     InspectionMapper,
 )
 from modules.reconditionings.infrastructure.mapper.reconditioning_mapper import (

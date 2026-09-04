@@ -17,3 +17,13 @@ class PaymentNotAllowed(DomainException):
             "Le dossier doit être approuvé avant paiement",
             400
         )
+
+
+class PaymentInvalid(DomainException):
+
+    def __init__(
+        self,
+        message: str = "Le paiement est invalide.",
+    ):
+        self.message = message
+        super().__init__(self.message)

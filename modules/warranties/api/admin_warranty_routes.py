@@ -192,7 +192,7 @@ def toggle_warranty_plan(
     # APPLICATION → API
 
     return WarrantyPlanActionResponse(
-        id=result.plan_id,
+        id=result.id,
         message=(
             "Plan activé avec succès"
             if result.active
@@ -233,6 +233,6 @@ def update_warranty_plan(
     # APPLICATION → API
 
     return WarrantyPlanActionResponse(
-        id=result.plan_id,
+        id=result.id,
         message="Plan modifié avec succès",
     )

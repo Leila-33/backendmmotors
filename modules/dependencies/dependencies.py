@@ -157,6 +157,7 @@ def get_job_queue():
 
 from modules.leads.infrastructure.repositories.lead_repository_sql import LeadRepositorySQL
 from modules.leads.application.services.LeadAuthorizationService import LeadAuthorizationService
+from modules.leads.infrastructure.repositories.sales_dashboard_repository_sql import SalesDashboardRepositorySQL
 
 def get_lead_repository(
     db: Session = Depends(get_db),
@@ -166,6 +167,12 @@ def get_lead_repository(
 def get_lead_authorization():
 
     return LeadAuthorizationService()
+
+def get_sales_dashboard_repository(
+    db: Session = Depends(get_db),
+):
+    return SalesDashboardRepositorySQL(db)
+
 # =====================================================
 # NOTIFICATIONS
 # =====================================================
@@ -295,6 +302,9 @@ from modules.vehicles.infrastructure.repositories.vehicle_repository_sql import 
 from modules.vehicles.infrastructure.repositories.vehicle_option_repository_sql import (
     VehicleOptionRepositorySQL,
 )
+from modules.vehicles.infrastructure.mappers.vehicle_response_mapper import (
+    VehicleResponseMapper,
+)
 
 def get_vehicle_repository(
     db: Session = Depends(get_db),
@@ -307,7 +317,12 @@ def get_vehicle_option_repository(
 ):
     return VehicleOptionRepositorySQL(db)
 
-
+def get_vehicle_response_mapper(
+    s3_service=Depends(get_s3_service),
+):
+    return VehicleResponseMapper(
+        s3_service=s3_service
+    )
 # =====================================================
 # WARRANTIES
 # =====================================================

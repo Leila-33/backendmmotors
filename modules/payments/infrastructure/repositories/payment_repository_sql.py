@@ -180,3 +180,25 @@ class PaymentRepositorySQL(PaymentRepository):
         return PaymentMapper.to_domain(
             model
         )
+
+    def get_latest_payment(
+        self,
+        application_id: str,
+    ) -> Payment | None:
+
+        model = (
+            self.session
+.query(PaymentModel)
+            .filter(
+                PaymentModel.application_id == application_id
+            )
+            .order_by(
+                PaymentModel.created_at.desc()
+            )
+            .first()
+        )
+
+        if model is None:
+            return None
+
+        return PaymentMapper.to_domain(model)

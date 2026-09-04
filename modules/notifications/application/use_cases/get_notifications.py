@@ -32,7 +32,7 @@ class GetNotificationsUseCase:
                 dto.user_id
             )
         )
-
+    
         return GetNotificationsResult(
             items=[
                 NotificationResult(

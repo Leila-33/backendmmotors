@@ -9,10 +9,11 @@ from modules.financing.domain.exceptions import (
 )
 
 from modules.payments.domain.enums import (
-    InstallmentStatus,
     SubscriptionStatus,
 )
-
+from modules.financing.domain.enums import (
+    InstallmentStatus,
+)
 from modules.applications.domain.enums import (
     ApplicationStatus,
     EventType,
@@ -79,19 +80,82 @@ class HandleSubscriptionPaymentUseCase:
                 )
             )
 
+            # =========================
+            # FALLBACK
+            # =========================
+            # invoice.paid peut arriver avant
+            # invoice.created.
+            #
+            # Dans ce cas, la facture n'est pas
+            # encore associée à une mensualité.
+            # On retrouve alors le contrat grâce
+            # au subscription_id puis la prochaine
+            # mensualité impayée.
+
             if installment is None:
-                raise InstallmentNotFound()
+
+                if not dto.subscription_id:
+                    raise InstallmentNotFound()
+
+                contract = (
+                    self.financing_contract_repository
+                    .get_by_subscription_id(
+                        dto.subscription_id
+                    )
+                )
+
+                if contract is None:
+                    raise FinancingContractNotFound()
+
+                installment = (
+                    self.installment_repository
+                    .find_next_unpaid(
+                        contract.id
+                    )
+                )
+
+                if installment is None:
+                    raise InstallmentNotFound()
+
+                # =========================
+                # LINK INVOICE
+                # =========================
+
+                installment.stripe_invoice_id = (
+                    dto.invoice_id
+                )
+
+                self.installment_repository.update(
+                    installment
+                )
+
+                logger.info(
+                    "Facture Stripe associée "
+                    "à une échéance pendant "
+                    "le traitement du paiement",
+                    extra={
+                        "invoice_id": dto.invoice_id,
+                        "subscription_id": (
+                            dto.subscription_id
+                        ),
+                        "installment_id": (
+                            installment.id
+                        ),
+                    },
+                )
 
             # =========================
             # GET CONTRACT
             # =========================
 
-            contract = (
-                self.financing_contract_repository
-                .find_by_id(
-                    installment.financing_contract_id
+            if contract is None:
+
+                contract = (
+                    self.financing_contract_repository
+                    .find_by_id(
+                        installment.financing_contract_id
+                    )
                 )
-            )
 
             if contract is None:
                 raise FinancingContractNotFound()
@@ -140,9 +204,13 @@ class HandleSubscriptionPaymentUseCase:
 
                     return HandleSubscriptionPaymentResult(
                         installment_id=installment.id,
-                        status=installment.status.value,
+                        status=(
+                            installment.status.value
+                        ),
                         invoice_id=dto.invoice_id,
-                        message="Mensualité déjà payée",
+                        message=(
+                            "Mensualité déjà payée"
+                        ),
                     )
 
                 # =========================
@@ -182,6 +250,7 @@ class HandleSubscriptionPaymentUseCase:
                 self.event_service.log(
                     application_id=application.id,
                     user_id=application.user_id,
+                    vehicle_id=application.vehicle_id,
                     type=EventType.INSTALLMENT_PAID,
                     message=(
                         f"Mensualité "
@@ -224,6 +293,7 @@ class HandleSubscriptionPaymentUseCase:
                     self.event_service.log(
                         application_id=application.id,
                         user_id=application.user_id,
+                        vehicle_id=application.vehicle_id,
                         type=EventType.FINANCING_COMPLETED,
                         message=(
                             "Financement intégralement "
@@ -243,6 +313,44 @@ class HandleSubscriptionPaymentUseCase:
                 == "invoice.payment_failed"
             ):
 
+                # =========================
+                # IDEMPOTENCY
+                # =========================
+
+                if (
+                    installment.status
+                    == InstallmentStatus.PAID
+                ):
+
+                    logger.warning(
+                        "Paiement échoué reçu "
+                        "pour une mensualité déjà payée",
+                        extra={
+                            "contract_id": contract.id,
+                            "installment_id": (
+                                installment.id
+                            ),
+                            "invoice_id": (
+                                dto.invoice_id
+                            ),
+                        },
+                    )
+
+                    return HandleSubscriptionPaymentResult(
+                        installment_id=installment.id,
+                        status=(
+                            installment.status.value
+                        ),
+                        invoice_id=dto.invoice_id,
+                        message=(
+                            "Mensualité déjà payée"
+                        ),
+                    )
+
+                # =========================
+                # MARK FAILED
+                # =========================
+
                 installment.status = (
                     InstallmentStatus.FAILED
                 )
@@ -250,6 +358,10 @@ class HandleSubscriptionPaymentUseCase:
                 self.installment_repository.update(
                     installment
                 )
+
+                # =========================
+                # EVENT
+                # =========================
 
                 self.event_service.log(
                     application_id=application.id,
@@ -272,7 +384,23 @@ class HandleSubscriptionPaymentUseCase:
                         ),
                     },
                 )
-                
+
+            # =========================
+            # UNKNOWN EVENT
+            # =========================
+
+            else:
+
+                logger.warning(
+                    "Type d'événement Stripe "
+                    "non pris en charge",
+                    extra={
+                        "event_type": dto.event_type,
+                        "invoice_id": dto.invoice_id,
+                    },
+                )
+
+                return None
 
             # =========================
             # COMMIT
@@ -289,7 +417,9 @@ class HandleSubscriptionPaymentUseCase:
                 extra={
                     "event_type": dto.event_type,
                     "contract_id": contract.id,
-                    "installment_id": installment.id,
+                    "installment_id": (
+                        installment.id
+                    ),
                     "invoice_id": dto.invoice_id,
                 },
             )
@@ -306,7 +436,10 @@ class HandleSubscriptionPaymentUseCase:
                     "Mensualité payée"
                     if dto.event_type
                     == "invoice.paid"
-                    else "Paiement de la mensualité échoué"
+                    else (
+                        "Paiement de la mensualité "
+                        "échoué"
+                    )
                 ),
             )
 

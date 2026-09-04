@@ -141,13 +141,13 @@ class NotificationMapper:
             entity_type=notification.entity_type,
             entity_id=notification.entity_id,
         )
-
+    @staticmethod
     def to_list_response(
         result,
     ) -> GetNotificationsResponse:
 
         return GetNotificationsResponse(
-            items=[
+            notifications=[
                 NotificationMapper.to_response(
                     notification
                 )

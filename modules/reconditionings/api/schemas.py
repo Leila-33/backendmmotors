@@ -1,6 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from datetime import datetime
-from typing import List
 from modules.reconditionings.domain.enums import ReconditioningStatus
 
 
@@ -24,12 +23,9 @@ class ReconditioningResponse(BaseModel):
 
 
 
-class ReconditioningResult(BaseModel):
-    cost: float = Field(ge=0)
-    duration_days: int = Field(ge=0)
-    tasks: List[str] = Field(default_factory=list)
-
-# start_reconditioning
+# =========================
+# START RECONDITIONING
+# =========================
 class StartReconditioningResponse(BaseModel):
 
     reconditioning_id: str

@@ -47,6 +47,53 @@ class HandleInvoiceCreatedUseCase:
                 return None
 
             # =========================
+            # CHECK EXISTING INVOICE
+            # =========================
+            # invoice.paid peut avoir été traité
+            # avant invoice.created.
+            #
+            # Dans ce cas, HandleSubscriptionPaymentUseCase
+            # a déjà associé cette facture à une mensualité.
+            #
+            # Il ne faut surtout pas appeler
+            # find_next_unpaid(), sinon on pourrait associer
+            # la même facture à la mensualité suivante.
+
+            existing_installment = (
+                self.installment_repository
+                .find_by_stripe_invoice_id(
+                    dto.invoice_id
+                )
+            )
+
+            if existing_installment is not None:
+
+                logger.info(
+                    "Facture Stripe déjà associée "
+                    "à une échéance",
+                    extra={
+                        "invoice_id": dto.invoice_id,
+                        "subscription_id": (
+                            dto.subscription_id
+                        ),
+                        "installment_id": (
+                            existing_installment.id
+                        ),
+                    },
+                )
+
+                return HandleInvoiceCreatedResult(
+                    installment_id=(
+                        existing_installment.id
+                    ),
+                    invoice_id=dto.invoice_id,
+                    message=(
+                        "Facture déjà associée "
+                        "à une échéance"
+                    ),
+                )
+
+            # =========================
             # GET CONTRACT
             # =========================
 
@@ -72,6 +119,19 @@ class HandleInvoiceCreatedUseCase:
             )
 
             if installment is None:
+
+                logger.warning(
+                    "Aucune mensualité impayée "
+                    "disponible pour la facture Stripe",
+                    extra={
+                        "invoice_id": dto.invoice_id,
+                        "subscription_id": (
+                            dto.subscription_id
+                        ),
+                        "contract_id": contract.id,
+                    },
+                )
+
                 return None
 
             # =========================
@@ -128,9 +188,15 @@ class HandleInvoiceCreatedUseCase:
             logger.exception(
                 "Erreur traitement facture Stripe",
                 extra={
-                    "invoice_id": dto.invoice_id,
+                    "invoice_id": (
+                        dto.invoice_id
+                        if dto
+                        else None
+                    ),
                     "subscription_id": (
                         dto.subscription_id
+                        if dto
+                        else None
                     ),
                 },
             )

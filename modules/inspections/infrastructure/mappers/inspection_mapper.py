@@ -163,7 +163,6 @@ class InspectionMapper:
         return InspectionResponse(
             id=result.id,
             vehicle_id=result.vehicle_id,
-
             status=result.status.value,
 
             engine_score=result.engine_score,
@@ -181,7 +180,6 @@ class InspectionMapper:
             completed_at=result.completed_at,
             created_at=result.created_at,
         )
-
 
     @staticmethod
     def start(

@@ -5,11 +5,13 @@ from modules.auth.domain.entities.user import User
 from core.security.dependencies import get_current_sales_agent
 
 from modules.leads.api.schemas import (
-    LeadListResponse,
+    GetSalesLeadsResponse,
     AssignLeadResponse,
     LeadDetailResponse,
     MarkLeadContactedResponse,
     DeleteLeadResponse,
+    SalesDashboardStatisticsResponse,
+    SalesNotificationCountsResponse
 )
 
 from modules.leads.api.dependencies import (
@@ -18,24 +20,25 @@ from modules.leads.api.dependencies import (
     get_get_lead_detail_usecase,
     get_mark_lead_contacted_usecase,
     get_delete_lead_usecase,
+    get_get_sales_dashboard_statistics_usecase,
+    get_get_sales_notifications_usecase,
 )
 
 from modules.leads.application.dtos.agent.get_sales_leads_dto import (
     GetSalesLeadsDTO,
 )
-from modules.leads.application.dtos.agent.assign_lead_dto import (
-    AssignLeadDTO,
+from modules.leads.application.dtos.agent.agent_lead_dto import (
+    AgentLeadDTO,
 )
 from modules.leads.application.dtos.agent.get_lead_detail_dto import (
     GetLeadDetailDTO,
 )
-from modules.leads.application.dtos.agent.mark_lead_contacted_dto import (
-    MarkLeadContactedDTO,
+from modules.leads.application.dtos.agent.agent_dto import (
+    AgentDTO,
 )
-from modules.leads.application.dtos.agent.delete_lead_dto import (
-    DeleteLeadDTO,
+from modules.leads.application.use_cases.agent.get_sales_dashboard_statistics import (
+    GetSalesDashboardStatisticsUseCase,
 )
-
 from modules.leads.application.use_cases.agent.get_sales_leads import (
     GetSalesLeadsUseCase,
 )
@@ -51,7 +54,9 @@ from modules.leads.application.use_cases.agent.mark_lead_contacted import (
 from modules.leads.application.use_cases.agent.delete_lead import (
     DeleteLeadUseCase,
 )
-
+from modules.leads.application.use_cases.agent.get_sales_notifications import (
+    GetSalesNotificationsUseCase,
+)
 from modules.leads.infrastructure.mappers.lead_mapper import (
     LeadMapper,
 )
@@ -66,7 +71,7 @@ router = APIRouter(
 # ============================================================
 @router.get(
     "",
-    response_model=LeadListResponse,
+    response_model=GetSalesLeadsResponse,
 )
 def get_sales_leads(
     scope: str = Query(
@@ -88,6 +93,62 @@ def get_sales_leads(
     result = usecase.execute(dto)
 
     return LeadMapper.to_list_response(result)
+
+# ============================================================
+# GET SALES DASHBOARD STATISTICS
+# ============================================================
+@router.get(
+    "/stats",
+    response_model=SalesDashboardStatisticsResponse,
+)
+def get_sales_dashboard_statistics(
+    current_agent: User = Depends(get_current_sales_agent),
+    use_case: GetSalesDashboardStatisticsUseCase = Depends(
+        get_get_sales_dashboard_statistics_usecase,
+    ),
+):
+
+    dto = AgentDTO(
+        agent_id=current_agent.id,
+    )
+
+    result = use_case.execute(dto)
+
+    return SalesDashboardStatisticsResponse(
+        new_leads=result.new_leads,
+        my_leads=result.my_leads,
+        quotes_sent=result.quotes_sent,
+        applications=result.applications,
+        unassigned=result.unassigned,
+        won=result.won,
+        lost=result.lost,
+        conversion_rate=result.conversion_rate,
+    )
+
+# ============================================================
+# GET SALES NOTIFICATIONS
+# ============================================================
+@router.get(
+    "/notifications",
+    response_model=SalesNotificationCountsResponse,
+)
+def get_sales_notifications(
+    current_agent: User = Depends(get_current_sales_agent),
+    use_case: GetSalesNotificationsUseCase = Depends(
+        get_get_sales_notifications_usecase,
+    ),
+):
+
+    dto = AgentDTO(
+        agent_id=current_agent.id,
+    )
+
+    result = use_case.execute(dto)
+
+    return SalesNotificationCountsResponse(
+        new_leads_count=result.new_leads_count,
+        my_leads_count=result.my_leads_count,
+    )
 
 # ============================================================
 # GET LEAD DETAIL
@@ -113,6 +174,7 @@ def get_lead_detail(
 
     return LeadMapper.to_detail_response(result)
 
+
 # ============================================================
 # ASSIGN TO ME
 # ============================================================
@@ -129,7 +191,7 @@ def assign_lead(
         get_assign_lead_usecase
     ),
 ):
-    dto = AssignLeadDTO(
+    dto = AgentLeadDTO(
         lead_id=lead_id,
         agent_id=current_user.id,
     )
@@ -159,7 +221,7 @@ def mark_lead_contacted(
         get_mark_lead_contacted_usecase
     ),
 ):
-    dto = MarkLeadContactedDTO(
+    dto = AgentLeadDTO(
         lead_id=lead_id,
         agent_id=current_user.id,
     )
@@ -189,7 +251,7 @@ def delete_lead(
         get_delete_lead_usecase
     ),
 ):
-    dto = DeleteLeadDTO(
+    dto = AgentLeadDTO(
         lead_id=lead_id,
         agent_id=current_user.id,
     )
@@ -200,3 +262,5 @@ def delete_lead(
         id=result.lead_id,
         message=result.message,
     )
+
+

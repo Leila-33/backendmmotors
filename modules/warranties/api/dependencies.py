@@ -135,14 +135,13 @@ def get_activate_vehicle_warranty_usecase(
     ),
     event_service=Depends(get_event_service)
 
-
 ):
 
     return ActivateVehicleWarrantyUseCase(
         vehicle_repository=vehicle_repository,
         warranty_repository=warranty_repository,
-        warranty_plan_repo=warranty_plan_repository,
-        event_service=event_service
+        warranty_plan_repository=warranty_plan_repository,
+        event_service=event_service,
     )
 
 

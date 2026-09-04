@@ -4,8 +4,8 @@ from modules.quotes.domain.exceptions import (
     QuoteNotFound,
 )
 
-from modules.quotes.application.dtos.agent.get_quote_detail_dto import (
-    GetQuoteDetailDTO,
+from modules.quotes.application.dtos.agent.quote_agent_dto import (
+    QuoteAgentDTO,
 )
 
 from modules.quotes.application.results.agent.get_quote_detail_result import (
@@ -29,7 +29,7 @@ class GetQuoteDetailUseCase:
 
     def execute(
         self,
-        dto: GetQuoteDetailDTO,
+        dto: QuoteAgentDTO,
     ) -> GetQuoteDetailResult:
 
         quote = (

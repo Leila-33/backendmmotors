@@ -87,7 +87,7 @@ def create_test_drive(
     )
 
     return TestDriveMapper.to_response(
-        result.test_drive
+        result
     )
 
 
@@ -100,7 +100,7 @@ def create_test_drive(
     response_model=GetAvailabilityResponse,
 )
 def get_availability(
-    request: GetAvailabilityRequest,
+    request: GetAvailabilityRequest = Depends(),
     use_case: GetAvailabilityUseCase = Depends(
         get_get_availability_usecase
     ),
@@ -196,9 +196,7 @@ async def cancel_test_drive(
         actor_role=current_user.role,
     )
 
-    result = await use_case.execute(dto)
-
-    test_drive = result.test_drive
+    test_drive = await use_case.execute(dto)
 
     return TestDriveStatusResponse(
         id=test_drive.id,

@@ -8,12 +8,6 @@ from modules.financing.domain.entities.installment import (
     InstallmentPayment
 )
 
-from modules.payments.domain.enums import InstallmentStatus
-
-from sqlalchemy.orm import Session
-
-
-
 from modules.financing.infrastructure.mappers.installment_mapper import (
     InstallmentPaymentMapper
 )
@@ -278,7 +272,6 @@ class InstallmentRepositorySQL:
             )
             .first()
         )
-
         if not model:
             return None
 

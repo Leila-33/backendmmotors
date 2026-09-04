@@ -120,6 +120,7 @@ def create_checkout_session(
         amount=request.amount,
         product_name=request.product_name,
         email=request.email,
+        customer_name=request.customer_name,
     )
 
     # =====================================================
@@ -200,12 +201,11 @@ async def stripe_webhook(
         session = event["data"]["object"]
 
         dto = HandlePaymentSuccessDTO(
-            stripe_session_id=session["id"],
+            stripe_session_id=session.id,
+            stripe_payment_intent_id=session.payment_intent,
         )
 
-        payment_success_uc.execute(
-            dto
-        )
+        payment_success_uc.execute(dto)
 
 
     # =====================================================
@@ -217,9 +217,7 @@ async def stripe_webhook(
 
         invoice = event["data"]["object"]
 
-        subscription_id = invoice.get(
-            "subscription"
-        )
+        subscription_id = invoice.subscription
 
         # Une facture sans abonnement
         # ne concerne pas le financement.
@@ -251,9 +249,9 @@ async def stripe_webhook(
 
         dto = HandleSubscriptionPaymentDTO(
             event_type=event_type,
-            invoice_id=invoice["id"],
+            invoice_id=invoice.id,
+            subscription_id=invoice.subscription,
         )
-
         subscription_payment_uc.execute(
             dto
         )

@@ -2,6 +2,6 @@ from dataclasses import dataclass
 
 
 @dataclass
-class GetCustomerQuotesDTO:
+class CustomerIdDto:
 
     customer_id: str

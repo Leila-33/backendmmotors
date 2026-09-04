@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from core.database.session import Base
 
-from modules.payments.domain.enums import InstallmentStatus
+from modules.financing.domain.enums import InstallmentStatus
 
 
 class InstallmentPaymentModel(Base):

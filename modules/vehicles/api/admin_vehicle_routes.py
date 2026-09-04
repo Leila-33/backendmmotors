@@ -64,7 +64,9 @@ from modules.vehicles.api.dependencies import (
     get_set_availability_usecase,
 )
 
-
+from modules.dependencies.dependencies import (
+    get_vehicle_response_mapper,
+)
 # =====================================================
 # USE CASES
 # =====================================================
@@ -134,13 +136,23 @@ router = APIRouter(
 )
 def create_vehicle(
     payload: CreateVehicleRequest,
-    current_admin=Depends(get_current_admin),
+
+    current_admin=Depends(
+        get_current_admin
+    ),
+
     use_case: CreateVehicleUseCase = Depends(
         get_create_vehicle_usecase
     ),
+
+    response_mapper: VehicleResponseMapper = Depends(
+        get_vehicle_response_mapper
+    ),
 ):
 
+    # =========================
     # API → APPLICATION DTO
+    # =========================
 
     dto = CreateVehicleDTO(
         brand=payload.brand,
@@ -160,17 +172,21 @@ def create_vehicle(
         optional_options=payload.optional_options,
     )
 
+    # =========================
     # APPLICATION
+    # =========================
 
     result = use_case.execute(
         dto=dto,
         admin_id=current_admin.id,
     )
 
+    # =========================
     # APPLICATION → API
+    # =========================
 
-    return VehicleResponseMapper.to_response(
-        result.vehicle
+    return response_mapper.to_response(
+        result
     )
 
 
@@ -178,16 +194,25 @@ def create_vehicle(
 # UPDATE VEHICLE
 # =====================================================
 
-@router.patch(
+@router.put(
     "/{vehicle_id}",
     response_model=VehicleResponse,
 )
 def update_vehicle(
     vehicle_id: str,
+
     request: UpdateVehicleRequest,
-    current_admin=Depends(get_current_admin),
+
+    current_admin=Depends(
+        get_current_admin
+    ),
+
     use_case: UpdateVehicleUseCase = Depends(
         get_update_vehicle_usecase
+    ),
+
+    response_mapper: VehicleResponseMapper = Depends(
+        get_vehicle_response_mapper
     ),
 ):
 
@@ -198,9 +223,7 @@ def update_vehicle(
     dto = UpdateVehicleDTO(
         vehicle_id=vehicle_id,
         admin_id=current_admin.id,
-        **request.model_dump(
-            exclude_unset=True
-        ),
+        **request.model_dump(),
     )
 
     # =========================
@@ -213,9 +236,10 @@ def update_vehicle(
     # APPLICATION → API
     # =========================
 
-    return VehicleResponseMapper.to_response(
+    return response_mapper.to_response(
         vehicle
     )
+
 
 # =====================================================
 # GET VEHICLES ADMIN
@@ -235,7 +259,15 @@ def get_vehicles_admin(
     use_case: GetVehiclesForAdminUseCase = Depends(
         get_get_vehicles_admin_usecase
     ),
+
+    response_mapper: VehicleResponseMapper = Depends(
+        get_vehicle_response_mapper
+    ),
 ):
+
+    # =========================
+    # API → APPLICATION DTO
+    # =========================
 
     dto = VehicleSearchFiltersDTO(
         page=query.page,
@@ -261,9 +293,17 @@ def get_vehicles_admin(
         license_plate=query.license_plate,
     )
 
+    # =========================
+    # APPLICATION
+    # =========================
+
     result = use_case.execute(dto)
 
-    return VehicleResponseMapper.to_paginated_response(
+    # =========================
+    # APPLICATION → API
+    # =========================
+
+    return response_mapper.to_paginated_response(
         result
     )
 
@@ -278,27 +318,35 @@ def get_vehicles_admin(
 )
 def delete_vehicle(
     vehicle_id: str,
-    current_admin=Depends(get_current_admin),
+
+    current_admin=Depends(
+        get_current_admin
+    ),
 
     use_case: DeleteVehicleUseCase = Depends(
         get_delete_vehicle_usecase
     ),
 ):
 
+    # =========================
     # API → APPLICATION DTO
+    # =========================
 
     dto = VehicleAdminActionDTO(
-    vehicle_id=vehicle_id,
-    admin_id=current_admin.id,
-)
-
-    # APPLICATION
-
-    result = use_case.execute(
-        dto
+        vehicle_id=vehicle_id,
+        admin_id=current_admin.id,
     )
 
-    # APPLICATION → API
+    # =========================
+    # APPLICATION
+    # =========================
+
+    result = use_case.execute(dto)
+
+    # =========================
+    # RESPONSE
+    # =========================
+
     message = (
         "Véhicule archivé"
         if result.action == "ARCHIVED"

@@ -68,8 +68,10 @@ class SubmitApplicationUseCase:
     def execute(
         self,
         dto: SubmitApplicationDTO,
-        current_user: User,
+        current_user_id: str,
     ):
+
+        application = None
 
         try:
 
@@ -77,15 +79,12 @@ class SubmitApplicationUseCase:
             # SAVE FORM
             # =========================
 
-            result = (
-                self.application_form_service.save(
-                    dto=dto,
-                    current_user=current_user,
-                )
+            result = self.application_form_service.save(
+                dto=dto,
+                current_user_id=current_user_id,
             )
 
             application = result.application
-
 
             # =========================
             # VALIDATE BEFORE SUBMIT
@@ -95,24 +94,21 @@ class SubmitApplicationUseCase:
                 application
             )
 
-
             # =========================
             # STATUS
             # =========================
+
+            application.previous_status = (
+                application.status
+            )
 
             application.status = (
                 ApplicationStatus.SUBMITTED
             )
 
-            application.previous_status = (
-                ApplicationStatus.DRAFT
-            )
-
-
             self.application_repository.update(
                 application
             )
-
 
             # =========================
             # RESERVATION
@@ -128,19 +124,17 @@ class SubmitApplicationUseCase:
                     application.reservation
                 )
 
-
             # =========================
             # EVENT
             # =========================
-            self.event_service.log(
-                    application_id=application.id,
-                    user_id=current_user.id,
-                    vehicle_id=application.vehicle_id,
-                    type=EventType.APPLICATION_SUBMITTED,
-                    message="Dossier soumis."
-                )
-            
 
+            self.event_service.log(
+                application_id=application.id,
+                user_id=current_user_id,
+                vehicle_id=application.vehicle_id,
+                type=EventType.APPLICATION_SUBMITTED,
+                message="Dossier soumis.",
+            )
 
             # =========================
             # COMMIT
@@ -148,17 +142,21 @@ class SubmitApplicationUseCase:
 
             self.uow.commit()
 
-            logger.info(
-    "Application soumise",
-    extra={
-        "application_id": application.id,
-        "user_id": current_user.id,
-        "vehicle_id": application.vehicle_id,
-        "status": application.status.value,
-    }
-)
-            return application
+            # =========================
+            # LOG
+            # =========================
 
+            logger.info(
+                "Application soumise",
+                extra={
+                    "application_id": application.id,
+                    "user_id": current_user_id,
+                    "vehicle_id": application.vehicle_id,
+                    "status": application.status.value,
+                },
+            )
+
+            return application
 
         except Exception:
 
@@ -167,9 +165,13 @@ class SubmitApplicationUseCase:
             logger.exception(
                 "Erreur soumission application",
                 extra={
-                    "application_id": application.id,
-                    "user_id": current_user.id,
-                }
+                    "application_id": (
+                        application.id
+                        if application
+                        else None
+                    ),
+                    "user_id": current_user_id,
+                },
             )
 
             raise

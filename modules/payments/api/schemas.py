@@ -21,7 +21,9 @@ class CreateCheckoutSessionRequest(BaseModel):
         max_length=255
     )
 
-    email: EmailStr | None = None
+    email: EmailStr
+
+    customer_name: str
 
     # =========================
     # VALIDATIONS MÉTIER

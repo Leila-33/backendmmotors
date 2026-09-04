@@ -1,7 +1,8 @@
 import os
 import stripe
+import logging
 
-
+logger = logging.getLogger(__name__)
 
 class StripeService:
 
@@ -15,39 +16,71 @@ class StripeService:
         product_name: str,
         success_url: str,
         cancel_url: str,
-        customer_email: str | None = None
+        customer_id: str,
     ):
         stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
         session = stripe.checkout.Session.create(
-
             payment_method_types=["card"],
 
             mode="payment",
 
-            customer_email=customer_email,
+            customer=customer_id,
 
-            line_items=[{
-                "price_data": {
-                    "currency": "eur",
-                    "product_data": {
-                        "name": product_name
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": "eur",
+                        "product_data": {
+                            "name": product_name,
+                        },
+                        "unit_amount": int(amount * 100),
                     },
-                    "unit_amount": int(amount * 100),
-                },
-                "quantity": 1
-            }],
+                    "quantity": 1,
+                }
+            ],
+
+            payment_intent_data={
+                "setup_future_usage": "off_session",
+            },
 
             success_url=success_url,
             cancel_url=cancel_url,
 
-            event_metadata={
-                "application_id": application_id
-            }
+            metadata={
+                "application_id": application_id,
+            },
         )
 
         return session
+    
+    def set_customer_default_payment_method(
+        self,
+        customer_id: str,
+        payment_intent_id: str,
+    ):
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
+        payment_intent = stripe.PaymentIntent.retrieve(
+            payment_intent_id
+        )
+
+        payment_method_id = payment_intent.payment_method
+
+        if not payment_method_id:
+            raise ValueError(
+                "Aucun PaymentMethod associé au PaymentIntent."
+            )
+
+        stripe.Customer.modify(
+            customer_id,
+            invoice_settings={
+                "default_payment_method": payment_method_id
+            },
+        )
+
+        return payment_method_id
+    
     # =========================
     # VERIFY WEBHOOK (IMPORTANT)
     # =========================
@@ -68,23 +101,55 @@ class StripeService:
         )
 
         return event
-    
 
-
-
-    def create_customer(
+    def get_or_create_customer(
         self,
         email: str,
-        name: str
+        name: str,
     ):
         stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-        customer = stripe.Customer.create(
+        # =========================
+        # SEARCH EXISTING CUSTOMER
+        # =========================
+
+        customers = stripe.Customer.list(
             email=email,
-            name=name
+            limit=1,
         )
 
-        return customer
+        if customers.data:
+
+            customer = customers.data[0]
+
+            logger.info(
+                "Customer Stripe existant réutilisé",
+                extra={
+                    "stripe_customer_id": customer.id,
+                    "email": email,
+                },
+            )
+
+            return customer.id
+
+        # =========================
+        # CREATE CUSTOMER
+        # =========================
+
+        customer = stripe.Customer.create(
+            email=email,
+            name=name,
+        )
+
+        logger.info(
+            "Customer Stripe créé",
+            extra={
+                "stripe_customer_id": customer.id,
+                "email": email,
+            },
+        )
+
+        return customer.id
 
     def create_subscription(
         self,
@@ -110,7 +175,7 @@ class StripeService:
             items=[{
                 "price": price.id
             }],
-            event_metadata={
+            metadata={
                 "application_id": application_id
             },
             expand=["latest_invoice.payment_intent"]

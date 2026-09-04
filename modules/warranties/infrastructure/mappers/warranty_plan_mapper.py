@@ -136,7 +136,9 @@ class WarrantyPlanMapper:
         model.price = (
             domain.price
         )
-
+        model.active = (
+            domain.active
+        )
         return model
 
 

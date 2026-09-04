@@ -31,7 +31,7 @@ class Quote:
 
     down_payment: float = 0
 
-    trade_in_value: float = 0
+    trade_in_value: int = 0
 
     financed_amount: float = 0
 
@@ -151,24 +151,6 @@ class Quote:
             timezone.utc
         )
         
-
-    def send(self):
-
-
-        if self.status != QuoteStatus.DRAFT:
-
-            raise QuoteAlreadySent()
-
-
-
-        self.status = (
-            QuoteStatus.SENT
-        )
-
-
-        self.sent_at = (
-            datetime.now(timezone.utc)
-        )
 
     def can_be_viewed_by_customer(self) -> bool:
 

@@ -151,3 +151,8 @@ class Vehicle:
         self.published_at = datetime.now(
             timezone.utc
         )
+
+    def archive(self):
+        self.status = VehicleStatus.ARCHIVED
+        self.is_available = False
+        self.published_at = None

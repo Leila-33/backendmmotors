@@ -5,6 +5,8 @@ from modules.test_drives.api.schemas import (
     TestDriveDetailResponse,
     MyTestDriveResponse
 )
+from modules.vehicles.infrastructure.mappers.vehicle_mapper import VehicleMapper
+from modules.auth.infrastructure.mappers.user_mapper import UserMapper
 
 class TestDriveMapper:
 
@@ -18,6 +20,16 @@ class TestDriveMapper:
             id=model.id,
             user_id=model.user_id,
             vehicle_id=model.vehicle_id,
+            vehicle=(
+            VehicleMapper.to_domain(model.vehicle)
+            if model.vehicle
+            else None
+        ),
+            user=(
+            UserMapper.to_domain(model.user)
+            if model.user
+            else None
+        ),
             appointment_date=model.appointment_date,
             status=model.status,
             comment=model.comment,
@@ -97,6 +109,7 @@ class TestDriveMapper:
             status=model.status,
 
             comment=model.comment,
+            created_at=model.created_at,
         )
 
     @staticmethod

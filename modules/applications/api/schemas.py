@@ -152,29 +152,29 @@ class FinancingRequest(BaseModel):
         return v
 
 class SelectedDatesRequest(BaseModel):
+
     start: date
     end: date
+
     @model_validator(mode="after")
     def validate_dates(self):
 
-        if self.selected_dates is None:
-            return self
-
         today = date.today()
 
-        if self.selected_dates.start < today:
+        if self.start < today:
             raise ValueError(
                 "La date de début doit être supérieure "
                 "ou égale à aujourd'hui."
             )
 
-        if self.selected_dates.end < self.selected_dates.start:
+        if self.end < self.start:
             raise ValueError(
                 "La date de fin doit être après "
-                "la date de début."
+                "ou égale à la date de début."
             )
 
         return self
+
 
 
 class SaveDraftApplicationRequest(BaseModel):
@@ -229,6 +229,7 @@ class SaveDraftApplicationRequest(BaseModel):
         "phone",
         "address",
         "employment_status",
+        "birth_date",
         mode="before",
     )
     @classmethod
@@ -239,7 +240,7 @@ class SaveDraftApplicationRequest(BaseModel):
             return v or None
 
         return v
-
+    
     # ========================================================
     # PHONE VALIDATION
     # ========================================================
@@ -307,7 +308,61 @@ class SaveDraftApplicationRequest(BaseModel):
             return []
 
         return v
+    
+    @model_validator(mode="after")
+    def validate_application_type(self):
 
+        # ========================================================
+        # RENT
+        # ========================================================
+
+        if self.application_type == ApplicationType.RENT:
+
+            # Dates obligatoires pour une location
+            if self.selected_dates is None:
+                raise ValueError(
+                    "Les dates de location sont obligatoires pour une location."
+                )
+
+            # Pas de financement
+            if self.financing is not None:
+                raise ValueError(
+                    "Le financement n'est pas autorisé "
+                    "pour une location."
+                )
+
+            # Pas de trade-in
+            if self.trade_in is not None:
+                raise ValueError(
+                    "La reprise d'un véhicule n'est pas autorisée "
+                    "pour une location."
+                )
+
+            # Pas de données financières
+            if (
+                self.monthly_income is not None
+                or self.monthly_expenses is not None
+                or self.employment_status is not None
+            ):
+                raise ValueError(
+                    "Les données financières ne sont pas autorisées "
+                    "pour une location."
+                )
+
+        # ========================================================
+        # SALE
+        # ========================================================
+
+        elif self.application_type == ApplicationType.SALE:
+
+            # Pas de dates pour une vente
+            if self.selected_dates is not None:
+                raise ValueError(
+                    "Les dates de location ne sont pas autorisées "
+                    "pour une vente."
+                )
+
+        return self
 
 
 

@@ -15,6 +15,7 @@ class Payment:
     # stripe
     stripe_session_id: str | None = None
     stripe_payment_intent_id: str | None = None
+    stripe_customer_id: str | None = None
 
     # financial
     amount: float = 0.0

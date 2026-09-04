@@ -44,16 +44,22 @@ class PaymentModel(Base):
     # =========================
     # STRIPE
     # =========================
+
+    stripe_customer_id = Column(
+        String,
+        nullable=True,
+    )
+
     stripe_session_id = Column(
-        String, unique=True,
-        nullable=True
+        String,
+        unique=True,
+        nullable=True,
     )
 
     stripe_payment_intent_id = Column(
         String,
-        nullable=True
+        nullable=True,
     )
-
     # =========================
     # FINANCIAL
     # =========================

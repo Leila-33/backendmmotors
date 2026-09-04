@@ -44,20 +44,12 @@ from modules.quotes.application.dtos.agent.create_quote_dto import (
     CreateQuoteDTO,
 )
 
-from modules.quotes.application.dtos.agent.get_quote_detail_dto import (
-    GetQuoteDetailDTO,
+from modules.quotes.application.dtos.agent.quote_agent_dto import (
+    QuoteAgentDTO,
 )
 
 from modules.quotes.application.dtos.agent.update_quote_dto import (
     UpdateQuoteDTO,
-)
-
-from modules.quotes.application.dtos.agent.send_quote_dto import (
-    SendQuoteDTO,
-)
-
-from modules.quotes.application.dtos.agent.delete_quote_dto import (
-    DeleteQuoteDTO,
 )
 
 from modules.financing.domain.inputs.trade_in_input import (
@@ -145,7 +137,7 @@ def get_quote_detail(
     ),
 ):
 
-    dto = GetQuoteDetailDTO(
+    dto = QuoteAgentDTO(
         quote_id=quote_id,
         agent_id=current_agent.id,
     )
@@ -163,7 +155,7 @@ def get_quote_detail(
 # UPDATE QUOTE
 # =========================================================
 
-@router.patch(
+@router.put(
     "/{quote_id}",
     response_model=QuoteActionResponse,
 )
@@ -231,7 +223,7 @@ async def send_quote(
     ),
 ):
 
-    dto = SendQuoteDTO(
+    dto = QuoteAgentDTO(
         quote_id=quote_id,
         agent_id=current_agent.id,
     )
@@ -265,7 +257,7 @@ def delete_quote(
     ),
 ):
 
-    dto = DeleteQuoteDTO(
+    dto = QuoteAgentDTO(
         quote_id=quote_id,
         agent_id=current_agent.id,
     )

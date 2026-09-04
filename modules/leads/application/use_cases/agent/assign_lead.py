@@ -2,7 +2,7 @@ import logging
 
 from modules.leads.domain.exceptions import LeadNotFound
 from modules.applications.domain.enums import EventType
-from modules.leads.application.dtos.agent.assign_lead_dto import AssignLeadDTO
+from modules.leads.application.dtos.agent.agent_lead_dto import AgentLeadDTO
 from modules.leads.application.results.agent.assign_lead_result import (
     AssignLeadResult,
 )
@@ -25,7 +25,7 @@ class AssignLeadUseCase:
 
     def execute(
         self,
-        dto: AssignLeadDTO,
+        dto: AgentLeadDTO,
     ) -> AssignLeadResult:
 
         try:

@@ -9,8 +9,8 @@ from modules.leads.domain.enums import LeadStatus
 
 from modules.applications.domain.enums import EventType
 
-from modules.leads.application.dtos.agent.delete_lead_dto import (
-    DeleteLeadDTO,
+from modules.leads.application.dtos.agent.agent_lead_dto import (
+    AgentLeadDTO,
 )
 
 from modules.leads.application.results.agent.delete_lead_result import (
@@ -39,7 +39,7 @@ class DeleteLeadUseCase:
 
     def execute(
         self,
-        dto: DeleteLeadDTO,
+        dto: AgentLeadDTO,
     ) -> DeleteLeadResult:
 
         try:

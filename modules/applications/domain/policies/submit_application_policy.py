@@ -16,5 +16,8 @@ class SubmitApplicationPolicy:
     "Le dossier est supprimé."
 )
 
-        if application.status != ApplicationStatus.DRAFT:
+        if application.status not in (
+            ApplicationStatus.DRAFT,
+            ApplicationStatus.REJECTED,
+        ):
             raise CannotSubmitApplication()

@@ -128,7 +128,7 @@ class UpdateQuoteUseCase:
                             condition=dto.trade_in.condition,
                         )
                     )
-                )
+                ).estimated_value
 
             # =================================================
             # FINANCING

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from modules.applications.application.dtos.vehicle_id_dto import (
     VehicleIdDTO
 )
-from modules.applications.application.dtos.admin.application_id_dto import (
+from modules.applications.application.dtos.application_id_dto import (
     ApplicationIdDTO
 )
 from modules.applications.application.dtos.submit_application_dto import (
@@ -278,7 +278,7 @@ def save_or_update_draft_application(
 
     result = usecase.execute(
         dto=dto,
-        current_user=current_user,
+        current_user_id=current_user.id,
     )
 
     # ========================================================
@@ -395,6 +395,8 @@ def submit_application(
                     request.financing.duration_months
                 ),
             )
+            if request.financing
+            else None
         ),
 
         # ----------------------------------------------------
@@ -429,7 +431,7 @@ def submit_application(
 
     result = usecase.execute(
         dto=dto,
-        current_user=current_user,
+        current_user_id=current_user.id,
     )
 
     return ApplicationActionResponse(
@@ -448,7 +450,7 @@ def submit_application(
     response_model=GetApplicationsResponse,
 )
 def get_applications(
-    request: GetApplicationsRequest,
+    query: GetApplicationsRequest = Depends(),
 
     usecase: GetApplicationsUseCase = Depends(
         get_get_applications_usecase
@@ -461,13 +463,13 @@ def get_applications(
     ),
 ):
     dto = GetApplicationsDTO(
-            page=request.page,
-            limit=request.limit,
-            search=request.search,
-            status=request.status,
-            application_type=request.application_type,
-            sort=request.sort,
-            view_mode=request.view_mode,
+            page=query.page,
+            limit=query.limit,
+            search=query.search,
+            status=query.status,
+            application_type=query.application_type,
+            sort=query.sort,
+            view_mode=query.view_mode,
         )
 
     result = usecase.execute(
@@ -504,7 +506,7 @@ def get_application_by_vehicle(
     )
     application = usecase.execute(
         dto=dto,
-        current_user=current_user,
+        current_user_id=current_user.id,
     )
 
     if application is None:

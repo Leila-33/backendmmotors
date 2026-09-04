@@ -8,6 +8,7 @@ class CreateOptionDTO:
 
     name: str
     price: float
+    admin_id: str
     billing_type: BillingType = (
             BillingType.FIXED
         )

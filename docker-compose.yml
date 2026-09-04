@@ -4,77 +4,70 @@ services:
     build: .
     container_name: fastapi_api
     restart: always
+
     ports:
       - "8000:8000"
+
     depends_on:
       - redis
       - postgres
       - minio
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/app
 
-      - S3_ENDPOINT=http://minio:9000
-      - S3_BUCKET=vehicles
-      - S3_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
+    env_file:
+      - .env
 
     volumes:
       - .:/app
+
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
 
   worker_inspection:
     build: .
     container_name: worker_inspection
     restart: always
+
     depends_on:
       - redis
       - postgres
       - minio
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/app
-      - PYTHONPATH=/app
 
-      - S3_ENDPOINT=http://minio:9000
-      - S3_BUCKET=vehicles
-      - S3_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
+    env_file:
+      - .env
 
     volumes:
       - .:/app
+
     command: rq worker inspection reconditioning
 
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    restart: always
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
 
   postgres:
     image: postgres:16-alpine
     container_name: postgres
     restart: always
+
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
     ports:
       - "5432:5432"
+
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  adminer:
-    image: adminer
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
     restart: always
+
     ports:
-      - "8080:8080"
+      - "6379:6379"
+
+    command: redis-server --appendonly yes
+
 
   minio:
     image: minio/minio:latest
@@ -86,13 +79,22 @@ services:
       - "9001:9001"
 
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
 
     command: server /data --console-address ":9001"
 
     volumes:
       - minio_data:/data
+
+
+  adminer:
+    image: adminer
+    restart: always
+
+    ports:
+      - "8080:8080"
+
 
 volumes:
   pgdata:

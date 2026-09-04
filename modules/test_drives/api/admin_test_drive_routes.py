@@ -160,9 +160,7 @@ async def update_test_drive_status(
         actor_role=current_admin.role,
     )
 
-    result = await use_case.execute(dto)
-
-    test_drive = result.test_drive
+    test_drive = await use_case.execute(dto)
 
     return TestDriveStatusResponse(
         id=test_drive.id,

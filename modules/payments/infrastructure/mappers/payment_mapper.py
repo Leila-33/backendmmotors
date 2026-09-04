@@ -16,6 +16,7 @@ class PaymentMapper:
             user_id=model.user_id,
 
             stripe_session_id=model.stripe_session_id,
+            stripe_customer_id=model.stripe_customer_id,
             stripe_payment_intent_id=model.stripe_payment_intent_id,
 
             amount=model.amount,
@@ -39,6 +40,7 @@ class PaymentMapper:
             user_id=entity.user_id,
 
             stripe_session_id=entity.stripe_session_id,
+            stripe_customer_id=entity.stripe_customer_id,
             stripe_payment_intent_id=entity.stripe_payment_intent_id,
 
             amount=entity.amount,
@@ -62,6 +64,7 @@ class PaymentMapper:
         model.user_id = entity.user_id
 
         model.stripe_session_id = entity.stripe_session_id
+        model.stripe_customer_id = entity.stripe_customer_id
         model.stripe_payment_intent_id = entity.stripe_payment_intent_id
 
         model.amount = entity.amount

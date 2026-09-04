@@ -36,11 +36,13 @@ class CreateVehicleUseCase:
     def __init__(
         self,
         vehicle_repository,
+        warranty_repository,
         assign_options_usecase,
         event_service,
         unit_of_work,
     ):
         self.vehicle_repository = vehicle_repository
+        self.warranty_repository = warranty_repository
         self.assign_options_usecase = assign_options_usecase
         self.event_service = event_service
         self.uow = unit_of_work
@@ -122,6 +124,7 @@ class CreateVehicleUseCase:
                     warranty_plan_id=warranty_plan_id,
                     is_active=False,
                 )
+                self.warranty_repository.save(vehicle.warranty)
 
             # =========================
             # SAVE
@@ -223,6 +226,46 @@ class AssignOptionsToVehicleUseCase:
         if vehicle is None:
             raise VehicleNotFound()
 
+        included_option_ids = (
+            included_option_ids or []
+        )
+
+        optional_option_ids = (
+            optional_option_ids or []
+        )
+
+        # =========================
+        # VALIDATE OPTIONS
+        # =========================
+
+        included_options = []
+
+        for option_id in included_option_ids:
+
+            option = (
+                self.option_repository
+                .get_by_id(option_id)
+            )
+
+            if option is None:
+                raise OptionNotFound()
+
+            included_options.append(option)
+
+        optional_options = []
+
+        for option_id in optional_option_ids:
+
+            option = (
+                self.option_repository
+                .get_by_id(option_id)
+            )
+
+            if option is None:
+                raise OptionNotFound()
+
+            optional_options.append(option)
+
         # =========================
         # REMOVE EXISTING
         # =========================
@@ -235,20 +278,12 @@ class AssignOptionsToVehicleUseCase:
         # INCLUDED
         # =========================
 
-        for option_id in included_option_ids:
-
-            option = (
-                self.option_repository
-                .get_by_id(option_id)
-            )
-
-            if option is None:
-                raise OptionNotFound()
+        for option in included_options:
 
             vehicle_option = VehicleOption(
                 id=str(uuid.uuid4()),
                 vehicle_id=vehicle_id,
-                option_id=option_id,
+                option_id=option.id,
                 type=VehicleOptionType.INCLUDED,
             )
 
@@ -260,20 +295,12 @@ class AssignOptionsToVehicleUseCase:
         # OPTIONAL
         # =========================
 
-        for option_id in optional_option_ids:
-
-            option = (
-                self.option_repository
-                .get_by_id(option_id)
-            )
-
-            if option is None:
-                raise OptionNotFound()
+        for option in optional_options:
 
             vehicle_option = VehicleOption(
                 id=str(uuid.uuid4()),
                 vehicle_id=vehicle_id,
-                option_id=option_id,
+                option_id=option.id,
                 type=VehicleOptionType.OPTIONAL,
             )
 

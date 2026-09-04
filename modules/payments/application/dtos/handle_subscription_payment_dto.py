@@ -8,3 +8,4 @@ class HandleSubscriptionPaymentDTO:
 
     event_type: str
     invoice_id: str
+    subscription_id: str | None

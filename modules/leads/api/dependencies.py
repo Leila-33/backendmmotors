@@ -18,12 +18,20 @@ from modules.leads.application.use_cases.agent.mark_lead_contacted import (
 from modules.leads.application.use_cases.agent.delete_lead import (
     DeleteLeadUseCase,
 )
-
+from modules.leads.application.use_cases.agent.get_sales_dashboard_statistics import (
+    GetSalesDashboardStatisticsUseCase,
+)
+from modules.leads.application.use_cases.agent.get_sales_notifications import (
+    GetSalesNotificationsUseCase,
+)
 from modules.leads.domain.repositories.lead_repository import (
     LeadRepository,
 )
 from modules.quotes.domain.repositories.quote_repository import (
     QuoteRepository,
+)
+from modules.leads.domain.repositories.sales_dashboard_repository import (
+    SalesDashboardRepository,
 )
 
 from modules.dependencies.dependencies import (
@@ -31,6 +39,7 @@ from modules.dependencies.dependencies import (
     get_lead_authorization,
     get_quote_repository,
     get_event_service,
+    get_sales_dashboard_repository
 )
 
 from core.database.dependencies import (
@@ -70,7 +79,7 @@ def get_get_sales_leads_usecase(
     ),
 ):
     return GetSalesLeadsUseCase(
-        repository=lead_repository
+        lead_repository=lead_repository
     )
 
 
@@ -167,4 +176,31 @@ def get_delete_lead_usecase(
         lead_authorization=authorization,
         event_service=event_service,
         unit_of_work=unit_of_work,
+    )
+
+# =========================================================
+# AGENT - GET SALES DASHBOARD STATISTICS
+# =========================================================
+
+def get_get_sales_dashboard_statistics_usecase(
+    sales_dashboard_repository: SalesDashboardRepository = Depends(
+        get_sales_dashboard_repository
+    ),
+):
+    return GetSalesDashboardStatisticsUseCase(
+        sales_dashboard_repository=sales_dashboard_repository
+    )
+
+
+# =========================================================
+# AGENT - GET SALES NOTIFICATIONS
+# =========================================================
+
+def get_get_sales_notifications_usecase(
+    sales_dashboard_repository: SalesDashboardRepository = Depends(
+        get_sales_dashboard_repository
+    ),
+):
+    return GetSalesNotificationsUseCase(
+        sales_dashboard_repository=sales_dashboard_repository
     )

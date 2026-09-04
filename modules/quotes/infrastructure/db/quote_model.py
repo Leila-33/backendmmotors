@@ -48,7 +48,7 @@ class QuoteModel(Base):
     )
 
     trade_in_value = Column(
-        Float,
+        Integer,
         default=0,
     )
 

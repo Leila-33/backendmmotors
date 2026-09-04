@@ -30,5 +30,4 @@ class AssignmentService:
             if score < best_score:
                 best_score = score
                 best_agent = agent
-        print('1', best_agent)
         return best_agent

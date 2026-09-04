@@ -3,8 +3,6 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class CreateSubscriptionDTO:
-
     contract_id: str
-    customer_email: str
-    customer_name: str
+    stripe_customer_id: str
     user_id: str

@@ -49,3 +49,10 @@ class VehicleRepository(ABC):
         filters: VehicleSearchFiltersDTO,
     ) -> tuple[list[Vehicle], int]:
         pass
+
+    @abstractmethod
+    def has_business_history(
+        self,
+        vehicle_id: str,
+    ) -> bool:
+        pass

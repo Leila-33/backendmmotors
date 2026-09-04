@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Optional
 from modules.inspections.infrastructure.db.inspection_model import InspectionModel
-from modules.inspections.infrastructure.mapper.inspection_mapper import InspectionMapper
+from modules.inspections.infrastructure.mappers.inspection_mapper import InspectionMapper
 from modules.inspections.domain.entities.inspection import Inspection
 from modules.inspections.domain.repositories.inspection_repository import InspectionRepository
 

@@ -5,8 +5,6 @@ from modules.reservations.domain.enums import ReservationStatus
 
 class ReservationRepository(ABC):
 
-    @abstractmethod
-    def create(self, data): pass
 
     @abstractmethod
     def get_by_id(self, reservation_id): pass
@@ -51,7 +49,7 @@ class ReservationRepository(ABC):
         vehicle_id: str
     ) -> list[Reservation]:
         pass
-    
+
     @abstractmethod
     def update(
         self,

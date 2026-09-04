@@ -1,4 +1,4 @@
-from sqlalchemy import asc, desc, or_
+from sqlalchemy import asc, desc, or_, exists
 from sqlalchemy.orm import (
     Session,
     joinedload,
@@ -31,6 +31,14 @@ from modules.vehicles.application.dtos.vehicle_search_filters_dto import (
     VehicleSearchFiltersDTO,
 )
 
+from modules.applications.infrastructure.db.application_model import ApplicationModel
+from modules.reservations.infrastructure.db.reservation_model import ReservationModel
+from modules.test_drives.infrastructure.db.test_drive_model import TestDriveModel
+from modules.reconditionings.infrastructure.db.reconditioning_model import ReconditioningModel
+from modules.inspections.infrastructure.db.inspection_model import InspectionModel
+from modules.leads.infrastructure.db.lead_model import LeadModel
+from modules.applications.infrastructure.db.event_model import EventModel
+from modules.vehicles.domain.enums import VehicleStatus
 
 class VehicleRepositorySQL(VehicleRepository):
 
@@ -55,6 +63,9 @@ class VehicleRepositorySQL(VehicleRepository):
                 ).joinedload(
                     VehicleOptionModel.option
                 )
+            )
+            .filter(
+                VehicleModel.status != VehicleStatus.ARCHIVED
             )
             .distinct()
         )
@@ -369,3 +380,56 @@ class VehicleRepositorySQL(VehicleRepository):
         return VehicleMapper.to_domain(
             model
         )
+    
+
+
+    def has_business_history(
+        self,
+        vehicle_id: str,
+    ) -> bool:
+
+        query = (
+            self.db.query(VehicleModel.id)
+            .filter(
+                VehicleModel.id == vehicle_id,
+                or_(
+                    exists().where(
+                        ApplicationModel.vehicle_id
+                        == VehicleModel.id
+                    ),
+
+                    exists().where(
+                        ReservationModel.vehicle_id
+                        == VehicleModel.id
+                    ),
+
+                    exists().where(
+                        TestDriveModel.vehicle_id
+                        == VehicleModel.id
+                    ),
+
+                    exists().where(
+                        ReconditioningModel.vehicle_id
+                        == VehicleModel.id
+                    ),
+
+                    exists().where(
+                        InspectionModel.vehicle_id
+                        == VehicleModel.id
+                    ),
+
+                    exists().where(
+                        LeadModel.vehicle_id
+                        == VehicleModel.id
+                    ),
+
+                    exists().where(
+                        EventModel.vehicle_id
+                        == VehicleModel.id
+                    ),
+                ),
+            )
+            .first()
+        )
+
+        return query is not None

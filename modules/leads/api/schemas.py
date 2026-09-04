@@ -59,7 +59,8 @@ class LeadListResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
+class GetSalesLeadsResponse(BaseModel):
+    items: list[LeadListResponse]
 # ==========================================
 # GET LEAD DETAIL
 # ==========================================
@@ -139,3 +140,27 @@ class MarkLeadContactedResponse(BaseModel):
 class DeleteLeadResponse(BaseModel):
     id: str
     message: str
+
+
+
+
+# ==========================================
+# SALES DASHBOARD STATISTICS
+# ==========================================
+class SalesDashboardStatisticsResponse(BaseModel):
+    new_leads: int
+    my_leads: int
+    quotes_sent: int
+    applications: int
+    unassigned: int
+    won: int
+    lost: int
+    conversion_rate: float
+
+
+# ==========================================
+# SALES NOTIFICATION COUNTS
+# ==========================================
+class SalesNotificationCountsResponse(BaseModel):
+    new_leads_count: int
+    my_leads_count: int

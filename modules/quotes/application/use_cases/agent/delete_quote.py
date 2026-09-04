@@ -13,8 +13,8 @@ from modules.applications.domain.enums import (
     EventType,
 )
 
-from modules.quotes.application.dtos.agent.delete_quote_dto import (
-    DeleteQuoteDTO,
+from modules.quotes.application.dtos.agent.quote_agent_dto import (
+    QuoteAgentDTO,
 )
 
 from modules.quotes.application.results.quote_action_result import (
@@ -55,7 +55,7 @@ class DeleteQuoteUseCase:
 
     def execute(
         self,
-        dto: DeleteQuoteDTO,
+        dto: QuoteAgentDTO,
     ) -> QuoteActionResult:
 
         quote_id = dto.quote_id
@@ -153,9 +153,7 @@ class DeleteQuoteUseCase:
                 event_metadata={
                     "quote_id": quote.id,
                     "customer_email": (
-                        lead.customer.email
-                        if lead.customer
-                        else None
+                        lead.email
                     ),
                 },
             )

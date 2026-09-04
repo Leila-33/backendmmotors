@@ -13,4 +13,4 @@ class TradeInEstimateRequest(BaseModel):
 
 class TradeInEstimateResponse(BaseModel):
 
-    estimated_value: float
+    estimated_value: int

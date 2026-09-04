@@ -6,7 +6,10 @@ from modules.applications.domain.exceptions import ApplicationNotFound
 from modules.vehicles.domain.enums import VehicleType
 
 from modules.payments.domain.enums import PaymentStatus
-from modules.payments.domain.exceptions import PaymentNotFound
+from modules.payments.domain.exceptions import (
+    PaymentNotFound,
+    PaymentInvalid,
+)
 
 from modules.payments.application.dtos.complete_sale_payment_dto import (
     CompleteSalePaymentDTO,
@@ -32,9 +35,11 @@ class HandlePaymentSuccessUseCase:
         complete_sale_payment_uc,
         complete_rental_payment_uc,
         event_service,
+        stripe_service,
         unit_of_work,
     ):
         self.payment_repository = payment_repository
+
         self.application_repository = (
             application_repository
         )
@@ -48,6 +53,7 @@ class HandlePaymentSuccessUseCase:
         )
 
         self.event_service = event_service
+        self.stripe_service = stripe_service
         self.unit_of_work = unit_of_work
 
     def execute(
@@ -115,6 +121,33 @@ class HandlePaymentSuccessUseCase:
                 )
 
             # =========================
+            # SAVE STRIPE INFORMATION
+            # =========================
+
+            payment.stripe_payment_intent_id = (
+                dto.stripe_payment_intent_id
+            )
+
+            # =========================
+            # SET DEFAULT PAYMENT METHOD
+            # =========================
+
+            if not payment.stripe_customer_id:
+                raise PaymentInvalid(
+                    "Customer Stripe absent du paiement."
+                )
+
+            if not dto.stripe_payment_intent_id:
+                raise PaymentInvalid(
+                    "PaymentIntent Stripe absent du paiement."
+                )
+
+            self.stripe_service.set_customer_default_payment_method(
+                customer_id=payment.stripe_customer_id,
+                payment_intent_id=dto.stripe_payment_intent_id,
+            )
+
+            # =========================
             # MARK PAYMENT AS PAID
             # =========================
 
@@ -131,7 +164,6 @@ class HandlePaymentSuccessUseCase:
             if vehicle.type == VehicleType.SALE:
 
                 self.complete_sale_payment_uc.execute(
-
                     CompleteSalePaymentDTO(
                         application_id=application.id,
                         payment_id=payment.id,
@@ -141,35 +173,36 @@ class HandlePaymentSuccessUseCase:
             elif vehicle.type == VehicleType.RENT:
 
                 self.complete_rental_payment_uc.execute(
-
                     CompleteRentalPaymentDTO(
                         application_id=application.id,
                         payment_id=payment.id,
                     )
                 )
 
-
             # =========================
             # PAYMENT SUCCESS EVENT
             # =========================
 
             self.event_service.log(
-
-                type=EventType.PAYMENT_SUCCESS,
-
-                application_id=application.id,
-
-                user_id=application.user_id,
-
-                vehicle_id=vehicle.id,
-
+                type=EventType.PAYMENT_SUCCEEDED,
                 message="Paiement confirmé",
-
+                application_id=application.id,
+                user_id=application.user_id,
+                vehicle_id=vehicle.id,
                 event_metadata={
                     "payment_id": payment.id,
                     "amount": payment.amount,
                     "vehicle_type": (
                         vehicle.type.value
+                    ),
+                    "stripe_session_id": (
+                        dto.stripe_session_id
+                    ),
+                    "stripe_customer_id": (
+                        payment.stripe_customer_id
+                    ),
+                    "stripe_payment_intent_id": (
+                        dto.stripe_payment_intent_id
                     ),
                 },
             )
@@ -191,6 +224,9 @@ class HandlePaymentSuccessUseCase:
                     "stripe_session_id": (
                         dto.stripe_session_id
                     ),
+                    "stripe_customer_id": (
+                        payment.stripe_customer_id
+                    ),
                     "application_id": application.id,
                     "vehicle_id": vehicle.id,
                 },
@@ -201,15 +237,10 @@ class HandlePaymentSuccessUseCase:
             # =========================
 
             return HandlePaymentSuccessResult(
-
                 payment_id=payment.id,
-
                 status=payment.status.value,
-
                 vehicle_type=vehicle.type.value,
-
                 application_id=application.id,
-
                 message="Paiement traité avec succès",
             )
 

@@ -1,6 +1,6 @@
-from modules.auth.infrastructure.db.user_model import UserModel
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
 from modules.applications.domain.entities.application import Application
+from modules.applications.application.dtos.vehicle_id_dto import VehicleIdDTO
 
 class GetApplicationByVehicleUseCase:
 
@@ -12,11 +12,11 @@ class GetApplicationByVehicleUseCase:
 
     def execute(
         self,
-        vehicle_id: str,
-        current_user: UserModel,
+        dto: VehicleIdDTO,
+        current_user_id: str,
     ) -> Application | None:
 
         return self.application_repository.find_active_by_user_and_vehicle(
-            user_id=current_user.id,
-            vehicle_id=vehicle_id,
+            user_id=current_user_id,
+            vehicle_id=dto.vehicle_id,
         )

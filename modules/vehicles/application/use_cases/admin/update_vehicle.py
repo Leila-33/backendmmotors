@@ -81,9 +81,11 @@ class UpdateVehicleUseCase:
             # =====================================================
             # LICENSE PLATE
             # =====================================================
+
             license_plate = normalize_license_plate(
                 dto.license_plate
             )
+
             if license_plate:
 
                 existing = (
@@ -99,112 +101,107 @@ class UpdateVehicleUseCase:
                     raise VehicleAlreadyExists()
 
             # =====================================================
-            # PAYLOAD
+            # VEHICLE TYPE
             # =====================================================
 
-            update_data = dto.model_dump(
-                exclude_unset=True
-            )
+            vehicle_type = dto.type
 
             # =====================================================
             # WARRANTY
             # =====================================================
 
-            if "warranty_plan_id" in update_data:
+            warranty_plan_id = dto.warranty_plan_id
 
-                warranty_plan_id = (
-                    update_data["warranty_plan_id"]
+            if (
+                vehicle_type == VehicleType.SALE
+                and warranty_plan_id is None
+            ):
+                raise WarrantyRequiredForSale()
+
+            if (
+                vehicle_type == VehicleType.RENT
+                and warranty_plan_id is not None
+            ):
+                raise WarrantyNotAllowedForRental()
+
+            warranty = (
+                self.vehicle_warranty_repository
+                .get_by_vehicle_id(vehicle.id)
+            )
+
+            # =====================================================
+            # DELETE WARRANTY
+            # =====================================================
+
+            if warranty_plan_id is None:
+
+                if warranty:
+
+                    self.vehicle_warranty_repository.delete(
+                        warranty.id
+                    )
+
+            # =====================================================
+            # CREATE WARRANTY
+            # =====================================================
+
+            elif warranty is None:
+
+                warranty = VehicleWarranty(
+                    id=str(uuid4()),
+                    vehicle_id=vehicle.id,
+                    warranty_plan_id=warranty_plan_id,
+                    is_active=False,
                 )
 
-                vehicle_type = update_data.get(
-                    "type",
-                    vehicle.type,
+                self.vehicle_warranty_repository.save(
+                    warranty
                 )
 
-                if (
-                    vehicle_type == VehicleType.SALE
-                    and warranty_plan_id is None
-                ):
-                    raise WarrantyRequiredForSale()
+            # =====================================================
+            # UPDATE WARRANTY
+            # =====================================================
 
-                if (
-                    vehicle_type == VehicleType.RENT
-                    and warranty_plan_id is not None
-                ):
-                    raise WarrantyNotAllowedForRental()
+            else:
 
-                warranty = (
-                    self.vehicle_warranty_repository
-                    .get_by_vehicle_id(vehicle.id)
+                warranty.warranty_plan_id = (
+                    warranty_plan_id
                 )
 
-                # =========================
-                # DELETE
-                # =========================
-
-                if warranty_plan_id is None:
-
-                    if warranty:
-                        self.vehicle_warranty_repository.delete(
-                            warranty.id
-                        )
-
-                # =========================
-                # CREATE
-                # =========================
-
-                elif warranty is None:
-
-                    warranty = VehicleWarranty(
-                        id=str(uuid4()),
-                        vehicle_id=vehicle.id,
-                        warranty_plan_id=warranty_plan_id,
-                        is_active=False,
-                    )
-
-                    self.vehicle_warranty_repository.save(
-                        warranty
-                    )
-
-                # =========================
-                # UPDATE
-                # =========================
-
-                else:
-
-                    warranty.warranty_plan_id = (
-                        warranty_plan_id
-                    )
-
-                    self.vehicle_warranty_repository.update(
-                        warranty
-                    )
+                self.vehicle_warranty_repository.update(
+                    warranty
+                )
 
             # =====================================================
             # IMAGES
             # =====================================================
 
-            images_to_delete = []
+            old_images = vehicle.images or []
+            new_images = dto.images or []
 
-            if dto.images is not None:
+            images_to_delete = list(
+                set(old_images) - set(new_images)
+            )
 
-                old_images = vehicle.images or []
-                new_images = dto.images
-
-                images_to_delete = list(
-                    set(old_images) - set(new_images)
-                )
-
-                vehicle.images = new_images
+            vehicle.images = new_images
 
             # =====================================================
             # VEHICLE FIELDS
             # =====================================================
-            if "license_plate" in update_data:
-                update_data["license_plate"] = normalize_license_plate(
-                    update_data["license_plate"]
-                )
-            allowed_fields = {
+
+            vehicle.brand = dto.brand
+            vehicle.model = dto.model
+            vehicle.price = dto.price
+            vehicle.type = dto.type
+            vehicle.mileage = dto.mileage
+            vehicle.year = dto.year
+            vehicle.description = dto.description
+            vehicle.engine_type = dto.engine_type
+            vehicle.equipments = dto.equipments
+            vehicle.condition = dto.condition
+            vehicle.license_plate = license_plate
+
+            updated_fields = [
                 "brand",
                 "model",
                 "price",
@@ -216,21 +213,8 @@ class UpdateVehicleUseCase:
                 "equipments",
                 "condition",
                 "license_plate",
-            }
-
-            updated_fields = []
-
-            for key, value in update_data.items():
-
-                if key in allowed_fields:
-
-                    setattr(
-                        vehicle,
-                        key,
-                        value,
-                    )
-
-                    updated_fields.append(key)
+                "images",
+            ]
 
             # =====================================================
             # SAVE VEHICLE
@@ -242,15 +226,15 @@ class UpdateVehicleUseCase:
             # OPTIONS
             # =====================================================
 
-            if (
-                dto.included_options is not None
-                or dto.optional_options is not None
-            ):
-
-                self.assign_options_uc.execute(
-                    vehicle_id=vehicle.id,
-                    request=dto,
-                )
+            self.assign_options_uc.execute(
+                vehicle_id=vehicle.id,
+                included_option_ids=(
+                    dto.included_options
+                ),
+                optional_option_ids=(
+                    dto.optional_options
+                ),
+            )
 
             # =====================================================
             # EVENT
@@ -277,6 +261,7 @@ class UpdateVehicleUseCase:
             # =====================================================
 
             for key in images_to_delete:
+
                 self.s3_service.delete_file(key)
 
             logger.info(
@@ -287,10 +272,6 @@ class UpdateVehicleUseCase:
                     "updated_fields": updated_fields,
                 },
             )
-
-            # =====================================================
-            # RESULT
-            # =====================================================
 
             return vehicle
 

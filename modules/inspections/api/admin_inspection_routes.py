@@ -7,9 +7,10 @@ from modules.inspections.api.dependencies import (
 
 from modules.auth.domain.entities.user import User
 
-from modules.inspections.api.mappers.inspection_response_mapper import (
-    InspectionResponseMapper,
+from modules.inspections.infrastructure.mappers.inspection_mapper import (
+    InspectionMapper,
 )
+
 
 from modules.inspections.application.use_cases.admin.get_inspection import (
     GetInspectionUseCase,
@@ -47,7 +48,7 @@ def get_inspection(
         vehicle_id=vehicle_id
     )
 
-    return InspectionResponseMapper.to_response(
+    return InspectionMapper.to_response(
         result
     )
 
@@ -70,6 +71,6 @@ def start_inspection(
         admin_id=current_admin.id,
     )
 
-    return InspectionResponseMapper.start(
+    return InspectionMapper.start(
         result
     )

@@ -56,18 +56,13 @@ class CreateCheckoutSessionUseCase:
 
             application = (
                 self.application_repository
-                .get_by_id(
-                    dto.application_id
-                )
+                .get_by_id(dto.application_id)
             )
 
             if application is None:
                 raise ApplicationNotFound()
 
-            if (
-                application.status
-                != ApplicationStatus.APPROVED
-            ):
+            if application.status != ApplicationStatus.APPROVED:
                 raise PaymentNotAllowed()
 
             # =========================
@@ -98,31 +93,22 @@ class CreateCheckoutSessionUseCase:
                 )
 
             # =========================
-            # PENDING PAYMENT
+            # STRIPE CUSTOMER
             # =========================
 
-            payment = (
-                self.payment_repository
-                .get_by_application_and_status(
-                    application.id,
-                    PaymentStatus.PENDING,
+            # On récupère ou crée le Customer Stripe.
+            #
+            # Ce même Customer sera utilisé :
+            # - pour le Checkout
+            # - pour le futur abonnement de financement
+
+            stripe_customer_id = (
+                self.stripe_service
+                .get_or_create_customer(
+                    email=dto.email,
+                    name=dto.customer_name,
                 )
             )
-
-            # =========================
-            # FAILED PAYMENT
-            # =========================
-
-            if payment is None:
-
-                payment = (
-                    self.payment_repository
-                    .get_by_application_and_status(
-                        application.id,
-                        PaymentStatus.FAILED,
-                    )
-                )
-
             # =========================
             # STRIPE SESSION
             # =========================
@@ -135,12 +121,34 @@ class CreateCheckoutSessionUseCase:
                     product_name=dto.product_name,
                     success_url=settings.SUCCESS_URL,
                     cancel_url=settings.CANCEL_URL,
-                    customer_email=dto.email,
+                    customer_id=stripe_customer_id,
                 )
             )
 
             # =========================
-            # CREATE PAYMENT
+            # FIND EXISTING PAYMENT
+            # =========================
+
+            payment = (
+                self.payment_repository
+                .get_by_application_and_status(
+                    application.id,
+                    PaymentStatus.PENDING,
+                )
+            )
+
+            if payment is None:
+
+                payment = (
+                    self.payment_repository
+                    .get_by_application_and_status(
+                        application.id,
+                        PaymentStatus.FAILED,
+                    )
+                )
+
+            # =========================
+            # CREATE / UPDATE PAYMENT
             # =========================
 
             if payment is None:
@@ -151,9 +159,19 @@ class CreateCheckoutSessionUseCase:
                     user_id=dto.user_id,
                     amount=dto.amount,
                     currency="eur",
+
+                    stripe_customer_id=(
+                        stripe_customer_id
+                    ),
+
                     stripe_session_id=session.id,
+
+                    stripe_payment_intent_id=None,
+
                     status=PaymentStatus.PENDING,
+
                     description=dto.product_name,
+
                     created_at=datetime.now(
                         timezone.utc
                     ),
@@ -163,15 +181,16 @@ class CreateCheckoutSessionUseCase:
                     payment
                 )
 
-            # =========================
-            # REUSE PAYMENT
-            # =========================
-
             else:
 
+                payment.stripe_customer_id = (
+                    stripe_customer_id
+                )
                 payment.stripe_session_id = (
                     session.id
                 )
+
+                payment.stripe_payment_intent_id = None
 
                 payment.status = (
                     PaymentStatus.PENDING
@@ -187,14 +206,22 @@ class CreateCheckoutSessionUseCase:
 
             self.event_service.log(
                 type=EventType.PAYMENT_INITIATED,
+
                 message="Paiement initialisé",
+
                 user_id=dto.user_id,
+
                 application_id=application.id,
+
                 vehicle_id=application.vehicle_id,
+
                 event_metadata={
                     "payment_id": payment.id,
                     "amount": payment.amount,
                     "stripe_session_id": session.id,
+                    "stripe_customer_id": (
+                        stripe_customer_id
+                    ),
                 },
             )
 
@@ -205,7 +232,7 @@ class CreateCheckoutSessionUseCase:
             self.unit_of_work.commit()
 
             # =========================
-            # SUCCESS LOG
+            # LOG
             # =========================
 
             logger.info(
@@ -214,6 +241,9 @@ class CreateCheckoutSessionUseCase:
                     "application_id": application.id,
                     "payment_id": payment.id,
                     "stripe_session_id": session.id,
+                    "stripe_customer_id": (
+                        stripe_customer_id
+                    ),
                 },
             )
 
@@ -233,9 +263,7 @@ class CreateCheckoutSessionUseCase:
             logger.exception(
                 "Erreur création session checkout Stripe",
                 extra={
-                    "application_id": (
-                        dto.application_id
-                    ),
+                    "application_id": dto.application_id,
                     "user_id": dto.user_id,
                 },
             )

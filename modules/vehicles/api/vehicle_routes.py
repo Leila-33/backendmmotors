@@ -22,7 +22,9 @@ from modules.vehicles.api.dependencies import (
     get_vehicle_availability_usecase,
     get_vehicle_interest_status_usecase,
 )
-
+from modules.dependencies.dependencies import (
+    get_vehicle_response_mapper,
+)
 # =========================
 # USE CASES
 # =========================
@@ -79,9 +81,11 @@ router = APIRouter(
 )
 def get_vehicle_detail(
     vehicle_id: str,
-    current_user=Depends(get_current_user),
     use_case: GetVehicleDetailUseCase = Depends(
         get_vehicle_detail_usecase
+    ),
+    response_mapper: VehicleResponseMapper = Depends(
+        get_vehicle_response_mapper
     ),
 ):
 
@@ -89,7 +93,7 @@ def get_vehicle_detail(
         vehicle_id
     )
 
-    return VehicleResponseMapper.to_response(
+    return response_mapper.to_response(
         vehicle
     )
 
@@ -105,12 +109,11 @@ def get_vehicle_detail(
 def get_vehicles(
     query: VehicleSearchFilters = Depends(),
 
-    current_user=Depends(
-        get_current_user
-    ),
-
     use_case: GetVehiclesForClientUseCase = Depends(
         get_get_vehicles_client_usecase
+    ),
+    response_mapper: VehicleResponseMapper = Depends(
+        get_vehicle_response_mapper
     ),
 ):
 
@@ -154,7 +157,7 @@ def get_vehicles(
     # APPLICATION → API
     # =========================
 
-    return VehicleResponseMapper.to_paginated_response(
+    return response_mapper.to_paginated_response(
         result
     )
 

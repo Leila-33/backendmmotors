@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from modules.leads.domain.entities.lead import Lead
 from modules.leads.domain.repositories.lead_repository import LeadRepository
 from modules.leads.infrastructure.mappers.lead_mapper import LeadMapper
@@ -8,8 +8,7 @@ from modules.leads.domain.enums import LeadStatus
 from modules.leads.domain.exceptions import (
     LeadNotFound
 )
-from sqlalchemy.orm import joinedload
-
+from modules.quotes.infrastructure.db.quote_model import QuoteModel
 ACTIVE_LEAD_STATUSES = [
     LeadStatus.NEW,
     LeadStatus.CONTACTED,
@@ -311,4 +310,21 @@ class LeadRepositorySQL(LeadRepository):
 
         self.db.delete(
             model
+        )
+
+
+    def get_by_quote_id(
+        self,
+        quote_id: str,
+    ):
+        return (
+            self.db.query(LeadModel)
+            .join(
+                QuoteModel,
+                QuoteModel.lead_id == LeadModel.id,
+            )
+            .filter(
+                QuoteModel.id == quote_id
+            )
+            .first()
         )

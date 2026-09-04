@@ -9,7 +9,7 @@ from modules.applications.application.dtos.admin.update_application_status_dto i
 from modules.applications.application.dtos.admin.update_document_dto import (
     UpdateDocumentDTO
 )
-from modules.applications.application.dtos.admin.application_id_dto import (
+from modules.applications.application.dtos.application_id_dto import (
     ApplicationIdDTO
 )
 from modules.applications.application.dtos.get_applications_dto import (
@@ -57,7 +57,8 @@ from modules.applications.api.schemas import (
     GetApplicationsRequest,
     UpdateDocumentResponse,
     UpdateApplicationStatusRequest,
-    UpdateDocumentRequest
+    UpdateDocumentRequest,
+    GetApplicationsResponse
 )
 
 
@@ -112,9 +113,12 @@ router = APIRouter(
 # ============================================================
 # GET APPLICATIONS
 # ============================================================
-
+@router.get(
+    "",
+    response_model=GetApplicationsResponse,
+)
 def get_applications(
-    request: GetApplicationsRequest,
+    query: GetApplicationsRequest = Depends(),
     usecase: GetApplicationsUseCase = Depends(
         get_get_applications_usecase
     ),
@@ -124,13 +128,13 @@ def get_applications(
     current_admin: User = Depends(get_current_admin),
 ):
     dto = GetApplicationsDTO(
-        page=request.page,
-        limit=request.limit,
-        search=request.search,
-        status=request.status,
-        application_type=request.application_type,
-        sort=request.sort,
-        view_mode=request.view_mode,
+        page=query.page,
+        limit=query.limit,
+        search=query.search,
+        status=query.status,
+        application_type=query.application_type,
+        sort=query.sort,
+        view_mode=query.view_mode,
     )
 
     result = usecase.execute(

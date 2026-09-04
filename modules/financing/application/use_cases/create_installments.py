@@ -10,7 +10,7 @@ from modules.financing.domain.exceptions import (
     FinancingContractNotFound,
 )
 
-from modules.payments.domain.enums import (
+from modules.financing.domain.enums import (
     InstallmentStatus,
 )
 

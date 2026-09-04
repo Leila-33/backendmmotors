@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 
 from modules.leads.domain.entities.lead import Lead
 
-
 class LeadRepository(ABC):
 
     # =====================================
@@ -50,6 +49,16 @@ class LeadRepository(ABC):
         pass
 
     # =====================================
+    # GET BY QUOTE ID
+    # =====================================
+    @abstractmethod
+    def get_by_quote_id(
+        self,
+        quote_id: str,
+    ):
+        raise NotImplementedError
+    
+    # =====================================
     # AGENT - MY LEADS
     # =====================================
 
@@ -69,7 +78,7 @@ class LeadRepository(ABC):
         self,
     ) -> list[Lead]:
         pass
-
+    
     # =====================================
     # ACTIVE LEAD
     # =====================================

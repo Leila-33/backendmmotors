@@ -137,7 +137,7 @@ def get_active_options(
 # UPDATE
 # =====================================================
 
-@router.patch(
+@router.put(
     "/{option_id}",
     response_model=UpdateOptionResponse,
 )

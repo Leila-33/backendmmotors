@@ -1,9 +1,7 @@
 from dataclasses import dataclass
 
 
-@dataclass
-class GetQuoteDetailDTO:
-
+@dataclass(frozen=True)
+class QuoteAgentDTO:
     quote_id: str
-
     agent_id: str

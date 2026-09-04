@@ -99,26 +99,26 @@ class ApplicationFormService:
     def save(
         self,
         dto,
-        current_user,
+        current_user_id: str,
     ) -> ApplicationFormResult:
 
         self._validate_financial_information(dto)
 
         result = self._get_or_create_application(
             dto,
-            current_user,
+            current_user_id,
         )
 
         application = result.application
 
         trade_in_value = self._save_trade_in(
             dto,
-            application,
+            application.id,
         )
 
         self._save_financing(
             dto,
-            application,
+            application.id,
             trade_in_value,
         )
 
@@ -129,12 +129,12 @@ class ApplicationFormService:
 
         self._save_options(
             dto,
-            application,
+            application.id,
         )
 
         self._save_documents(
             dto,
-            application,
+            application.id,
         )
 
         self._save_reservation(
@@ -157,7 +157,7 @@ class ApplicationFormService:
     def _get_or_create_application(
         self,
         dto,
-        current_user
+        current_user_id: str,
     ) -> ApplicationFormResult:
 
 
@@ -191,7 +191,7 @@ class ApplicationFormService:
         application = (
             self.application_repository
             .find_draft_by_user_and_vehicle(
-                user_id=current_user.id,
+                user_id=current_user_id,
                 vehicle_id=dto.vehicle_id,
             )
         )
@@ -212,7 +212,7 @@ class ApplicationFormService:
 
         application = Application(
             id=str(uuid4()),
-            user_id=current_user.id,
+            user_id=current_user_id,
             vehicle_id=dto.vehicle_id,
             status=ApplicationStatus.DRAFT,
             created_at=datetime.now(timezone.utc),
@@ -240,7 +240,7 @@ class ApplicationFormService:
     def _save_trade_in(
         self,
         dto,
-        application,
+        application_id: str,
     ) -> float:
 
         # =========================
@@ -281,7 +281,7 @@ class ApplicationFormService:
 
         self.trade_in_repository.save(
             ApplicationTradeIn(
-                application_id=application.id,
+                application_id=application_id,
                 brand=trade_in.brand,
                 model=trade_in.model,
                 year=trade_in.year,
@@ -302,7 +302,7 @@ class ApplicationFormService:
     def _save_financing(
         self,
         dto,
-        application,
+        application_id: str,
         trade_in_value,
     ):
 
@@ -325,7 +325,7 @@ class ApplicationFormService:
 
         self.financing_repository.save(
             ApplicationFinancing(
-                application_id=application.id,
+                application_id=application_id,
                 down_payment=dto.financing.down_payment,
                 duration_months=dto.financing.duration_months,
                 financed_amount=result.financed_amount,
@@ -373,7 +373,7 @@ class ApplicationFormService:
     def _save_options(
         self,
         dto,
-        application
+        application_id: str
     ):
 
         if dto.selected_option_ids is None:
@@ -381,7 +381,7 @@ class ApplicationFormService:
 
 
         self.application_option_repository.replace_options(
-            application_id=application.id,
+            application_id=application_id,
             option_ids=dto.selected_option_ids,
         )
 
@@ -394,7 +394,7 @@ class ApplicationFormService:
     def _save_documents(
         self,
         dto,
-        application
+        application_id: str
     ):
 
         if dto.documents is None:
@@ -402,7 +402,7 @@ class ApplicationFormService:
 
 
         self.document_sync_service.sync(
-            application_id=application.id,
+            application_id=application_id,
             documents=dto.documents,
         )
 

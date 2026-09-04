@@ -16,7 +16,7 @@ from modules.applications.domain.builders.application_notification_builder impor
 from modules.applications.domain.exceptions import (
     ApplicationNotFound,
 )
-from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+from modules.applications.application.dtos.application_id_dto import ApplicationIdDTO
 
 from modules.auth.domain.entities.user import (
     User,

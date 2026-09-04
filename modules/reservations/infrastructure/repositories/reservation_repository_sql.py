@@ -18,27 +18,6 @@ class ReservationRepositorySQL:
     def __init__(self, db: Session):
         self.db = db
 
-
-    # =========================
-    # CREATE
-    # =========================
-    def create(
-        self,
-        reservation: Reservation
-    ) -> Reservation:
-
-        model = ReservationMapper.to_model(
-            reservation
-        )
-
-        self.db.add(model)
-        self.db.flush()
-
-        return ReservationMapper.to_domain(
-            model
-        )
-
-
     # =========================
     # GET BY ID
     # =========================
@@ -107,10 +86,7 @@ class ReservationRepositorySQL:
             .filter(
                 ReservationModel.vehicle_id == vehicle_id,
 
-                ReservationModel.status.in_([
-                    ReservationStatus.ACTIVE,
-                    ReservationStatus.DRAFT,
-                ]),
+                ReservationModel.status == ReservationStatus.ACTIVE,
 
                 ReservationModel.start_date <= end_date,
 
@@ -143,7 +119,7 @@ class ReservationRepositorySQL:
     ) -> list[Reservation]:
 
         models = (
-            self.session.query(ReservationModel)
+            self.db.query(ReservationModel)
             .join(ApplicationModel)
             .filter(
                 ReservationModel.status == ReservationStatus.ACTIVE,
@@ -288,10 +264,7 @@ class ReservationRepositorySQL:
             self.db.query(ReservationModel)
             .filter(
                 ReservationModel.vehicle_id == vehicle_id,
-                ReservationModel.status.in_([
-                    ReservationStatus.ACTIVE,
-                    ReservationStatus.DRAFT
-                ])
+                ReservationModel.status == ReservationStatus.ACTIVE
             )
             .all()
         )
@@ -303,9 +276,9 @@ class ReservationRepositorySQL:
         ]
 
     def update(
-    self,
-    reservation: Reservation,
-) -> Reservation:
+        self,
+        reservation: Reservation,
+    ) -> Reservation:
 
         model = (
             self.db.query(ReservationModel)
@@ -318,15 +291,11 @@ class ReservationRepositorySQL:
         if not model:
             raise ReservationNotFound()
 
-
         ReservationMapper.update_model(
             model=model,
-            entity=reservation
+            entity=reservation,
         )
-
 
         self.db.flush()
 
-        return ReservationMapper.to_domain(
-            model
-        )
+        return ReservationMapper.to_domain(model)

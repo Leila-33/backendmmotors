@@ -26,7 +26,6 @@ class ActivateVehicleWarrantyUseCase:
         warranty_repository,
         warranty_plan_repository,
         event_service,
-        unit_of_work: UnitOfWork,
     ):
         self.vehicle_repository = vehicle_repository
         self.warranty_repository = warranty_repository
@@ -34,14 +33,11 @@ class ActivateVehicleWarrantyUseCase:
             warranty_plan_repository
         )
         self.event_service = event_service
-        self.unit_of_work = unit_of_work
 
     def execute(
         self,
         dto: ActivateVehicleWarrantyDTO,
     ):
-
-        try:
 
             # =========================
             # GET VEHICLE
@@ -164,11 +160,6 @@ class ActivateVehicleWarrantyUseCase:
                 },
             )
 
-            # =========================
-            # COMMIT
-            # =========================
-
-            self.unit_of_work.commit()
 
             # =========================
             # LOG
@@ -189,16 +180,3 @@ class ActivateVehicleWarrantyUseCase:
 
             return warranty
 
-        except Exception:
-
-            self.unit_of_work.rollback()
-
-            logger.exception(
-                "Erreur activation garantie",
-                extra={
-                    "vehicle_id": dto.vehicle_id,
-                    "user_id": dto.user_id,
-                },
-            )
-
-            raise

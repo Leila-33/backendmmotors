@@ -56,15 +56,10 @@ class DeleteVehicleUseCase:
             # =========================
 
             has_business_history = (
-                bool(vehicle.applications)
-                or bool(vehicle.reservations)
-                or bool(vehicle.test_drives)
-                or bool(vehicle.warranty)
-                or bool(vehicle.reconditioning)
-                or bool(vehicle.inspections)
-                or bool(vehicle.leads)
-                or bool(vehicle.events)
-            )
+    self.repository.has_business_history(
+        vehicle.id
+    )
+)
 
             # =========================
             # ARCHIVE

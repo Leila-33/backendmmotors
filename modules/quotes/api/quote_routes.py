@@ -41,24 +41,18 @@ from modules.quotes.application.use_cases.accept_quote import (
     AcceptQuoteUseCase,
 )
 
-from modules.quotes.application.dtos.get_customer_quotes_dto import (
-    GetCustomerQuotesDTO,
-)
 
-from modules.quotes.application.dtos.get_customer_quote_detail_dto import (
-    GetCustomerQuoteDetailDTO,
-)
-
-from modules.quotes.application.dtos.get_client_quote_action_required_count_dto import (
-    GetClientQuoteActionRequiredCountDTO,
-)
 
 from modules.quotes.application.dtos.refuse_quote_dto import (
     RefuseQuoteDTO,
 )
 
-from modules.quotes.application.dtos.accept_quote_dto import (
-    AcceptQuoteDTO,
+from modules.quotes.application.dtos.customer_quote_dto import (
+    CustomerQuoteDTO,
+)
+
+from modules.quotes.application.dtos.customer_id_dto import (
+    CustomerIdDto,
 )
 
 from modules.quotes.infrastructure.mappers.quote_mapper import (
@@ -89,7 +83,7 @@ def get_customer_quotes(
     ),
 ):
 
-    dto = GetCustomerQuotesDTO(
+    dto = CustomerIdDto(
         customer_id=current_user.id,
     )
 
@@ -107,7 +101,7 @@ def get_customer_quotes(
 # =========================================================
 
 @router.get(
-    "/action-required/count",
+    "/action-required-count",
     response_model=QuoteActionRequiredCountResponse,
 )
 def get_action_required_count(
@@ -120,7 +114,7 @@ def get_action_required_count(
     ),
 ):
 
-    dto = GetClientQuoteActionRequiredCountDTO(
+    dto = CustomerIdDto(
         customer_id=current_user.id,
     )
 
@@ -153,7 +147,7 @@ def get_customer_quote_detail(
     ),
 ):
 
-    dto = GetCustomerQuoteDetailDTO(
+    dto = CustomerQuoteDTO(
         quote_id=quote_id,
         customer_id=current_user.id,
     )
@@ -188,7 +182,7 @@ async def accept_quote(
     ),
 ):
 
-    dto = AcceptQuoteDTO(
+    dto = CustomerQuoteDTO(
         quote_id=quote_id,
         customer_id=current_user.id,
     )

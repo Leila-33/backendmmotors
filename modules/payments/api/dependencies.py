@@ -119,6 +119,9 @@ def get_complete_sale_payment_usecase(
     vehicle_repository=Depends(
         get_vehicle_repository
     ),
+    payment_repository=Depends(
+        get_payment_repository
+    ),
 
     application_repository=Depends(
         get_application_repository
@@ -153,6 +156,7 @@ def get_complete_sale_payment_usecase(
     return CompleteSalePaymentUseCase(
 
         vehicle_repository=vehicle_repository,
+        payment_repository=payment_repository,
 
         application_repository=application_repository,
 
@@ -231,7 +235,9 @@ def get_handle_payment_success_usecase(
     event_service=Depends(
         get_event_service
     ),
-
+    stripe_service=Depends(
+        get_stripe_service
+    ),
     uow=Depends(
         get_unit_of_work
     ),
@@ -253,7 +259,7 @@ def get_handle_payment_success_usecase(
         ),
 
         event_service=event_service,
-
+        stripe_service=stripe_service,
         unit_of_work=uow,
     )
 

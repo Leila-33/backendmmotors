@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 
 @dataclass
-class GetClientQuoteActionRequiredCountDTO:
+class CustomerQuoteDTO:
+
+    quote_id: str
 
     customer_id: str

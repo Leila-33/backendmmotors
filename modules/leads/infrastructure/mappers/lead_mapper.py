@@ -4,6 +4,8 @@ from modules.vehicles.infrastructure.mappers.vehicle_mapper import VehicleMapper
 from modules.auth.infrastructure.mappers.user_mapper import UserMapper
 from modules.leads.application.results.agent.get_lead_detail_result import GetLeadDetailResult
 from modules.leads.application.results.agent.get_sales_leads_result import GetSalesLeadsResult
+from modules.leads.api.schemas import GetSalesLeadsResponse
+
 class LeadMapper:
 
     # =====================================================
@@ -193,8 +195,10 @@ else None)
     @staticmethod
     def to_list_response(
         result: GetSalesLeadsResult,
-    ):
-        return [
-            LeadMapper.to_response(lead)
-            for lead in result.leads
-        ]
+    ) -> GetSalesLeadsResponse:
+        return GetSalesLeadsResponse(
+            items=[
+                LeadMapper.to_response(lead)
+                for lead in result.leads
+            ]
+        )

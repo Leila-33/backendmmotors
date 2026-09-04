@@ -17,8 +17,8 @@ from modules.applications.domain.entities.application_trade_in import (
 from modules.notifications.domain.enums import (
     NotificationType,
 )
-from modules.quotes.application.dtos.accept_quote_dto import (
-    AcceptQuoteDTO,
+from modules.quotes.application.dtos.customer_quote_dto import (
+    CustomerQuoteDTO,
 )
 from modules.quotes.application.results.accept_quote_result import (
     AcceptQuoteResult,
@@ -69,7 +69,7 @@ class AcceptQuoteUseCase:
 
     async def execute(
         self,
-        dto: AcceptQuoteDTO
+        dto: CustomerQuoteDTO,
     ) -> AcceptQuoteResult:
 
         try:
@@ -132,7 +132,7 @@ class AcceptQuoteUseCase:
                 )
             )
 
-            self.application_repository.save(
+            self.application_repository.create_base(
                 application
             )
 
@@ -145,10 +145,10 @@ class AcceptQuoteUseCase:
                 ApplicationFinancing(
                     application_id=application.id,
                     down_payment=(
-                        quote.financing.down_payment
+                        quote.down_payment
                     ),
                     duration_months=(
-                        quote.financing.duration_months
+                        quote.duration_months
                     ),
                     financed_amount=(
                         quote.financed_amount

@@ -161,6 +161,9 @@ def get_create_vehicle_usecase(
     vehicle_repository: VehicleRepository = Depends(
         get_vehicle_repository
     ),
+    warranty_repository=Depends(
+        get_vehicle_warranty_repository
+    ),
     assign_options_uc: AssignOptionsToVehicleUseCase = Depends(
         get_assign_options_vehicle_usecase
     ),
@@ -173,7 +176,8 @@ def get_create_vehicle_usecase(
 ):
     return CreateVehicleUseCase(
         vehicle_repository=vehicle_repository,
-        assign_options_uc=assign_options_uc,
+        warranty_repository=warranty_repository,
+        assign_options_usecase=assign_options_uc,
         event_service=event_service,
         unit_of_work=unit_of_work,
     )

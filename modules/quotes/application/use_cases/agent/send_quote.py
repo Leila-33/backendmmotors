@@ -24,8 +24,8 @@ from modules.applications.domain.enums import (
     EventType,
 )
 
-from modules.quotes.application.dtos.agent.send_quote_dto import (
-    SendQuoteDTO,
+from modules.quotes.application.dtos.agent.quote_agent_dto import (
+    QuoteAgentDTO,
 )
 
 from modules.quotes.application.results.quote_action_result import (
@@ -61,7 +61,7 @@ class SendQuoteUseCase:
 
     async def execute(
         self,
-        dto: SendQuoteDTO,
+        dto: QuoteAgentDTO,
     ) -> QuoteActionResult:
 
         try:

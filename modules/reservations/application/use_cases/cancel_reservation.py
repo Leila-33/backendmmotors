@@ -102,6 +102,7 @@ class CancelReservationUseCase:
                 and reservation.status
                 not in (
                     ReservationStatus.DRAFT,
+                    ReservationStatus.PENDING,
                     ReservationStatus.ACTIVE,
                 )
             ):

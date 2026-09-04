@@ -116,17 +116,6 @@ class CreateSubscriptionUseCase:
             if application is None:
                 raise ApplicationNotFound()
 
-            # =========================
-            # CREATE CUSTOMER
-            # =========================
-
-            customer = (
-                self.stripe_service
-                .create_customer(
-                    email=dto.customer_email,
-                    name=dto.customer_name,
-                )
-            )
 
             # =========================
             # CREATE SUBSCRIPTION
@@ -135,7 +124,7 @@ class CreateSubscriptionUseCase:
             subscription = (
                 self.stripe_service
                 .create_subscription(
-                    customer_id=customer.id,
+                    customer_id=dto.stripe_customer_id,
                     monthly_amount=(
                         contract.monthly_payment
                     ),
@@ -150,7 +139,7 @@ class CreateSubscriptionUseCase:
             # =========================
 
             contract.stripe_customer_id = (
-                customer.id
+                dto.stripe_customer_id
             )
 
             contract.stripe_subscription_id = (
@@ -186,7 +175,7 @@ class CreateSubscriptionUseCase:
                 user_id=dto.user_id,
                 event_metadata={
                     "contract_id": contract.id,
-                    "stripe_customer_id": customer.id,
+                    "stripe_customer_id": dto.stripe_customer_id,
                     "stripe_subscription_id": (
                         subscription.id
                     ),
@@ -208,7 +197,7 @@ class CreateSubscriptionUseCase:
                         application.id
                     ),
                     "stripe_customer_id": (
-                        customer.id
+                        dto.stripe_customer_id
                     ),
                     "stripe_subscription_id": (
                         subscription.id
@@ -224,7 +213,7 @@ class CreateSubscriptionUseCase:
             return CreateSubscriptionResult(
                 contract_id=contract.id,
                 stripe_customer_id=(
-                    customer.id
+                    dto.stripe_customer_id
                 ),
                 stripe_subscription_id=(
                     subscription.id

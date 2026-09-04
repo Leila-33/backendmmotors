@@ -178,6 +178,7 @@ class ActivateAccountUseCase:
             )
 
             return ActivateAccountResult(
+                message = "Compte activé avec succès",
                 access_token=access_token,
                 refresh_token=refresh_token,
                 redirect=(

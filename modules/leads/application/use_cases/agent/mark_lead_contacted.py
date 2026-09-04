@@ -3,8 +3,8 @@ import logging
 from modules.leads.domain.exceptions import LeadNotFound
 from modules.applications.domain.enums import EventType
 
-from modules.leads.application.dtos.agent.mark_lead_contacted_dto import (
-    MarkLeadContactedDTO,
+from modules.leads.application.dtos.agent.agent_lead_dto import (
+    AgentLeadDTO,
 )
 
 from modules.leads.application.results.agent.mark_lead_contacted_result import (
@@ -31,7 +31,7 @@ class MarkLeadContactedUseCase:
 
     def execute(
         self,
-        dto: MarkLeadContactedDTO,
+        dto: AgentLeadDTO,
     ) -> MarkLeadContactedResult:
 
         try:

@@ -33,11 +33,4 @@ class EstimateTradeInUseCase:
             condition=dto.condition,
         )
 
-        estimated_value = (
-            self.trade_in_estimation_service
-            .estimate(trade_input)
-        )
-
-        return TradeInEstimateResult(
-            estimated_value=estimated_value,
-        )
+        return self.trade_in_estimation_service.estimate(trade_input)

@@ -16,7 +16,7 @@ from modules.applications.domain.exceptions import (
     ApplicationCannotBeDeleted,
     ApplicationNotFound,
 )
-from modules.applications.application.dtos.admin.application_id_dto import ApplicationIdDTO
+from modules.applications.application.dtos.application_id_dto import ApplicationIdDTO
 
 from modules.notifications.domain.enums import (
     NotificationEntityType,

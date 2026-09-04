@@ -48,3 +48,10 @@ class PaymentRepository(ABC):
         status: PaymentStatus
     ) -> Payment | None:
         pass
+
+    @abstractmethod
+    def get_latest_payment(
+        self,
+        application_id: str,
+    ) -> Payment | None:
+        pass
