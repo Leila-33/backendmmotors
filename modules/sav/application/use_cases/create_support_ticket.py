@@ -69,13 +69,18 @@ class CreateSupportTicketUseCase:
             # =================================================
             # CREATE TICKET
             # =================================================
+            application_id = (
+    dto.application_id.strip()
+    if dto.application_id
+    else None
+)
 
             ticket = SupportTicket(
                 id=str(uuid4()),
 
                 user_id=user_id,
 
-                application_id=dto.application_id,
+                application_id=application_id,
 
                 subject=dto.subject.strip(),
 

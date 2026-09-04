@@ -147,15 +147,11 @@ def get_get_support_ticket_usecase(
     unit_of_work=Depends(
         get_unit_of_work
     ),
-    websocket_manager=Depends(
-        get_websocket_manager
-    ),
 ):
 
     return GetSupportTicketUseCase(
         ticket_repository=ticket_repository,
         read_state_repository=read_state_repository,
-        connection_manager=websocket_manager,
         unit_of_work=unit_of_work,
     )
 

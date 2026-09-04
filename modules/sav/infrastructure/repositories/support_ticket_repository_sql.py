@@ -429,6 +429,8 @@ class SupportTicketSQLRepository(SupportTicketRepository):
 
         for row in results:
 
+            ticket = row.SupportTicketModel
+
             unread = (
                 row.last_read_at is None
                 or (
@@ -439,20 +441,20 @@ class SupportTicketSQLRepository(SupportTicketRepository):
 
             items.append(
                 SupportTicketListItem(
-                    id=row.ticket.id,
-                    subject=row.ticket.subject,
-                    category=row.ticket.category,
-                    status=row.ticket.status,
-                    priority=row.ticket.priority,
-                    user_id=row.ticket.user_id,
+                    id=ticket.id,
+                    subject=ticket.subject,
+                    category=ticket.category,
+                    status=ticket.status,
+                    priority=ticket.priority,
+                    user_id=ticket.user_id,
                     user_name=row.user_name,
                     last_message_preview=row.last_message_preview,
                     last_actor=row.last_actor,
                     last_activity_at=row.last_activity_at,
                     unread=unread,
-                    created_at=row.ticket.created_at,
-                    updated_at=row.ticket.updated_at,
-                    archived_at=row.ticket.archived_at,
+                    created_at=ticket.created_at,
+                    updated_at=ticket.updated_at,
+                    archived_at=ticket.archived_at,
                 )
             )
 

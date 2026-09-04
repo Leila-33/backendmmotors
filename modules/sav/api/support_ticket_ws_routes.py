@@ -19,7 +19,9 @@ from modules.auth.api.dependencies import (
     get_jwt_service,
     get_user_repository,
 )
+import logging
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     tags=["ws Support Tickets"]
@@ -53,6 +55,10 @@ async def ticket_chat(
     token = websocket.query_params.get(
         "token"
     )
+    logger.info(
+        "WebSocket support-ticket : token présent=%s",
+        bool(token),
+    )
 
     if not token:
         await websocket.close(
@@ -60,16 +66,31 @@ async def ticket_chat(
         )
         return
 
-    user = get_user_from_ws_token(
-        websocket,
-        jwt_service=jwt_service,
-        user_repo=user_repository,
-    )
+    try:
+        user = get_user_from_ws_token(
+            websocket,
+            jwt_service=jwt_service,
+            user_repo=user_repository,
+        )
+
+        logger.info(
+            "Utilisateur WebSocket : %s",
+            user.id if user else None,
+        )
+
+    except Exception:
+        logger.exception(
+            "Erreur authentification WebSocket"
+        )
+        await websocket.close(code=1008)
+        return
+
 
     if not user:
-        await websocket.close(
-            code=1008
+        logger.warning(
+            "WebSocket refusé : utilisateur introuvable"
         )
+        await websocket.close(code=1008)
         return
 
     # =====================================================
@@ -78,14 +99,21 @@ async def ticket_chat(
 
     try:
 
-        ticket = (
-            chat_usecase.check_access(
-                ticket_id=ticket_id,
-                user=user,
-            )
+        ticket = chat_usecase.check_access(
+            ticket_id=ticket_id,
+            user_id=user.id,
+            user_role=user.role,
         )
 
     except Exception:
+
+        logger.exception(
+            "Accès WebSocket refusé",
+            extra={
+                "ticket_id": ticket_id,
+                "user_id": user.id,
+            },
+        )
 
         await websocket.close(
             code=1008

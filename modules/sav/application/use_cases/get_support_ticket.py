@@ -84,7 +84,7 @@ class GetSupportTicketUseCase:
         # UNREAD COUNT
         # =========================
 
-        unread_count = self.repo.count_unread(
+        unread_count = self.ticket_repository.count_unread(
     user_id=dto.user_id,
     user_role=dto.user_role,
 )
