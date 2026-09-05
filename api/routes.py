@@ -14,8 +14,8 @@ from modules.options.api.admin_option_routes import router as admin_option_route
 from modules.storage.api.upload_routes import router as upload_router
 from modules.reservations.api.reservation_routes import router as reservation_router
 from modules.financing.api.trade_in_routes import router as trade_in_router
-from modules.analytics.api.analytics_routes import router as analytics_router
-from modules.dashboard.api.dashboard_routes import router as dashboard_router
+from modules.analytics.api.admin_analytics_routes import router as admin_analytics_router
+from modules.analytics.api.admin_dashboard_routes import router as admin_dashboard_router
 from modules.test_drives.api.test_drive_routes import router as test_drive_router
 from modules.test_drives.api.admin_test_drive_routes import router as admin_test_drive_router
 from modules.notifications.api.notification_routes import router as notification_router
@@ -45,8 +45,8 @@ api_router.include_router(admin_event_router, prefix="/admin/events")
 api_router.include_router(upload_router, prefix="/uploads")
 api_router.include_router(reservation_router, prefix="/reservations")
 api_router.include_router(trade_in_router, prefix="/trade-in")
-api_router.include_router(analytics_router, prefix="/admin/analytics")
-api_router.include_router(dashboard_router, prefix="/admin/dashboard")   
+api_router.include_router(admin_analytics_router, prefix="/admin/analytics")
+api_router.include_router(admin_dashboard_router, prefix="/admin/dashboard")   
 api_router.include_router(test_drive_router, prefix="/test-drives")   
 api_router.include_router(admin_test_drive_router, prefix="/admin/test-drives")   
 api_router.include_router(notification_router, prefix="/notifications")   

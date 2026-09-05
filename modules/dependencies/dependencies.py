@@ -4,6 +4,35 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from core.database.dependencies import get_db
+# =====================================================
+# ANALYTICS
+# =====================================================
+from modules.analytics.domain.repositories.analytics_repository import (
+    AnalyticsRepository,
+)
+from modules.analytics.infrastructure.repositories.analytics_repository_sql import (
+    AnalyticsRepositorySQL,
+)
+
+def get_analytics_repository(
+    db: Session = Depends(get_db),
+) -> AnalyticsRepository:
+    return AnalyticsRepositorySQL(db)
+
+# =====================================================
+# DASHBOARD
+# =====================================================
+from modules.analytics.domain.repositories.dashboard_repository import (
+    DashboardRepository,
+)
+from modules.analytics.infrastructure.repositories.dashboard_repository_sql import (
+    DashboardRepositorySQL,
+)
+
+def get_dashboard_repository(
+    db: Session = Depends(get_db),
+) -> DashboardRepository:
+    return DashboardRepositorySQL(db)
 
 # =====================================================
 # APPLICATIONS

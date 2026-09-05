@@ -1,0 +1,73 @@
+from pydantic import BaseModel
+from datetime import datetime
+
+
+class ApplicationByDayResponse(BaseModel):
+    date: str
+    count: int
+
+
+class StatusDistributionResponse(BaseModel):
+    name: str
+    value: int
+
+
+class RevenueByMonthResponse(BaseModel):
+    month: str
+    amount: float
+
+
+class AnalyticsStatsResponse(BaseModel):
+    total: int
+    approved: int
+    rejected: int
+    submitted: int
+    draft: int
+
+
+class AnalyticsResponse(BaseModel):
+    applications_by_day: list[
+        ApplicationByDayResponse
+    ]
+
+    status_distribution: list[
+        StatusDistributionResponse
+    ]
+
+    revenue: list[
+        RevenueByMonthResponse
+    ]
+
+    stats: AnalyticsStatsResponse
+
+
+
+
+class DashboardStatsResponse(BaseModel):
+    total_applications: int
+    pending_applications: int
+    active_applications: int
+    rejected_applications: int
+    archived_applications: int
+    applications_this_week: int
+
+
+class RecentApplicationResponse(BaseModel):
+    id: str
+    status: str
+    first_name: str
+    last_name: str
+    created_at: datetime
+
+
+class RecentEventResponse(BaseModel):
+    id: str
+    type: str
+    message: str
+    created_at: datetime
+
+
+class DashboardResponse(BaseModel):
+    stats: DashboardStatsResponse
+    recent_applications: list[RecentApplicationResponse]
+    recent_events: list[RecentEventResponse]

@@ -1,5 +1,5 @@
 import logging
-
+from datetime import datetime, timezone
 from modules.applications.domain.enums import EventType
 from modules.applications.domain.exceptions import ApplicationNotFound
 
@@ -152,6 +152,7 @@ class HandlePaymentSuccessUseCase:
             # =========================
 
             payment.status = PaymentStatus.PAID
+            payment.paid_at = datetime.now(timezone.utc)
 
             self.payment_repository.update(
                 payment

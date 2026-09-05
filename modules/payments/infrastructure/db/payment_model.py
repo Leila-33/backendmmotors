@@ -104,7 +104,10 @@ class PaymentModel(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc)
     )
-
+    paid_at = Column(
+        DateTime,
+        nullable=True
+    )
     # =========================
     # ORM RELATIONSHIPS
     # =========================

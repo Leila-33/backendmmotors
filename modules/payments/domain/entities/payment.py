@@ -30,3 +30,4 @@ class Payment:
     # timestamps
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    paid_at: datetime | None = None
