@@ -74,13 +74,17 @@ class TicketChatUseCase:
     # UNREAD
     # =====================================================
 
-    def get_recipient_id(
+    def get_recipient(
         self,
         ticket,
         sender_id: str,
     ):
-
         if sender_id == ticket.user_id:
-            return ticket.assigned_to
+            # Le message vient du client
+            if ticket.assigned_to:
+                return ticket.assigned_to, UserRole.SAV_AGENT
 
-        return ticket.user_id
+            return None
+
+        # Le message vient d'un agent SAV
+        return ticket.user_id, UserRole.CLIENT

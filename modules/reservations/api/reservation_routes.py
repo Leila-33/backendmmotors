@@ -17,6 +17,10 @@ from modules.reservations.api.dependencies import (
     get_check_availability_usecase,
 )
 
+from modules.auth.domain.entities.user import (
+    User,
+)
+from core.security.dependencies import get_current_user
 
 router = APIRouter(
     tags=["Reservations"]
@@ -34,7 +38,7 @@ router = APIRouter(
 def check_reservation_availability(
 
     request: CheckAvailabilityRequest,
-
+    current_user: User = Depends(get_current_user),
     usecase: CheckReservationAvailabilityUseCase = Depends(
         get_check_availability_usecase
     ),

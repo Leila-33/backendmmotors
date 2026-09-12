@@ -1,21 +1,21 @@
-from modules.analytics.application.results.admin.dashboard_result import (
-    DashboardResult,
+from modules.analytics.application.results.admin.admin_dashboard_result import (
+    AdminDashboardResult,
     DashboardStatsResult,
     RecentApplicationResult,
     RecentEventResult,
 )
 
 
-class GetDashboardUseCase:
+class GetAdminDashboardUseCase:
 
     def __init__(self, dashboard_repository):
         self.dashboard_repository = dashboard_repository
 
-    def execute(self) -> DashboardResult:
+    def execute(self) -> AdminDashboardResult:
 
-        result = self.dashboard_repository.get_dashboard_data()
+        result = self.dashboard_repository.get_admin_dashboard_data()
 
-        return DashboardResult(
+        return AdminDashboardResult(
             stats=DashboardStatsResult(
                 total_applications=result["stats"]["total_applications"],
                 pending_applications=result["stats"]["pending_applications"],

@@ -55,7 +55,6 @@ class ArchiveApplicationPolicy:
             ApplicationStatus.CANCELLED,
             ApplicationStatus.COMPLETED,
             ApplicationStatus.REJECTED,
-            ApplicationStatus.PAID,
         )
 
         if application.status not in allowed_statuses:

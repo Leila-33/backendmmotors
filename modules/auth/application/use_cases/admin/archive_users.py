@@ -65,7 +65,7 @@ class ArchiveUsersUseCase:
                     )
 
                 if user.role == UserRole.ADMIN:
-                    raise CannotArchiveAdmin()
+                    raise CannotArchiveAdmin(user.id)
 
             # =====================================================
             # ARCHIVE

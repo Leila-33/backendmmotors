@@ -206,32 +206,25 @@ async def ticket_chat(
             # RECIPIENT
             # =============================================
 
-            recipient_id = (
-                chat_usecase.get_recipient_id(
-                    ticket=ticket,
-                    sender_id=user.id,
-                )
+            recipient = chat_usecase.get_recipient(
+                ticket=ticket,
+                sender_id=user.id,
             )
 
-            if recipient_id:
+            if recipient:
+                recipient_id, recipient_role = recipient
 
                 unread = chat_usecase.ticket_repository.count_unread(
-    user_id=user.id,
-    user_role=user.role,
-)
+                    user_id=recipient_id,
+                    user_role=recipient_role,
+                )
 
-                await (
-                    chat_usecase
-                    .connection_manager
-                    .send(
-                        recipient_id,
-                        {
-                            "type": (
-                                "UNREAD_TICKETS_UPDATED"
-                            ),
-                            "count": unread,
-                        },
-                    )
+                await chat_usecase.connection_manager.send(
+                    recipient_id,
+                    {
+                        "type": "UNREAD_TICKETS_UPDATED",
+                        "count": unread,
+                    },
                 )
 
     except WebSocketDisconnect:

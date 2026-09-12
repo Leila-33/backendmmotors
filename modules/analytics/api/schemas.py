@@ -1,7 +1,9 @@
 from pydantic import BaseModel
 from datetime import datetime
 
-
+# =========================================================
+# ADMIN - GET ANALYTICS
+# =========================================================
 class ApplicationByDayResponse(BaseModel):
     date: str
     count: int
@@ -41,7 +43,9 @@ class AnalyticsResponse(BaseModel):
     stats: AnalyticsStatsResponse
 
 
-
+# =========================================================
+# ADMIN - GET DASHBOARD
+# =========================================================
 
 class DashboardStatsResponse(BaseModel):
     total_applications: int
@@ -67,7 +71,61 @@ class RecentEventResponse(BaseModel):
     created_at: datetime
 
 
-class DashboardResponse(BaseModel):
+class AdminDashboardResponse(BaseModel):
     stats: DashboardStatsResponse
     recent_applications: list[RecentApplicationResponse]
     recent_events: list[RecentEventResponse]
+
+
+
+# =========================================================
+# USER - GET DASHBOARD
+# =========================================================
+
+
+class DashboardApplicationResponse(BaseModel):
+
+    id: str
+    status: str
+    created_at: datetime
+
+
+class DashboardVehicleResponse(BaseModel):
+    id: str
+    brand: str
+    model: str
+
+class DashboardTestDriveResponse(BaseModel):
+    id: str
+    appointment_date: datetime
+    status: str
+    vehicle: DashboardVehicleResponse
+    
+class DashboardNotificationResponse(BaseModel):
+
+    id: str
+    title: str
+    message: str
+    status: str
+    created_at: datetime
+
+
+class DashboardResponse(BaseModel):
+    total_applications: int
+    active_applications: int
+    approved_applications: int
+    pending_applications: int
+
+    applications: list[
+        DashboardApplicationResponse
+    ]
+
+    upcoming_test_drive: (
+        DashboardTestDriveResponse | None
+    )
+
+    unread_notifications: int
+
+    notifications: list[
+        DashboardNotificationResponse
+    ]

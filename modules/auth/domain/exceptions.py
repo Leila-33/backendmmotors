@@ -95,10 +95,10 @@ class UserIdRequiredForClient(DomainException):
         )
 
 class InvalidUserIds(DomainException):
-    def __init__(self):
+    def __init__(self, message="Certains utilisateurs sont introuvables"):
         super().__init__(
-            message="Aucun utilisateur sélectionné ou identifiants invalides.",
-            status_code=400
+            message=message,
+            status_code=400,
         )
 
 class UserAlreadyArchived(DomainException):
@@ -151,11 +151,8 @@ class ActivationTokenAlreadyUsed(DomainException):
 
 
 class Forbidden(DomainException):
-    def __init__(self):
-        super().__init__(
-            message="Accès interdit",
-            status_code=403
-        )
+    def __init__(self, message: str = "Accès interdit"):
+        super().__init__(message, 403)
 
 class InvalidUserRole(DomainException):
 

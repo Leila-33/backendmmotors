@@ -1,4 +1,3 @@
-# app/infrastructure/db/import_models.py
 
 # Users
 from modules.auth.infrastructure.db.user_model import UserModel

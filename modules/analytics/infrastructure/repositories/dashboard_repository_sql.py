@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from sqlalchemy import func
 
 from modules.analytics.domain.repositories.dashboard_repository import (
     DashboardRepository,
@@ -15,13 +16,34 @@ from modules.applications.infrastructure.db.event_model import (
     EventModel,
 )
 
+from modules.test_drives.infrastructure.db.test_drive_model import (
+    TestDriveModel,
+)
+from modules.test_drives.domain.enums import (
+    TestDriveStatus,
+)
+from modules.notifications.infrastructure.db.notification_model import (
+    NotificationModel,
+)
+from modules.notifications.domain.enums import (
+    NotificationStatus,
+)
+from modules.analytics.application.results.dashboard_result import (
+    DashboardResult,
+    DashboardApplicationItemResult,
+    DashboardTestDriveResult,
+    DashboardNotificationItemResult,
+    DashboardVehicleResult,
+)
 
 class DashboardRepositorySQL(DashboardRepository):
 
     def __init__(self, session):
         self.session = session
-
-    def get_dashboard_data(self) -> dict:
+# =========================================================
+# ADMIN DASHBOARD DATA
+# =========================================================
+    def get_admin_dashboard_data(self) -> dict:
 
         # =========================
         # TOTAL APPLICATIONS
@@ -182,3 +204,180 @@ class DashboardRepositorySQL(DashboardRepository):
             "recent_applications": recent_applications,
             "recent_events": recent_events,
         }
+
+ 
+# =========================================================
+# USER DASHBOARD DATA
+# =========================================================
+    def get_user_dashboard(
+        self,
+        user_id: str,
+    ) -> DashboardResult:
+
+        # =====================================================
+        # DOSSIERS
+        # =====================================================
+
+        # Nombre total de dossiers non supprimés
+        total_applications = (
+            self.session.query(ApplicationModel.id)
+            .filter(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.deleted_at.is_(None),
+            )
+            .count()
+        )
+
+        # Nombre de dossiers actifs
+        #
+        # Un dossier est considéré comme actif lorsqu'il est :
+        # - approuvé
+        # - payé
+        # - terminé
+        active_applications = (
+            self.session.query(ApplicationModel.id)
+            .filter(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.status.in_(
+                    [
+                        ApplicationStatus.APPROVED,
+                        ApplicationStatus.PAID,
+                        ApplicationStatus.COMPLETED,
+                    ]
+                ),
+                ApplicationModel.deleted_at.is_(None),
+            )
+            .count()
+        )
+
+        # Nombre de dossiers en attente
+        pending_applications = (
+            self.session.query(ApplicationModel.id)
+            .filter(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.status
+                == ApplicationStatus.SUBMITTED,
+                ApplicationModel.deleted_at.is_(None),
+            )
+            .count()
+        )
+
+        # Nombre de dossiers approuvés
+        approved_applications = (
+            self.session.query(ApplicationModel.id)
+            .filter(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.status
+                == ApplicationStatus.APPROVED,
+                ApplicationModel.deleted_at.is_(None),
+            )
+            .count()
+        )
+
+        # Les 3 derniers dossiers
+        applications = (
+            self.session.query(ApplicationModel)
+            .filter(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.deleted_at.is_(None),
+            )
+            .order_by(
+                ApplicationModel.created_at.desc()
+            )
+            .limit(3)
+            .all()
+        )
+
+        application_items = [
+            DashboardApplicationItemResult(
+                id=str(application.id),
+                status=application.status,
+                created_at=application.created_at,
+            )
+            for application in applications
+        ]
+
+        # =====================================================
+        # PROCHAIN ESSAI
+        # =====================================================
+
+        upcoming_test_drive = (
+            self.session.query(TestDriveModel)
+            .filter(
+                TestDriveModel.user_id == user_id,
+                TestDriveModel.status == TestDriveStatus.CONFIRMED,
+                TestDriveModel.appointment_date > func.now(),
+            )
+            .order_by(
+                TestDriveModel.appointment_date.asc()
+            )
+            .first()
+        )
+
+        upcoming_test_drive_result = None
+
+        if upcoming_test_drive:
+
+            upcoming_test_drive_result = DashboardTestDriveResult(
+                id=str(upcoming_test_drive.id),
+                appointment_date=upcoming_test_drive.appointment_date,
+                status=upcoming_test_drive.status,
+                vehicle=DashboardVehicleResult(
+                    id=str(upcoming_test_drive.vehicle.id),
+                    brand=upcoming_test_drive.vehicle.brand,
+                    model=upcoming_test_drive.vehicle.model,
+                ),
+            )
+
+        # =====================================================
+        # NOTIFICATIONS
+        # =====================================================
+
+        # Nombre de notifications non lues
+        unread_notifications = (
+            self.session.query(NotificationModel.id)
+            .filter(
+                NotificationModel.user_id == user_id,
+                NotificationModel.status == NotificationStatus.UNREAD,
+            )
+            .count()
+        )
+
+        # Les 5 dernières notifications
+        notifications = (
+            self.session.query(NotificationModel)
+            .filter(
+                NotificationModel.user_id == user_id,
+            )
+            .order_by(
+                NotificationModel.created_at.desc()
+            )
+            .limit(5)
+            .all()
+        )
+
+        notification_items = [
+            DashboardNotificationItemResult(
+                id=str(notification.id),
+                title=notification.title,
+                message=notification.message,
+                status=notification.status,
+                created_at=notification.created_at,
+            )
+            for notification in notifications
+        ]
+
+        # =====================================================
+        # RESULT
+        # =====================================================
+
+        return DashboardResult(
+            total_applications=total_applications,
+            active_applications=active_applications,
+            approved_applications=approved_applications,
+            pending_applications=pending_applications,
+            applications=application_items,
+            upcoming_test_drive=upcoming_test_drive_result,
+            unread_notifications=unread_notifications,
+            notifications=notification_items,
+        )

@@ -27,6 +27,9 @@ from modules.applications.application.dtos.application_id_dto import Application
 from modules.auth.domain.enums import (
     UserRole,
 )
+from modules.auth.domain.exceptions import (
+    Forbidden,
+)
 
 from modules.financing.domain.repositories.financing_contract_repository import (
     FinancingContractRepository,
@@ -62,7 +65,7 @@ class CancelApplicationUseCase:
     def execute(
         self,
         dto: ApplicationIdDTO,
-        role: str,
+        role: UserRole,
         user_id: str,
     ) -> Application:
 
@@ -77,6 +80,10 @@ class CancelApplicationUseCase:
 
             if application is None:
                 raise ApplicationNotFound()
+
+            
+            if role != UserRole.ADMIN and application.user_id != user_id:
+                raise Forbidden()
 
             # =========================
             # POLICY

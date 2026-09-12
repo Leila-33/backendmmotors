@@ -460,7 +460,7 @@ class SupportTicketSQLRepository(SupportTicketRepository):
 
         return items, total
 
-    def get_dashboard_stats(self, user):
+    def get_dashboard_stats(self, user_id: str):
 
         query = self.db.query(SupportTicketModel)
 
@@ -469,7 +469,7 @@ class SupportTicketSQLRepository(SupportTicketRepository):
         # =======================
 
         query = query.filter(
-            SupportTicketModel.assigned_to == user.id
+            SupportTicketModel.assigned_to == user_id
         )
 
         # =======================

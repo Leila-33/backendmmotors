@@ -8,12 +8,6 @@ from modules.notifications.domain.enums import(
     NotificationEntityType
 )
 
-
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Optional
-
-
 @dataclass
 class Notification:
 

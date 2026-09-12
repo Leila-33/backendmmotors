@@ -22,9 +22,6 @@ from modules.applications.domain.repositories.application_repository import (
 from modules.applications.application.dtos.submit_application_dto import (
     SubmitApplicationDTO,
 )
-from modules.auth.domain.entities.user import (
-    User,
-)
 
 from modules.reservations.domain.enums import (
     ReservationStatus,

@@ -1,3 +1,4 @@
+import logging
 from modules.favorites.application.dtos.remove_favorite_dto import (
     RemoveFavoriteDTO,
 )
@@ -6,6 +7,8 @@ from modules.favorites.application.results.remove_favorite_result import (
 )
 from modules.favorites.domain.exceptions import FavoriteNotFound
 
+
+logger = logging.getLogger(__name__)
 
 class RemoveFavoriteUseCase:
 
@@ -23,40 +26,51 @@ class RemoveFavoriteUseCase:
     ) -> RemoveFavoriteResult:
 
         try:
-
-            # =========================
-            # CHECK EXISTENCE
-            # =========================
-
             if not self.repository.exists(
                 user_id=dto.user_id,
                 vehicle_id=dto.vehicle_id,
             ):
+                logger.warning(
+                    "Tentative de suppression "
+                    "d'un favori inexistant",
+                    extra={
+                        "user_id": dto.user_id,
+                        "vehicle_id": dto.vehicle_id,
+                    },
+                )
                 raise FavoriteNotFound()
-
-            # =========================
-            # DELETE
-            # =========================
 
             self.repository.delete(
                 user_id=dto.user_id,
                 vehicle_id=dto.vehicle_id,
             )
 
-            # =========================
-            # COMMIT
-            # =========================
-
             self.unit_of_work.commit()
 
-            # =========================
-            # RESULT
-            # =========================
+            logger.info(
+                "Véhicule retiré des favoris",
+                extra={
+                    "user_id": dto.user_id,
+                    "vehicle_id": dto.vehicle_id,
+                },
+            )
 
             return RemoveFavoriteResult(
                 message="Favori supprimé avec succès.",
             )
 
+        except FavoriteNotFound:
+            self.unit_of_work.rollback()
+            raise
+
         except Exception:
             self.unit_of_work.rollback()
+            logger.exception(
+                "Erreur lors de la suppression "
+                "du véhicule des favoris",
+                extra={
+                    "user_id": dto.user_id,
+                    "vehicle_id": dto.vehicle_id,
+                },
+            )
             raise

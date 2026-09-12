@@ -30,7 +30,7 @@ class RecentEventResult:
 
 
 @dataclass
-class DashboardResult:
+class AdminDashboardResult:
     stats: DashboardStatsResult
     recent_applications: list[RecentApplicationResult]
     recent_events: list[RecentEventResult]

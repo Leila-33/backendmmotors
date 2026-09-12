@@ -106,7 +106,7 @@ class UserCreationService:
 
             is_verified=False,
 
-            is_active=True,
+            is_active=False,
 
             accepted_cgu=False,
         )

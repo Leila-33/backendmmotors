@@ -4,6 +4,7 @@ from core.database.dependencies import get_unit_of_work
 
 from modules.dependencies.dependencies import (
     get_favorite_repository,
+    get_vehicle_repository,
 )
 
 from modules.favorites.application.use_cases.add_favorite import (
@@ -29,12 +30,16 @@ def get_add_favorite_usecase(
     repository: FavoriteRepository = Depends(
         get_favorite_repository
     ),
+    vehicle_repository=Depends(
+        get_vehicle_repository
+    ),
     unit_of_work=Depends(
         get_unit_of_work
     ),
 ):
     return AddFavoriteUseCase(
         repository=repository,
+        vehicle_repository=vehicle_repository,
         unit_of_work=unit_of_work,
     )
 

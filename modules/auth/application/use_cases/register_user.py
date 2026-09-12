@@ -26,6 +26,8 @@ class RegisterUserUseCase:
     data: RegisterDTO,
 ) -> MessageResult:
 
+        committed = False
+
         try:
 
             user = self.user_creation_service.create_client(
@@ -50,6 +52,7 @@ class RegisterUserUseCase:
             )
 
             self.uow.commit()
+            committed = True
 
             logger.info(
                 "Nouvelle inscription utilisateur",
@@ -70,7 +73,8 @@ class RegisterUserUseCase:
 
         except Exception:
 
-            self.uow.rollback()
+            if not committed:
+                self.uow.rollback()
 
             logger.exception(
                 "Erreur lors de l'inscription utilisateur",

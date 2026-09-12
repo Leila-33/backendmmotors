@@ -8,14 +8,7 @@ from core.database.dependencies import (
     get_unit_of_work,
 )
 
-from modules.inspections.application.use_cases.admin.get_inspection import GetInspectionUseCase
 from modules.inspections.application.use_cases.admin.start_inspection import StartInspectionUseCase
-
-
-def get_get_inspection_usecase(
-        repo=Depends(get_inspection_repository)
-        ):
-    return GetInspectionUseCase(inspection_repository=repo)
 
 
 def get_start_inspection_usecase(
