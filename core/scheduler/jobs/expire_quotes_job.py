@@ -3,7 +3,7 @@ from core.database.unit_of_work import UnitOfWork
 from modules.quotes.infrastructure.repositories.quote_repository_sql import (
     QuoteRepositorySQL,
 )
-from modules.quotes.application.use_cases.expire_quote import ExpireQuotesUseCase
+from modules.quotes.application.use_cases.expire_quotes import ExpireQuotesUseCase
 from modules.applications.application.services.event_service import EventService
 from modules.applications.infrastructure.repositories.event_repository_sql import EventRepositorySQL
 

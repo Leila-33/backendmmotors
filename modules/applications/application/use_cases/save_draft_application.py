@@ -10,10 +10,6 @@ from modules.applications.domain.enums import (
     EventType,
 )
 
-from modules.auth.domain.entities.user import (
-    User,
-)
-
 from modules.applications.application.dtos.save_draft_application_dto import (
     SaveDraftApplicationDTO,
 )
@@ -38,53 +34,49 @@ class SaveDraftApplicationUseCase:
         dto: SaveDraftApplicationDTO,
         current_user_id: str,
     ):
+        result = None
 
         try:
-
             result = self.application_form_service.save(
                 dto=dto,
                 current_user_id=current_user_id,
             )
 
-
             if result.is_new:
-
-                 self.event_service.log(
-                        application_id=result.application.id,
-                        user_id=current_user_id,
-                        vehicle_id=result.application.vehicle_id,
-                        type=EventType.APPLICATION_CREATED,
-                        message="Dossier créé.",
-                    )
-                
-
+                self.event_service.log(
+                    application_id=result.application.id,
+                    user_id=current_user_id,
+                    vehicle_id=result.application.vehicle_id,
+                    type=EventType.APPLICATION_CREATED,
+                    message="Dossier créé.",
+                )
 
             self.uow.commit()
 
             logger.info(
-    "Brouillon application sauvegardé",
-    extra={
-        "application_id": result.application.id,
-        "user_id": current_user_id,
-        "status": result.application.status.value,
-    }
-)
+                "Brouillon application sauvegardé",
+                extra={
+                    "application_id": result.application.id,
+                    "user_id": current_user_id,
+                    "status": result.application.status.value,
+                },
+            )
+
             return result.application
 
         except Exception:
-
             self.uow.rollback()
 
             logger.exception(
                 "Erreur sauvegarde brouillon application",
                 extra={
                     "user_id": current_user_id,
-                                    "application_id": (
-                    result.application.id
-                    if result.application
-                    else None
-                ),
-                }
+                    "application_id": (
+                        result.application.id
+                        if result and result.application
+                        else None
+                    ),
+                },
             )
 
             raise

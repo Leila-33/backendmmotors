@@ -44,7 +44,7 @@ from modules.options.application.use_cases.admin.get_active_options import (
 from modules.options.application.use_cases.admin.update_option import (
     UpdateOptionUseCase,
 )
-from modules.options.application.use_cases.admin.toggle_options_status import (
+from modules.options.application.use_cases.admin.toggle_option_status import (
     ToggleOptionStatusUseCase,
 )
 

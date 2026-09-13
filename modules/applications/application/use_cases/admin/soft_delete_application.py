@@ -107,8 +107,6 @@ class SoftDeleteApplicationUseCase:
                         "vehicle_id": application.vehicle_id,
                         "status": (
                             application.status.value
-                            if application.status
-                            else None
                         ),
                     },
                 )

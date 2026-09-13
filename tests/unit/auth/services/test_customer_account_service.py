@@ -28,9 +28,9 @@ def create_service():
 def create_lead():
     lead = Mock()
     lead.id = "lead-123"
-    lead.first_name = "Jean"
-    lead.last_name = "Dupont"
-    lead.email = "jean@example.com"
+    lead.first_name = "leila"
+    lead.last_name = "El"
+    lead.email = "leila@example.com"
 
     return lead
 
@@ -38,7 +38,7 @@ def create_lead():
 def create_user():
     user = Mock()
     user.id = "user-123"
-    user.email = "jean@example.com"
+    user.email = "leila@example.com"
 
     return user
 
@@ -72,9 +72,9 @@ def test_ensure_account_creates_account_and_activation_token():
     }
 
     user_creation_service.create_client_without_password.assert_called_once_with(
-        first_name="Jean",
-        last_name="Dupont",
-        email="jean@example.com",
+        first_name="leila",
+        last_name="El",
+        email="leila@example.com",
     )
 
     lead_repository.attach_user.assert_called_once_with(

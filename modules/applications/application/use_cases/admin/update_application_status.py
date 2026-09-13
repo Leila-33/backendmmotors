@@ -164,7 +164,11 @@ class UpdateApplicationStatusUseCase:
     "Statut application modifié",
     extra={
         "application_id": application.id,
-        "old_status": old_status.value,
+        "old_status": (
+    old_status.value
+    if old_status is not None
+    else None
+),
         "new_status": application.status.value,
         "admin_id": current_admin.id,
     }

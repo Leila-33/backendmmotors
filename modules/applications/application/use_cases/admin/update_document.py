@@ -97,24 +97,27 @@ class UpdateDocumentUseCase:
             # EVENT
             # =================================================
 
-            message = DocumentMessageBuilder.build(
-                document_type=document.type,
-                status=dto.status,
-                comment=dto.comment,
-            )
+            event_type = DOCUMENT_EVENT_MAP.get(dto.status)
 
-            self.event_service.log(
-                application_id=document.application_id,
-                type=DOCUMENT_EVENT_MAP[dto.status],
-                message=message,
-                user_id=current_admin.id,
-                vehicle_id=application.vehicle_id,
-                event_metadata={
-                    "document_id": document.id,
-                    "document_type": document.type,
-                    "status": dto.status.value,
-                },
-            )
+            if event_type:
+                message = DocumentMessageBuilder.build(
+                    document_type=document.type,
+                    status=dto.status,
+                    comment=dto.comment,
+                )
+
+                self.event_service.log(
+                    application_id=document.application_id,
+                    type=event_type,
+                    message=message,
+                    user_id=current_admin.id,
+                    vehicle_id=application.vehicle_id,
+                    event_metadata={
+                        "document_id": document.id,
+                        "document_type": document.type,
+                        "status": dto.status.value,
+                    },
+                )
 
             # =================================================
             # NOTIFICATION

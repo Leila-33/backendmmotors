@@ -61,16 +61,6 @@ class CancelReservationUseCase:
             if reservation is None:
                 raise ReservationNotFound()
 
-            # =========================
-            # AUTHORIZATION
-            # =========================
-
-            reservation = self.reservation_repository.get_by_id(
-                reservation_id
-            )
-
-            if reservation is None:
-                raise ReservationNotFound()
 
 
             application = self.application_repository.get_by_id(
