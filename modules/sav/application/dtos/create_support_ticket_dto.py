@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 
+from modules.sav.domain.enums import TicketCategory, TicketPriority
+
+
 @dataclass
 class CreateSupportTicketDTO:
-
     subject: str
-    category: str
+    category: TicketCategory
     message: str
-    priority: str
+    priority: TicketPriority
     application_id: str | None

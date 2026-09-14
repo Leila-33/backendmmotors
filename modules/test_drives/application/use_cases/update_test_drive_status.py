@@ -124,9 +124,7 @@ class UpdateTestDriveStatusUseCase:
                             updated_test_drive.user_id,
 
                         "old_status":
-                            old_status.value
-                            if old_status
-                            else None,
+                            old_status.value,
 
                         "new_status":
                             dto.status.value,

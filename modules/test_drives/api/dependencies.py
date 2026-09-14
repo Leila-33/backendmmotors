@@ -75,7 +75,7 @@ from modules.test_drives.application.use_cases.admin.get_test_drives_admin impor
     GetTestDrivesAdminUseCase,
 )
 
-from modules.test_drives.application.use_cases.admin.get_pending_count_test_drive import (
+from modules.test_drives.application.use_cases.admin.get_pending_test_drive_count import (
     GetPendingTestDriveCountUseCase,
 )
 

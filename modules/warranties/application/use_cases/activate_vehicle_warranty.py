@@ -12,8 +12,6 @@ from modules.applications.domain.enums import EventType
 from modules.warranties.application.dtos.activate_vehicle_warranty_dto import (
     ActivateVehicleWarrantyDTO,
 )
-from core.database.unit_of_work import UnitOfWork
-
 
 logger = logging.getLogger(__name__)
 

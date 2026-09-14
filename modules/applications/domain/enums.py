@@ -113,6 +113,7 @@ class EventType(str, Enum):
     VEHICLE_CREATED = "vehicle_created"
     VEHICLE_UPDATED = "vehicle_updated"
     VEHICLE_DELETED = "vehicle_deleted"
+    VEHICLE_ARCHIVED = "vehicle_archived"
 
     VEHICLE_PUBLISHED = "vehicle_published"
     VEHICLE_UNPUBLISHED = "vehicle_unpublished"

@@ -1,6 +1,5 @@
 import logging
 
-from modules.sav.domain.enums import TicketStatus
 from modules.sav.domain.exceptions import (
     SupportTicketNotFound,
 )
@@ -172,7 +171,6 @@ class UpdateSupportTicketStatusUseCase:
 
             return UpdateSupportTicketStatusResult(
                 ticket=updated_ticket,
-                old_status=old_status,
             )
 
 
