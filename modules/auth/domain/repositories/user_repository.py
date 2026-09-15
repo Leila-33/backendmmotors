@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Tuple, List
 from modules.auth.domain.entities.user import User
 from modules.auth.infrastructure.db.user_model import UserModel
-
+from modules.auth.domain.enums import UserRole
 
 class UserRepository(ABC):
 
@@ -43,4 +43,11 @@ class UserRepository(ABC):
     
     @abstractmethod
     def find_by_ids(self, ids: list[str]):
+        pass
+
+    @abstractmethod
+    def get_by_role(
+        self,
+        role: UserRole,
+    ) -> list[User]:
         pass

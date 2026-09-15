@@ -36,10 +36,5 @@ class GetApplicationUseCase:
             raise ApplicationNotFound()
 
 
-        latest_payment = (
-            self.payment_repository
-            .get_latest_payment(application.id)
-        )
 
-
-        return application, latest_payment
+        return application

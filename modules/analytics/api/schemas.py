@@ -21,7 +21,7 @@ class RevenueByMonthResponse(BaseModel):
 
 class AnalyticsStatsResponse(BaseModel):
     total: int
-    approved: int
+    active: int
     rejected: int
     submitted: int
     draft: int

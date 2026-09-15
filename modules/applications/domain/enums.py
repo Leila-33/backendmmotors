@@ -90,6 +90,7 @@ class EventType(str, Enum):
     # =========================
     APPLICATION_CREATED = "application_created"
     APPLICATION_SUBMITTED = "application_submitted"
+    APPLICATION_PROCESSING = "application_processing"
     APPLICATION_APPROVED = "application_approved"
     APPLICATION_REJECTED = "application_rejected"
 

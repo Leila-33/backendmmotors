@@ -8,7 +8,8 @@ from modules.leads.domain.exceptions import (
     LeadCannotBeAssigned
     )
 
-from modules.quotes.domain.enums import QuoteStatus
+from modules.vehicles.domain.entities.vehicle import Vehicle
+from modules.auth.domain.entities.user import User
 
 @dataclass
 class Lead:
@@ -33,9 +34,9 @@ class Lead:
 
     user_id: str | None = None
 
-    vehicle: object | None = None
+    vehicle: Vehicle | None = None
 
-    assigned_agent: object | None = None
+    assigned_agent: User | None = None
 
     def change_status(self, status):
 

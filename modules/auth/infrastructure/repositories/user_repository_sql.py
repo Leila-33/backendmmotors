@@ -1,4 +1,4 @@
-from sqlalchemy import or_, asc, desc
+from sqlalchemy import or_, asc, desc, select
 from sqlalchemy.orm import Session
 
 from modules.auth.domain.entities.user import User
@@ -362,6 +362,28 @@ class UserRepositorySQL(UserRepository):
             .all()
         )
 
+
+        return [
+            UserMapper.to_domain(model)
+            for model in models
+        ]
+
+    # =========================
+    # GET BY ROLE
+    # =========================
+
+    def get_by_role(
+    self,
+    role: UserRole,
+) -> list[User]:
+
+        result = self.db.execute(
+            select(UserModel).where(
+                UserModel.role == role
+            )
+        )
+
+        models = result.scalars().all()
 
         return [
             UserMapper.to_domain(model)

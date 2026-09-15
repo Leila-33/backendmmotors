@@ -147,3 +147,10 @@ class ApplicationCannotBeDeleted(DomainException):
             409
         )
 
+class InvalidApplicationStatus(DomainException):
+
+    def __init__(self):
+        super().__init__(
+            "Ce statut de dossier ne permet pas de générer une notification.",
+            400
+        )

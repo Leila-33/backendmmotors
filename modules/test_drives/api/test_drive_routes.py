@@ -67,7 +67,7 @@ router = APIRouter(
     response_model=TestDriveResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_test_drive(
+async def create_test_drive(
     payload: CreateTestDriveRequest,
     current_user=Depends(get_current_user),
     use_case: CreateTestDriveUseCase = Depends(
@@ -81,7 +81,7 @@ def create_test_drive(
         comment=payload.comment,
     )
 
-    result = use_case.execute(
+    result = await use_case.execute(
         dto=dto,
         user_id=current_user.id,
     )

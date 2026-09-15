@@ -14,9 +14,12 @@ from modules.vehicles.domain.exceptions import (
     VehicleNotFound,
     VehicleNotAvailableForTestDrive,
 )
-
+from modules.notifications.domain.enums import (
+    NotificationEntityType,
+    NotificationType
+)
 from modules.applications.domain.enums import EventType
-
+from modules.auth.domain.enums import UserRole
 
 
 
@@ -27,17 +30,24 @@ class CreateTestDriveUseCase:
 
     def __init__(
         self,
+        user_repository,
         test_drive_repository,
         vehicle_repository,
         event_service,
+        notification_service,
         unit_of_work,
+        websocket_manager=None,
+
     ):
+        self.user_repository = user_repository
         self.test_drive_repository = test_drive_repository
         self.vehicle_repository = vehicle_repository
         self.event_service = event_service
+        self.notification_service = notification_service
         self.unit_of_work = unit_of_work
+        self.websocket_manager = websocket_manager
 
-    def execute(
+    async def execute(
         self,
         dto,
         user_id: str,
@@ -121,10 +131,42 @@ class CreateTestDriveUseCase:
             )
 
             # =========================
+            # NOTIFICATION
+            # =========================
+            admins = self.user_repository.get_by_role(UserRole.ADMIN)
+
+            for admin in admins:
+                await self.notification_service.send(
+                    user_id=admin.id,
+
+                    title="Nouvel essai routier",
+
+                    message="Un client a demandé un essai routier.",
+
+                    notif_type=NotificationType.TEST_DRIVE_CREATED,
+
+                    entity_type=NotificationEntityType.TEST_DRIVE,
+
+                    entity_id=test_drive.id,
+                )
+            # =========================
             # COMMIT
             # =========================
 
             self.unit_of_work.commit()
+
+            pending_count = (
+                self.test_drive_repository.count_pending()
+            )
+
+            for admin in admins:
+                await self.websocket_manager.send(
+                    str(admin.id),
+                    {
+                        "type": "TEST_DRIVE_PENDING_UPDATED",
+                        "count": pending_count,
+                    },
+                )
 
             logger.info(
                 "Demande d'essai routier créée",

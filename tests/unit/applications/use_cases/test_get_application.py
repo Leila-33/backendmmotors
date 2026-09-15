@@ -18,16 +18,11 @@ def application_repository():
     return Mock()
 
 
-@pytest.fixture
-def payment_repository():
-    return Mock()
-
 
 @pytest.fixture
-def use_case(application_repository, payment_repository):
+def use_case(application_repository):
     return GetApplicationUseCase(
         application_repository=application_repository,
-        payment_repository=payment_repository,
     )
 
 
@@ -60,39 +55,32 @@ def admin_user():
     return user
 
 
-def test_returns_application_and_latest_payment(
+def test_returns_application(
     use_case,
     application_repository,
-    payment_repository,
     dto,
     application,
     regular_user,
 ):
-    latest_payment = Mock()
 
     application_repository.get_full_by_id.return_value = application
-    payment_repository.get_latest_payment.return_value = latest_payment
 
     result = use_case.execute(
         dto=dto,
         current_user=regular_user,
     )
 
-    assert result == (application, latest_payment)
+    assert result == (application)
 
     application_repository.get_full_by_id.assert_called_once_with(
         "application-1"
     )
 
-    payment_repository.get_latest_payment.assert_called_once_with(
-        "application-1"
-    )
 
 
 def test_raises_application_not_found_when_application_does_not_exist(
     use_case,
     application_repository,
-    payment_repository,
     dto,
     regular_user,
 ):
@@ -108,13 +96,11 @@ def test_raises_application_not_found_when_application_does_not_exist(
         "application-1"
     )
 
-    payment_repository.get_latest_payment.assert_not_called()
 
 
 def test_raises_application_not_found_when_user_is_not_owner(
     use_case,
     application_repository,
-    payment_repository,
     dto,
     application,
 ):
@@ -134,70 +120,57 @@ def test_raises_application_not_found_when_user_is_not_owner(
         "application-1"
     )
 
-    payment_repository.get_latest_payment.assert_not_called()
 
 
 def test_admin_can_access_application_of_another_user(
     use_case,
     application_repository,
-    payment_repository,
     dto,
     application,
     admin_user,
 ):
-    latest_payment = Mock()
 
     application_repository.get_full_by_id.return_value = application
-    payment_repository.get_latest_payment.return_value = latest_payment
 
     result = use_case.execute(
         dto=dto,
         current_user=admin_user,
     )
 
-    assert result == (application, latest_payment)
+    assert result == (application)
 
     application_repository.get_full_by_id.assert_called_once_with(
         "application-1"
     )
 
-    payment_repository.get_latest_payment.assert_called_once_with(
-        "application-1"
-    )
 
 
 def test_owner_can_access_own_application(
     use_case,
     application_repository,
-    payment_repository,
     dto,
     application,
     regular_user,
 ):
-    latest_payment = Mock()
 
     application_repository.get_full_by_id.return_value = application
-    payment_repository.get_latest_payment.return_value = latest_payment
 
     result = use_case.execute(
         dto=dto,
         current_user=regular_user,
     )
 
-    assert result[0] is application
-    assert result[1] is latest_payment
+    assert result is application
 
 
-def test_returns_application_with_no_payment(
+def test_returns_application(
     use_case,
     application_repository,
-    payment_repository,
     dto,
     application,
     regular_user,
 ):
     application_repository.get_full_by_id.return_value = application
-    payment_repository.get_latest_payment.return_value = None
 
     result = use_case.execute(
         dto=dto,
@@ -205,7 +178,3 @@ def test_returns_application_with_no_payment(
     )
 
     assert result == (application, None)
-
-    payment_repository.get_latest_payment.assert_called_once_with(
-        "application-1"
-    )

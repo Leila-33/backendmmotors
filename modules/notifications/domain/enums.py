@@ -1,6 +1,7 @@
 from enum import Enum
 
 class NotificationType(str, Enum):
+    APPLICATION_PROCESSING= "application_processing"
     APPLICATION_APPROVED = "application_approved"
 
     APPLICATION_REJECTED = "application_rejected"
@@ -8,6 +9,7 @@ class NotificationType(str, Enum):
     APPLICATION_SUBMITTED = "application_submitted"
 
     DOCUMENT_REJECTED = "document_rejected"
+    TEST_DRIVE_CREATED = "test_drive_created"
     TEST_DRIVE_CONFIRMED = "test_drive_confirmed"
 
     TEST_DRIVE_CANCELLED = "test_drive_cancelled"

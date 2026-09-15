@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from typing import Annotated
 
 # =========================
 # CORE
@@ -106,7 +107,10 @@ def get_pending_count(
     response_model=PaginatedTestDriveAdminResponse,
 )
 def get_test_drives_admin(
-    query: GetTestDrivesAdminQuery = Depends(),
+    query: Annotated[
+        GetTestDrivesAdminQuery,
+        Query(),
+    ],
 
     current_admin=Depends(
         get_current_admin
@@ -117,19 +121,26 @@ def get_test_drives_admin(
     ),
 ):
 
+
     dto = GetTestDrivesAdminDTO(
         status=query.status,
         search=query.search,
+        date=query.date,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order,
         page=query.page,
         limit=query.limit,
     )
 
     result = use_case.execute(dto)
 
+    # =========================
+    # RÉPONSE
+    # =========================
+
     return TestDriveAdminListMapper.to_paginated_response(
         result
     )
-
 
 # =====================================================
 # UPDATE STATUS

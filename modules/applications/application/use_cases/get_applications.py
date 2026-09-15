@@ -20,7 +20,9 @@ from modules.applications.application.services.restore_application_service impor
 from modules.applications.domain.exceptions import (
     CannotRestoreApplication,
 )
-
+from modules.applications.domain.policies.process_application_policy import (
+    ProcessApplicationPolicy,
+)
 from modules.applications.domain.policies.archive_application_policy import (
     ArchiveApplicationPolicy,
 )
@@ -50,7 +52,6 @@ class GetApplicationsUseCase:
             restore_application_service
         )
 
-
     # =========================
     # EXECUTE
     # =========================
@@ -60,16 +61,16 @@ class GetApplicationsUseCase:
         role: UserRole,
         user_id: str,
     ):
-
         # =========================
         # SEARCH STRATEGY
         # =========================
+        # Pour un client, la recherche porte sur le véhicule.
+        # Pour un administrateur, elle porte sur l'utilisateur.
         search_field = (
             "vehicle"
             if role == UserRole.CLIENT
             else "user"
         )
-
 
         # =========================
         # FETCH
@@ -89,7 +90,6 @@ class GetApplicationsUseCase:
             )
         )
 
-
         # =========================
         # BUSINESS RULES
         # =========================
@@ -97,27 +97,43 @@ class GetApplicationsUseCase:
 
         for application in applications:
 
+            # -------------------------
+            # Cancel
+            # -------------------------
             can_cancel = (
                 CancelApplicationPolicy.can_cancel(
                     application
                 )
             )
 
+            # -------------------------
+            # Default admin actions
+            # -------------------------
+            can_process = False
             can_restore_cancelled = False
-
             can_delete = False
-
             can_archive = False
 
-
+            # =========================
+            # ADMIN RULES
+            # =========================
             if role == UserRole.ADMIN:
 
+                # -------------------------
+                # Process
+                # -------------------------
+                # Le dossier peut être pris en charge
+                # uniquement lorsque la policy l'autorise.
+                can_process = (
+                    ProcessApplicationPolicy.can_process(
+                        application
+                    )
+                )
 
                 # -------------------------
                 # Restore cancelled
                 # -------------------------
                 try:
-
                     RestoreApplicationPolicy.validate(
                         application
                     )
@@ -128,12 +144,8 @@ class GetApplicationsUseCase:
 
                     can_restore_cancelled = True
 
-
                 except CannotRestoreApplication:
-
                     can_restore_cancelled = False
-
-
 
                 # -------------------------
                 # Archive
@@ -144,8 +156,6 @@ class GetApplicationsUseCase:
                     )
                 )
 
-
-
                 # -------------------------
                 # Soft delete
                 # -------------------------
@@ -155,11 +165,14 @@ class GetApplicationsUseCase:
                     )
                 )
 
-
-
+            # =========================
+            # LIST ITEM
+            # =========================
             items.append(
                 ApplicationListItemData(
                     application=application,
+
+                    can_process=can_process,
 
                     can_cancel=can_cancel,
 
@@ -173,14 +186,12 @@ class GetApplicationsUseCase:
                 )
             )
 
-
         # =========================
         # PAGINATION
         # =========================
         pages = (
             total + dto.limit - 1
         ) // dto.limit
-
 
         return GetApplicationsResult(
             items=items,

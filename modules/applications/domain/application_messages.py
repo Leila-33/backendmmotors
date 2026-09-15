@@ -5,6 +5,9 @@ from modules.applications.domain.enums import (
 
 
 APPLICATION_EVENT_MAP = {
+    ApplicationStatus.PROCESSING:
+            EventType.APPLICATION_PROCESSING,
+
     ApplicationStatus.APPROVED:
         EventType.APPLICATION_APPROVED,
 

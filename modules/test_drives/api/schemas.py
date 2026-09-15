@@ -1,8 +1,8 @@
 from datetime import datetime, date as Date
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, field_validator
 from modules.test_drives.domain.enums import TestDriveStatus
 from uuid import UUID
-
+from typing import Literal
 
 # =========================================================
 # CLIENT — CREATE
@@ -191,20 +191,34 @@ class TestDriveStatusResponse(BaseModel):
 
 class GetTestDrivesAdminQuery(BaseModel):
 
+    # Filtre par statut
     status: TestDriveStatus | None = None
 
-    search: str = ""
+    # Recherche client / véhicule
+    search: str | None = None
 
-    page: int = Field(
-        default=1,
-        ge=1,
-    )
+    # Filtre par période
+    date: Literal[
+        "today",
+        "week",
+        "month",
+    ] | None = None
 
-    limit: int = Field(
-        default=20,
-        ge=1,
-        le=100,
-    )
+    # Colonne utilisée pour le tri
+    sort_by: Literal[
+        "appointment_date",
+        "created_at",
+    ] = "appointment_date"
+
+    # Sens du tri
+    sort_order: Literal[
+        "asc",
+        "desc",
+    ] = "asc"
+
+    # Pagination
+    page: int = 1
+    limit: int = 20
 
 
 # =========================================================
@@ -229,15 +243,32 @@ class TestDriveAdminItemResponse(BaseModel):
 # ADMIN — PAGINATION
 # =========================================================
 
+class TestDriveAdminStatsResponse(BaseModel):
+
+    # Nombre d'essais en attente
+    pending: int
+
+    # Nombre d'essais confirmés
+    confirmed: int
+
+    # Nombre d'essais terminés
+    completed: int
+
+    # Annulés + refusés
+    cancelled: int
+
+
 class PaginatedTestDriveAdminResponse(BaseModel):
 
     items: list[TestDriveAdminItemResponse]
+
+    total: int
 
     page: int
 
     limit: int
 
-    total: int
+    stats: TestDriveAdminStatsResponse
 # =========================================================
 # ADMIN - PENDING COUNT
 # =========================================================

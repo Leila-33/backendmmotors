@@ -14,6 +14,8 @@ class ConnectionManager:
     async def connect(self, user_id: str, websocket: WebSocket):
         await websocket.accept()
         self.active_connections[user_id].append(websocket)
+        print(" WS CONNECTED:", user_id)
+        print(" ACTIVE CONNECTIONS 1:", self.active_connections)
 
     # =====================
     # DISCONNECT
@@ -31,6 +33,8 @@ class ConnectionManager:
     # =====================
     async def send(self, user_id: str, message: dict):
         sockets = self.active_connections.get(user_id, [])
+        print(" SEND TO USER:", user_id)
+        print(" ACTIVE CONNECTIONS 2:", self.active_connections)
 
         if not sockets:
             print("❌ NO WS FOUND")

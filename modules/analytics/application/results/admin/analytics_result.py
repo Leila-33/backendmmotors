@@ -22,7 +22,7 @@ class RevenueByMonthResult:
 @dataclass
 class AnalyticsStatsResult:
     total: int
-    approved: int
+    active: int
     rejected: int
     submitted: int
     draft: int

@@ -56,7 +56,7 @@ class GetAnalyticsUseCase:
 
             stats=AnalyticsStatsResult(
                 total=result["stats"]["total"],
-                approved=result["stats"]["approved"],
+                active=result["stats"]["active"],
                 rejected=result["stats"]["rejected"],
                 submitted=result["stats"]["submitted"],
                 draft=result["stats"]["draft"],

@@ -225,21 +225,24 @@ class AnalyticsRepositorySQL(AnalyticsRepository):
             .count()
         )
 
-        # =========================================
-        # 7. APPROVED APPLICATIONS
-        # =========================================
+        # =========================
+        # APPROVED APPLICATIONS
+        # =========================
 
-        approved = (
-            self.session.query(
-                ApplicationModel.id
-            )
+        active = (
+            self.session.query(ApplicationModel.id)
             .filter(
-                ApplicationModel.status
-                == ApplicationStatus.APPROVED
+                ApplicationModel.status.in_(
+                    [
+                        ApplicationStatus.APPROVED,
+                        ApplicationStatus.PAID,
+                        ApplicationStatus.COMPLETED,
+                    ]
+                ),
+                ApplicationModel.deleted_at.is_(None),
             )
             .count()
         )
-
         # =========================================
         # 8. REJECTED APPLICATIONS
         # =========================================
@@ -298,7 +301,7 @@ class AnalyticsRepositorySQL(AnalyticsRepository):
 
             "stats": {
                 "total": total_applications,
-                "approved": approved,
+                "active": active,
                 "rejected": rejected,
                 "submitted": submitted,
                 "draft": draft,

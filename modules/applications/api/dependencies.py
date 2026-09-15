@@ -210,12 +210,10 @@ def get_application_usecase(
     application_repository: ApplicationRepository = Depends(
         get_application_repository
     ),
-    payment_repository =  Depends(get_payment_repository)
 ):
 
     return GetApplicationUseCase(
         application_repository=application_repository,
-        payment_repository=payment_repository
     )
 
 

@@ -12,6 +12,9 @@ from modules.applications.api.schemas import (
     SelectedDatesRequest,
 )
 from modules.vehicles.domain.enums import VehicleOptionType
+from modules.auth.domain.enums import UserRole
+from modules.applications.domain.policies.validate_application_policy import ValidateApplicationPolicy
+from modules.applications.domain.policies.reject_application_policy import RejectApplicationPolicy
 
 class ApplicationResponseFactory:
 
@@ -25,7 +28,7 @@ class ApplicationResponseFactory:
     def build(
         self,
         application: Application,
-        latest_payment: Payment | None,
+        role: UserRole
     ) -> ApplicationDetailResponse:
 
 
@@ -100,6 +103,12 @@ class ApplicationResponseFactory:
             for event in application.events
         ]
 
+        can_validate = False
+        can_reject = False
+
+        if role == UserRole.ADMIN:
+            can_validate = ValidateApplicationPolicy.can_validate(application)
+            can_reject = RejectApplicationPolicy.can_reject(application)
 
         # =========================
         # RESPONSE
@@ -201,11 +210,8 @@ class ApplicationResponseFactory:
             # EVENTS
             events=events,
 
+            # ACTIONS
+            can_reject=can_reject,
+            can_validate=can_validate
 
-            # PAYMENT
-            payment_status=(
-                latest_payment.status
-                if latest_payment
-                else None
-            ),
         )

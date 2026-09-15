@@ -86,6 +86,8 @@ class ApplicationListResponseFactory:
                     f"{app.last_name or ''}"
                 ).strip(),
 
+                can_process=item.can_process,
+
                 can_cancel=item.can_cancel,
 
                 can_restore_cancelled=item.can_restore_cancelled,

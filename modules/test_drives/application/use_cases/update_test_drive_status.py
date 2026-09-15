@@ -32,14 +32,19 @@ class UpdateTestDriveStatusUseCase:
     def __init__(
         self,
         repository,
+        user_repository,
         event_service,
         unit_of_work,
         notification_service=None,
+        websocket_manager=None,
     ):
         self.repository = repository
+        self.user_repository = user_repository
         self.event_service = event_service
         self.uow = unit_of_work
         self.notification_service = notification_service
+        self.websocket_manager = websocket_manager
+
 
     async def execute(
         self,
@@ -171,6 +176,10 @@ class UpdateTestDriveStatusUseCase:
 
             self.uow.commit()
 
+            if self.websocket_manager:
+            
+                await self._notify_admin_test_drive_count()
+
             logger.info(
                 "Statut essai routier modifié",
                 extra={
@@ -272,3 +281,19 @@ class UpdateTestDriveStatusUseCase:
                     f"Cordialement,\nL’équipe Mmotors"
                 )
             }
+
+    async def _notify_admin_test_drive_count(self):
+
+        pending_count = self.repository.count_pending()
+
+        admins = self.user_repository.get_by_role(
+            UserRole.ADMIN
+        )
+        for admin in admins:
+            await self.websocket_manager.send(
+                str(admin.id),
+                {
+                    "type": "TEST_DRIVE_PENDING_UPDATED",
+                    "count": pending_count,
+                },
+            )

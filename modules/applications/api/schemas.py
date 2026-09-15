@@ -783,10 +783,26 @@ class ApplicationDetailResponse(BaseModel):
 
     payment_status: PaymentStatus | None = None
 
+    # ========================================================
+    # PAYMENT
+    # ========================================================
+
+    can_validate: bool
+    can_reject: bool
+
+
 
 # ============================================================
 # GET APPLICATIONS
 # ============================================================
+class GetApplicationsRequest(BaseModel):
+    page: int = Field(default=1, ge=1)
+    limit: int = Field(default=10, ge=1, le=100)
+    search: str | None = None
+    status: ApplicationStatus | None = None
+    application_type: ApplicationType | None = None
+    sort: str = "created_at_desc"
+    view_mode: str = "active"
 
 class ApplicationListBase(BaseModel):
     id: str
@@ -798,7 +814,7 @@ class ApplicationListBase(BaseModel):
 
 class ApplicationListItemAdmin(ApplicationListBase):
     client: str
-
+    can_process: bool
     can_cancel: bool
     can_restore_cancelled: bool = False
     can_archive: bool = False
@@ -854,18 +870,6 @@ class UpdateDocumentResponse(BaseModel):
     status: DocumentStatus
     comment: str | None = None
 
-
-# ============================================================
-# GET APPLICATIONS
-# ============================================================
-class GetApplicationsRequest(BaseModel):
-    page: int = Field(default=1, ge=1)
-    limit: int = Field(default=10, ge=1, le=100)
-    search: str | None = None
-    status: str | None = None
-    application_type: str | None = None
-    sort: str = "created_at_desc"
-    view_mode: str = "active"
 
 # ============================================================
 # GET EVENTS

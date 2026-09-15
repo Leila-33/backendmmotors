@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from modules.notifications.domain.enums import NotificationType
 from modules.applications.domain.enums import ApplicationStatus
-
+from modules.applications.domain.exceptions import InvalidApplicationStatus
 
 @dataclass(frozen=True)
 class NotificationContent:
@@ -29,7 +29,6 @@ class ApplicationNotificationBuilder:
             f"Votre dossier n°{application_number} "
         )
 
-
         # =========================
         # APPROVED
         # =========================
@@ -38,10 +37,9 @@ class ApplicationNotificationBuilder:
 
             return NotificationContent(
                 title="Dossier validé",
-
                 message=(
-                    base_intro +
-                    "a été validé avec succès.\n\n"
+                    base_intro
+                    + "a été validé avec succès.\n\n"
 
                     "Vous pouvez désormais suivre "
                     "les prochaines étapes depuis "
@@ -53,10 +51,8 @@ class ApplicationNotificationBuilder:
                     "Cordialement,\n"
                     "L'équipe M-Motors"
                 ),
-
                 type=NotificationType.APPLICATION_APPROVED,
             )
-
 
         # =========================
         # REJECTED
@@ -65,16 +61,14 @@ class ApplicationNotificationBuilder:
         if status == ApplicationStatus.REJECTED:
 
             message = (
-                base_intro +
-                "a été refusé.\n\n"
+                base_intro
+                + "a été refusé.\n\n"
             )
 
             if reason:
-
                 message += (
                     f"Motif : {reason}\n\n"
                 )
-
 
             message += (
                 "Vous pouvez modifier votre dossier "
@@ -84,16 +78,38 @@ class ApplicationNotificationBuilder:
                 "L'équipe M-Motors"
             )
 
-
             return NotificationContent(
-
                 title="Dossier refusé",
-
                 message=message,
-
                 type=NotificationType.APPLICATION_REJECTED,
             )
 
+        # =========================
+        # PROCESSING
+        # =========================
+
+        if status == ApplicationStatus.PROCESSING:
+
+            return NotificationContent(
+                title="Dossier pris en charge",
+                message=(
+                    base_intro
+                    + "est désormais pris en charge "
+                    "par notre équipe.\n\n"
+
+                    "Nous allons procéder à l'étude "
+                    "de votre demande et reviendrons "
+                    "vers vous dès que possible.\n\n"
+
+                    "Vous pouvez suivre l'avancement "
+                    "de votre dossier depuis votre "
+                    "espace client.\n\n"
+
+                    "Cordialement,\n"
+                    "L'équipe M-Motors"
+                ),
+                type=NotificationType.APPLICATION_PROCESSING,
+            )
 
         # =========================
         # SUBMITTED
@@ -102,12 +118,10 @@ class ApplicationNotificationBuilder:
         if status == ApplicationStatus.SUBMITTED:
 
             return NotificationContent(
-
                 title="Dossier soumis",
-
                 message=(
-                    base_intro +
-                    "a bien été transmis "
+                    base_intro
+                    + "a bien été transmis "
                     "à notre équipe.\n\n"
 
                     "Nous allons procéder "
@@ -116,26 +130,12 @@ class ApplicationNotificationBuilder:
                     "Cordialement,\n"
                     "L'équipe M-Motors"
                 ),
-
                 type=NotificationType.APPLICATION_SUBMITTED,
             )
 
-
         # =========================
-        # DEFAULT
+        # STATUT NON GÉRÉ
         # =========================
 
-        return NotificationContent(
+        raise InvalidApplicationStatus()
 
-            title="Dossier mis à jour",
-
-            message=(
-                base_intro +
-                "a été mis à jour.\n\n"
-
-                "Cordialement,\n"
-                "L'équipe M-Motors"
-            ),
-
-            type=NotificationType.APPLICATION_UPDATED,
-        )

@@ -542,14 +542,14 @@ def get_application(
     dto = ApplicationIdDTO(
     application_id=application_id
 )
-    application, payment = usecase.execute(
+    application = usecase.execute(
         dto=dto,
         current_user=current_user,
     )
 
     return factory.build(
-        application,
-        payment,
+        application=application,
+        role=current_user.role
     )
 
 

@@ -6,6 +6,8 @@ class ApplicationListItemData:
 
     application: Application
 
+    can_process: bool
+
     can_cancel: bool
 
     can_restore_cancelled: bool = False

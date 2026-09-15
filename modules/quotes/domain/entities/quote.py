@@ -12,6 +12,8 @@ from modules.quotes.domain.exceptions import (
     QuoteCannotBeModified
 )
 from modules.quotes.domain.enums import QuoteRefusalReason
+from modules.leads.domain.entities.lead import Lead
+from modules.quotes.domain.entities.quote_trade_in import QuoteTradeIn
 
 @dataclass
 class Quote:
@@ -52,9 +54,9 @@ class Quote:
     refused_at: datetime | None = None
     expires_at: datetime | None = None
 
-    lead: object = None
+    lead: Lead = None
 
-    trade_in: object | None = None
+    trade_in: QuoteTradeIn | None = None
 
 
 

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-
+from modules.vehicles.domain.entities.vehicle import Vehicle
 
 @dataclass
 class Favorite:
@@ -25,4 +25,4 @@ class Favorite:
 
     created_at: datetime
 
-    vehicle: object | None = None
+    vehicle: Vehicle | None = None
