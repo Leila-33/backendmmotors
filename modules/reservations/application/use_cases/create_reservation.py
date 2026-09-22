@@ -123,6 +123,7 @@ class CreateReservationUseCase:
 
                 status=ReservationStatus.ACTIVE,
             )
+            reservation.validate_for_creation()
 
             # =================================================
             # PERSIST

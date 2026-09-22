@@ -9,12 +9,13 @@ from modules.applications.api.schemas import (
     TradeInResponse,
     DocumentResponse,
     EventResponse,
-    SelectedDatesRequest,
+    SelectedDatesResponse,
 )
 from modules.vehicles.domain.enums import VehicleOptionType
 from modules.auth.domain.enums import UserRole
 from modules.applications.domain.policies.validate_application_policy import ValidateApplicationPolicy
 from modules.applications.domain.policies.reject_application_policy import RejectApplicationPolicy
+from modules.payments.domain.enums import PaymentStatus
 
 class ApplicationResponseFactory:
 
@@ -28,7 +29,8 @@ class ApplicationResponseFactory:
     def build(
         self,
         application: Application,
-        role: UserRole
+        role: UserRole,
+        payment_status: str | None = None,
     ) -> ApplicationDetailResponse:
 
 
@@ -120,10 +122,8 @@ class ApplicationResponseFactory:
 
             status=application.status,
 
-            discount=application.discount,
-
             created_at=application.created_at,
-
+            deleted_at=application.deleted_at,
 
             # USER SNAPSHOT
             first_name=application.first_name,
@@ -139,10 +139,12 @@ class ApplicationResponseFactory:
             monthly_expenses=application.monthly_expenses,
             employment_status=application.employment_status,
 
+            # PRICING
+            discount=application.discount,
 
             # RESERVATION
             selected_dates=(
-                SelectedDatesRequest(
+                SelectedDatesResponse(
                     start=application.reservation.start_date,
                     end=application.reservation.end_date,
                 )
@@ -209,7 +211,11 @@ class ApplicationResponseFactory:
 
             # EVENTS
             events=events,
-
+            payment_status=(
+                payment_status
+                if payment_status
+                else None
+            ),
             # ACTIONS
             can_reject=can_reject,
             can_validate=can_validate

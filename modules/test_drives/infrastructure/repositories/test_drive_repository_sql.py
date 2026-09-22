@@ -51,29 +51,45 @@ class TestDriveRepositorySQL(TestDriveRepository):
     # =========================
     # CONFLICT SLOT
     # =========================
+
     def find_conflicting_slot(
         self,
         vehicle_id: str,
-        appointment_date: datetime
+        appointment_date: datetime,
     ):
-
         start = appointment_date
         end = appointment_date + timedelta(hours=1)
 
         return (
             self.session.query(TestDriveModel)
             .filter(
+                # Même véhicule
                 TestDriveModel.vehicle_id == vehicle_id,
+
+                # L'essai existant commence avant
+                # la fin du nouveau créneau.
                 TestDriveModel.appointment_date < end,
-                TestDriveModel.appointment_date + timedelta(hours=1) > start
+
+                # L'essai existant se termine après
+                # le début du nouveau créneau.
+                TestDriveModel.appointment_date + timedelta(hours=1) > start,
+
+                # Seuls les statuts bloquants sont pris en compte.
+                #
+                # cancelled et rejected libèrent le créneau.
+                TestDriveModel.status.in_([
+                    TestDriveStatus.PENDING,
+                    TestDriveStatus.CONFIRMED,
+                    TestDriveStatus.COMPLETED,
+                ]),
             )
             .first()
         )
 
-
     # =========================
     # DAY AVAILABILITY
     # =========================
+
     def get_day_availability(
         self,
         vehicle_id: str,
@@ -101,12 +117,25 @@ class TestDriveRepositorySQL(TestDriveRepository):
         # BOOKED SLOTS
         # =========================
 
+        # Seuls les essais qui bloquent réellement
+        # le créneau sont pris en compte.
+        #
+        # cancelled et rejected ne bloquent plus
+        # le créneau et peuvent donc être ignorés.
         booked = (
             self.session.query(TestDriveModel)
             .filter(
                 TestDriveModel.vehicle_id == vehicle_id,
+
                 TestDriveModel.appointment_date >= day_start,
+
                 TestDriveModel.appointment_date < day_end,
+
+                TestDriveModel.status.in_([
+                    TestDriveStatus.PENDING,
+                    TestDriveStatus.CONFIRMED,
+                    TestDriveStatus.COMPLETED,
+                ]),
             )
             .all()
         )
@@ -132,6 +161,8 @@ class TestDriveRepositorySQL(TestDriveRepository):
             ):
                 continue
 
+            # Le créneau est déjà occupé
+            # par un essai bloquant.
             if hour in booked_hours:
                 continue
 
@@ -179,6 +210,54 @@ class TestDriveRepositorySQL(TestDriveRepository):
         return TestDriveMapper.to_domain(
             model
         )
+
+    # =====================================================
+    # RECHERCHER L'ESSAI EXISTANT
+    # =====================================================
+
+    def get_existing_for_user_vehicle(
+        self,
+        user_id: int,
+        vehicle_id: int,
+    ):
+
+        return (
+            self.session.query(TestDriveModel)
+            .filter(
+                TestDriveModel.user_id == user_id,
+                TestDriveModel.vehicle_id == vehicle_id,
+            )
+            .order_by(
+                TestDriveModel.created_at.desc()
+            )
+            .first()
+        )
+
+    # =====================================================
+    # VÉRIFIER SI UNE NOUVELLE DEMANDE EST INTERDITE
+    # =====================================================
+
+    def has_existing_blocking_test_drive(
+        self,
+        user_id: int,
+        vehicle_id: int,
+    ) -> bool:
+
+        return (
+            self.session.query(TestDriveModel.id)
+            .filter(
+                TestDriveModel.user_id == user_id,
+                TestDriveModel.vehicle_id == vehicle_id,
+                TestDriveModel.status.in_([
+                    TestDriveStatus.PENDING,
+                    TestDriveStatus.CONFIRMED,
+                    TestDriveStatus.COMPLETED,
+                ]),
+            )
+            .first()
+            is not None
+        )
+    
     # =========================
     # BY USER
     # =========================
@@ -351,99 +430,6 @@ class TestDriveRepositorySQL(TestDriveRepository):
 
         total = query.count()
 
-        # =========================
-        # STATISTIQUES
-        #
-        # Les statistiques sont calculées
-        # avant la pagination.
-        # =========================
-
-        stats_query = (
-            self.session.query(TestDriveModel.status)
-            .join(
-                UserModel,
-                UserModel.id == TestDriveModel.user_id,
-            )
-            .join(
-                VehicleModel,
-                VehicleModel.id == TestDriveModel.vehicle_id,
-            )
-        )
-
-        # Même filtre statut
-        if status is not None:
-            stats_query = stats_query.filter(
-                TestDriveModel.status == status
-            )
-
-        # Même recherche
-        if search:
-            search_pattern = f"%{search}%"
-
-            stats_query = stats_query.filter(
-                or_(
-                    UserModel.first_name.ilike(search_pattern),
-                    UserModel.last_name.ilike(search_pattern),
-                    VehicleModel.brand.ilike(search_pattern),
-                    VehicleModel.model.ilike(search_pattern),
-                )
-            )
-
-        # Même filtre date
-        if date:
-            now = datetime.now(timezone.utc)
-
-            if date == "today":
-                start_date = now.replace(
-                    hour=0,
-                    minute=0,
-                    second=0,
-                    microsecond=0,
-                )
-
-                end_date = start_date + timedelta(days=1)
-
-            elif date == "week":
-                start_date = (
-                    now
-                    - timedelta(days=now.weekday())
-                ).replace(
-                    hour=0,
-                    minute=0,
-                    second=0,
-                    microsecond=0,
-                )
-
-                end_date = start_date + timedelta(days=7)
-
-            elif date == "month":
-                start_date = now.replace(
-                    day=1,
-                    hour=0,
-                    minute=0,
-                    second=0,
-                    microsecond=0,
-                )
-
-                if start_date.month == 12:
-                    end_date = start_date.replace(
-                        year=start_date.year + 1,
-                        month=1,
-                    )
-                else:
-                    end_date = start_date.replace(
-                        month=start_date.month + 1,
-                    )
-
-            else:
-                start_date = None
-                end_date = None
-
-            if start_date and end_date:
-                stats_query = stats_query.filter(
-                    TestDriveModel.appointment_date >= start_date,
-                    TestDriveModel.appointment_date < end_date,
-                )
 
         # =========================
         # STATISTIQUES
@@ -536,7 +522,7 @@ class TestDriveRepositorySQL(TestDriveRepository):
         # =========================
 
         return GetTestDrivesAdminResult(
-            pagination=PaginatedResult(
+            pagination=PaginatedResult.create(
                 items=items,
                 total=total,
                 page=page,

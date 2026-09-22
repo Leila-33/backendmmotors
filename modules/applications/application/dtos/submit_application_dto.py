@@ -68,12 +68,6 @@ class SubmitApplicationDTO(BaseModel):
     )
 
     # =========================
-    # PRICE
-    # =========================
-
-    total_price: float
-
-    # =========================
     # FINANCING
     # =========================
 

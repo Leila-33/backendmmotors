@@ -87,10 +87,21 @@ class Application:
     deleted_at: datetime | None = None
 
     # =====================================================
-    # PRICING
+    # PRICING SNAPSHOT
     # =====================================================
 
+    # Prix du véhicule au moment du dossier.
+    base_price: float | None = None
+
+    # Total des options sélectionnées.
+    optional_price: float | None = None
+
+    # Remise appliquée au dossier.
     discount: float | None = None
+
+    # Prix total retenu pour le dossier.
+    total_price: float | None = None
+
 
     # =====================================================
     # RELATIONS
@@ -153,6 +164,7 @@ class Application:
             phone=lead.phone,
 
             status=ApplicationStatus.DRAFT,
+            total_price=quote.base_price,
 
             discount=quote.discount,
         )

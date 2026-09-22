@@ -117,10 +117,6 @@ def create_checkout_session(
     dto = CreateCheckoutSessionDTO(
         application_id=request.application_id,
         user_id=current_user.id,
-        amount=request.amount,
-        product_name=request.product_name,
-        email=request.email,
-        customer_name=request.customer_name,
     )
 
     # =====================================================

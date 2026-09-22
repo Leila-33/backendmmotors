@@ -22,6 +22,13 @@ class OptionRepository(ABC):
         pass
 
     @abstractmethod
+    def get_by_ids(
+        self,
+        option_ids: list[str],
+    ) -> list[Option]:
+        pass
+
+    @abstractmethod
     def get_all(self) -> List[Option]:
         """Récupérer toutes les options"""
         pass

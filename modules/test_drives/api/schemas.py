@@ -3,6 +3,7 @@ from pydantic import BaseModel, field_validator
 from modules.test_drives.domain.enums import TestDriveStatus
 from uuid import UUID
 from typing import Literal
+from core.pagination.paginated_response import PaginatedResponse
 
 # =========================================================
 # CLIENT — CREATE
@@ -16,6 +17,22 @@ class CreateTestDriveRequest(BaseModel):
 
     comment: str | None = None
 
+
+class TestDriveResponse(BaseModel):
+
+    id: str
+
+    user_id: str
+
+    vehicle_id: str
+
+    appointment_date: datetime
+
+    status: TestDriveStatus
+
+    comment: str | None = None
+
+    created_at: datetime | None = None
 
 # =========================================================
 # CLIENT — MY TEST DRIVES
@@ -85,25 +102,13 @@ class GetAvailabilityResponse(BaseModel):
     available_slots: list[datetime]
 
 
-# =========================================================
-# CLIENT — CREATE RESPONSE
-# =========================================================
+# =====================================================
+# CLIENT - GET EXISTING TEST DRIVE
+# =====================================================
 
-class TestDriveResponse(BaseModel):
+class ExistingTestDriveResponse(BaseModel):
 
-    id: str
-
-    user_id: str
-
-    vehicle_id: str
-
-    appointment_date: datetime
-
-    status: TestDriveStatus
-
-    comment: str | None = None
-
-    created_at: datetime | None = None
+    test_drive: TestDriveResponse | None = None
 
 
 # =========================================================
@@ -258,17 +263,12 @@ class TestDriveAdminStatsResponse(BaseModel):
     cancelled: int
 
 
-class PaginatedTestDriveAdminResponse(BaseModel):
-
-    items: list[TestDriveAdminItemResponse]
-
-    total: int
-
-    page: int
-
-    limit: int
+class PaginatedTestDriveAdminResponse(
+    PaginatedResponse[TestDriveAdminItemResponse]
+):
 
     stats: TestDriveAdminStatsResponse
+
 # =========================================================
 # ADMIN - PENDING COUNT
 # =========================================================

@@ -2,8 +2,8 @@ from modules.auth.domain.enums import UserRole
 from modules.applications.api.schemas import (
     ApplicationListItemAdmin,
     ApplicationListItemUser,
-    GetApplicationsResponse
 )
+from core.pagination.paginated_response import PaginatedResponse
 
 class ApplicationListResponseFactory:
 
@@ -15,7 +15,10 @@ class ApplicationListResponseFactory:
         self,
         result,
         role: UserRole
-    ) -> GetApplicationsResponse:
+    ) -> PaginatedResponse[
+        ApplicationListItemAdmin |
+        ApplicationListItemUser
+    ]:
 
         items = [
             self.build_item(
@@ -25,12 +28,12 @@ class ApplicationListResponseFactory:
             for item in result.items
         ]
 
-        return GetApplicationsResponse(
+        return PaginatedResponse(
             items=items,
             page=result.page,
             limit=result.limit,
             total=result.total,
-            pages=result.pages,
+            total_pages=result.total_pages,
         )
 
 

@@ -1,12 +1,10 @@
-from math import ceil
-
-from modules.auth.application.results.admin.find_users_result import (
-    FindUsersResult,
+from modules.auth.application.results.admin.user_list_item_result import (
     UserListItemResult,
 )
 from modules.auth.application.dtos.admin.find_users_dto import (
     FindUsersDTO,
 )
+from core.pagination.paginated_result import PaginatedResult
 
 class FindUsersUseCase:
 
@@ -19,7 +17,7 @@ class FindUsersUseCase:
     def execute(
         self,
         dto : FindUsersDTO,
-    ) -> FindUsersResult:
+    ) -> PaginatedResult[UserListItemResult]:
 
         users, total = self.user_repo.find_all(
             page=dto.page,
@@ -45,16 +43,9 @@ class FindUsersUseCase:
             for user in users
         ]
 
-        pages = (
-            ceil(total / dto.limit)
-            if dto.limit
-            else 1
-        )
-
-        return FindUsersResult(
+        return PaginatedResult.create(
             items=items,
             page=dto.page,
             limit=dto.limit,
             total=total,
-            pages=pages,
         )

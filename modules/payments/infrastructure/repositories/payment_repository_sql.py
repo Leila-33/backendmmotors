@@ -148,7 +148,27 @@ class PaymentRepositorySQL(PaymentRepository):
         return PaymentMapper.to_domain(
             model
         )
+    
+    # =====================================================
+    # GET BY APPLICATION ID
+    # =====================================================
+    def get_latest_by_application_id(
+        self,
+        application_id: str,
+    ):
 
+        return (
+            self.session.query(PaymentModel)
+            .filter(
+                PaymentModel.application_id
+                == application_id
+            )
+            .order_by(
+                PaymentModel.created_at.desc()
+            )
+            .first()
+        )
+    
     # =====================================================
     # UPDATE
     # =====================================================

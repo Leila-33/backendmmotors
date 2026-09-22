@@ -29,7 +29,7 @@ from modules.applications.application.use_cases.admin.get_events import GetEvent
 # REPOSITORIES / SERVICES TYPES
 # =========================
 from modules.applications.domain.repositories.application_repository import ApplicationRepository
-from modules.applications.domain.repositories.event_repository import EventRepository
+from modules.payments.domain.repositories.payment_repository import PaymentRepository
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 from modules.applications.application.services.document_sync_service import DocumentSyncService
 from modules.financing.domain.repositories.financing_contract_repository import FinancingContractRepository
@@ -40,12 +40,14 @@ from modules.applications.domain.repositories.document_repository import Documen
 # =========================
 from modules.dependencies.dependencies import (
     get_application_repository,
+    get_payment_repository,
+    get_vehicle_repository,
     get_event_repository,
     get_document_repository,
     get_trade_in_repository,
     get_financing_repository,
     get_application_option_repository,
-    get_payment_repository,
+    get_option_repository,
     get_reservation_repository,
     get_notification_repository,
     get_trade_in_repository,
@@ -87,6 +89,9 @@ from modules.applications.api.application_list_response_factory import Applicati
 # =====================================================
 from modules.applications.application.services.application_form_service import ApplicationFormService
 from modules.applications.application.services.document_sync_service import DocumentSyncService
+from modules.applications.application.services.rental_duration_calculator import RentalDurationCalculator
+from modules.applications.application.services.pricing_calculator import PricingCalculator
+
 
 def get_document_sync_service(
     document_repository: DocumentRepository = Depends(
@@ -102,45 +107,88 @@ def get_document_sync_service(
         s3_service=s3_service,
     )
 
+
 def get_application_form_service(
     application_repository=Depends(
         get_application_repository
     ),
+
+    vehicle_repository=Depends(
+        get_vehicle_repository
+    ),
+
     trade_in_repository=Depends(
         get_trade_in_repository
     ),
-    trade_in_service=
-    (
+
+    trade_in_service=Depends(
         get_trade_in_service
     ),
+
     financing_repository=Depends(
         get_financing_repository
     ),
+
     financing_service=Depends(
         get_financing_service
     ),
+
     application_option_repository=Depends(
         get_application_option_repository
     ),
+
+    option_repository=Depends(
+        get_option_repository
+    ),
+
     document_sync_service=Depends(
         get_document_sync_service
     ),
+
     reservation_repository=Depends(
         get_reservation_repository
+    ),
+
+    rental_duration_calculator=Depends(
+        RentalDurationCalculator
+    ),
+
+    pricing_calculator=Depends(
+        PricingCalculator
     ),
 ):
 
     return ApplicationFormService(
-        application_repository=application_repository,
+        application_repository=(
+            application_repository
+        ),
 
-        trade_in_repository=trade_in_repository,
-        trade_in_service=trade_in_service,
+        vehicle_repository=(
+            vehicle_repository
+        ),
 
-        financing_repository=financing_repository,
-        financing_service=financing_service,
+        trade_in_repository=(
+            trade_in_repository
+        ),
+
+        trade_in_service=(
+            trade_in_service
+        ),
+
+        financing_repository=(
+            financing_repository
+        ),
+
+        financing_service=(
+            financing_service
+        ),
 
         application_option_repository=(
             application_option_repository
+        ),
+
+        option_repository=(
+            option_repository
         ),
 
         document_sync_service=(
@@ -149,6 +197,14 @@ def get_application_form_service(
 
         reservation_repository=(
             reservation_repository
+        ),
+
+        rental_duration_calculator=(
+            rental_duration_calculator
+        ),
+
+        pricing_calculator=(
+            pricing_calculator
         ),
     )
 
@@ -210,10 +266,14 @@ def get_application_usecase(
     application_repository: ApplicationRepository = Depends(
         get_application_repository
     ),
+    payment_repository: PaymentRepository = Depends(
+        get_payment_repository
+    )
 ):
 
     return GetApplicationUseCase(
         application_repository=application_repository,
+        payment_repository=payment_repository
     )
 
 

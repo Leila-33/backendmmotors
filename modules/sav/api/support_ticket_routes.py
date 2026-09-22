@@ -7,7 +7,7 @@ from modules.auth.domain.entities.user import User
 from modules.sav.api.schemas import (
     CreateSupportTicketRequest,
     FindSupportTicketsQuery,
-    PaginatedSupportTicketsResponse,
+    SupportTicketListItemResponse,
     SupportTicketResponse,
     UnreadTicketCountResponse,
 )
@@ -51,7 +51,7 @@ from modules.sav.api.dependencies import (
 from modules.sav.infrastructure.mappers.support_ticket_mapper import (
     SupportTicketMapper,
 )
-
+from core.pagination.paginated_response import PaginatedResponse
 
 router = APIRouter(
     tags=["Support Tickets"]
@@ -139,7 +139,7 @@ async def get_unread_ticket_count(
 
 @router.get(
     "",
-    response_model=PaginatedSupportTicketsResponse,
+    response_model=PaginatedResponse[SupportTicketListItemResponse],
 )
 def find_support_tickets(
     query: FindSupportTicketsQuery = Depends(),

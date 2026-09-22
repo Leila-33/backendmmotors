@@ -242,19 +242,6 @@ class UserItemResponse(BaseModel):
     created_at: datetime
 
 
-class PaginatedUsersResponse(BaseModel):
-
-    items: list[UserItemResponse]
-
-    page: int
-
-    limit: int
-
-    total: int
-
-    pages: int
-
-
 # =========================
 # UPDATE USER ROLE
 # =========================

@@ -58,7 +58,8 @@ from modules.applications.api.schemas import (
     UpdateDocumentResponse,
     UpdateApplicationStatusRequest,
     UpdateDocumentRequest,
-    GetApplicationsResponse
+    ApplicationListItemAdmin,
+    ApplicationListItemUser
 )
 
 
@@ -100,6 +101,11 @@ from core.security.dependencies import get_current_admin
 
 from modules.auth.domain.entities.user import User
 
+# ============================================================
+# Pagination
+# ============================================================
+
+from core.pagination.paginated_response import PaginatedResponse
 
 # ============================================================
 # Router
@@ -115,7 +121,10 @@ router = APIRouter(
 # ============================================================
 @router.get(
     "",
-    response_model=GetApplicationsResponse,
+    response_model=PaginatedResponse[
+        ApplicationListItemAdmin |
+        ApplicationListItemUser
+    ],
 )
 def get_applications(
     query: GetApplicationsRequest = Depends(),

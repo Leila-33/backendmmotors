@@ -24,20 +24,38 @@ class Reservation:
     updated_at: Optional[datetime] = None
 
     def __post_init__(self):
+        """
+        Validation structurelle de l'entité.
+
+        Cette validation est appliquée lors de la création
+        et lors de la reconstruction depuis la base de données.
+        """
+
+        if self.start_date > self.end_date:
+
+            raise InvalidReservationDates(
+                "La date de début doit être antérieure "
+                "ou égale à la date de fin."
+            )
+
+    def validate_for_creation(self):
+        """
+        Vérifie les règles métier applicables
+        à une nouvelle réservation.
+        """
 
         today = date.today()
 
         if self.start_date < today:
-            raise InvalidReservationDates(
-                "La date de début doit être supérieure ou égale à aujourd'hui."
-            )
 
-        if self.start_date > self.end_date:
             raise InvalidReservationDates(
-                "La date de début doit être antérieure ou égale à la date de fin."
+                "La date de début doit être supérieure "
+                "ou égale à aujourd'hui."
             )
 
         if self.end_date < today:
+
             raise InvalidReservationDates(
-                "La date de fin doit être supérieure ou égale à aujourd'hui."
+                "La date de fin doit être supérieure "
+                "ou égale à aujourd'hui."
             )

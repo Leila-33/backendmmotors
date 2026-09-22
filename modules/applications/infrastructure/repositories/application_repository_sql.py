@@ -1,7 +1,7 @@
 import logging
 
 from sqlalchemy import and_, or_
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, joinedload
 
 from modules.applications.domain.entities.application import Application
 from modules.applications.domain.enums import (
@@ -52,6 +52,7 @@ class ApplicationRepositorySQL(ApplicationRepository):
     # =========================
     # GET BY ID
     # =========================
+
     def get_by_id(
         self,
         application_id: str
@@ -59,11 +60,24 @@ class ApplicationRepositorySQL(ApplicationRepository):
 
         model = (
             self.session.query(ApplicationModel)
-            .filter_by(id=application_id)
+            .options(
+                # Véhicule associé à la demande
+                joinedload(
+                    ApplicationModel.vehicle
+                ),
+
+                # Informations de financement
+                joinedload(
+                    ApplicationModel.financing
+                ),
+            )
+            .filter(
+                ApplicationModel.id == application_id
+            )
             .first()
         )
 
-        if not model:
+        if model is None:
             return None
 
         return ApplicationMapper.to_domain(model)

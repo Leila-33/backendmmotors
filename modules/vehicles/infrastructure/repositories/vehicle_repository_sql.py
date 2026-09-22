@@ -30,6 +30,7 @@ from modules.vehicles.infrastructure.mappers.vehicle_mapper import (
 from modules.vehicles.application.dtos.vehicle_search_filters_dto import (
     VehicleSearchFiltersDTO,
 )
+from modules.vehicles.domain.enums import VehicleStatus
 
 from modules.applications.infrastructure.db.application_model import ApplicationModel
 from modules.reservations.infrastructure.db.reservation_model import ReservationModel
@@ -38,7 +39,6 @@ from modules.reconditionings.infrastructure.db.reconditioning_model import Recon
 from modules.inspections.infrastructure.db.inspection_model import InspectionModel
 from modules.leads.infrastructure.db.lead_model import LeadModel
 from modules.applications.infrastructure.db.event_model import EventModel
-from modules.vehicles.domain.enums import VehicleStatus
 
 class VehicleRepositorySQL(VehicleRepository):
 
@@ -168,6 +168,14 @@ class VehicleRepositorySQL(VehicleRepository):
 
             query = query.filter(
                 VehicleModel.mileage <= filters.mileage_max
+            )
+            
+        # =================================================
+        # ENGINE TYPE
+        # =================================================
+        if filters.engine_type is not None:
+            query = query.filter(
+                VehicleModel.engine_type == filters.engine_type
             )
 
         # =================================================

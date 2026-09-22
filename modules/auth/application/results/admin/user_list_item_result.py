@@ -15,12 +15,3 @@ class UserListItemResult:
     is_deleted: bool
     is_verified: bool
     created_at: datetime
-
-
-@dataclass
-class FindUsersResult:
-    items: list[UserListItemResult]
-    page: int
-    limit: int
-    total: int
-    pages: int

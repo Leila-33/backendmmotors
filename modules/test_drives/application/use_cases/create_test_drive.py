@@ -7,6 +7,7 @@ from modules.test_drives.domain.enums import TestDriveStatus
 from modules.test_drives.domain.exceptions import (
     TestDriveSlotUnavailable,
     TestDrivePastDate,
+    TestDriveAlreadyExists
 )
 
 from modules.vehicles.domain.enums import VehicleStatus
@@ -70,7 +71,18 @@ class CreateTestDriveUseCase:
 
             if vehicle.status != VehicleStatus.PUBLISHED:
                 raise VehicleNotAvailableForTestDrive()
+            
+            # =====================================================
+            # VÉRIFICATION D'UN ESSAI EXISTANT
+            # =====================================================
 
+            if self.test_drive_repository.has_existing_blocking_test_drive(
+                user_id=user_id,
+                vehicle_id=dto.vehicle_id,
+            ):
+
+                raise TestDriveAlreadyExists()
+            
             # =========================
             # DATE
             # =========================

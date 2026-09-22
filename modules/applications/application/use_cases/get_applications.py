@@ -9,9 +9,6 @@ from modules.applications.application.dtos.get_applications_dto import (
 from modules.applications.application.results.application_list_item_data import (
     ApplicationListItemData,
 )
-from modules.applications.application.results.get_applications_result import (
-    GetApplicationsResult,
-)
 
 from modules.applications.application.services.restore_application_service import (
     RestoreApplicationService,
@@ -39,6 +36,8 @@ from modules.applications.domain.policies.soft_delete_application_policy import 
 from modules.applications.domain.repositories.application_repository import (
     ApplicationRepository,
 )
+
+from core.pagination.paginated_result import PaginatedResult
 
 class GetApplicationsUseCase:
 
@@ -186,17 +185,10 @@ class GetApplicationsUseCase:
                 )
             )
 
-        # =========================
-        # PAGINATION
-        # =========================
-        pages = (
-            total + dto.limit - 1
-        ) // dto.limit
 
-        return GetApplicationsResult(
+        return PaginatedResult.create(
             items=items,
             page=dto.page,
             limit=dto.limit,
             total=total,
-            pages=pages,
         )

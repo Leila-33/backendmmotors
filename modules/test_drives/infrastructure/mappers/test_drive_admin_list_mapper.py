@@ -54,6 +54,7 @@ class TestDriveAdminListMapper:
             total=result.pagination.total,
             page=result.pagination.page,
             limit=result.pagination.limit,
+            total_pages=result.pagination.total_pages,
 
             # =========================
             # STATISTIQUES

@@ -1,17 +1,13 @@
-from math import ceil
-
 from modules.sav.application.dtos.find_support_tickets_dto import (
     FindSupportTicketsDTO,
 )
-from modules.sav.application.results.find_support_tickets_result import (
-    FindSupportTicketsResult,
-)
+
 from modules.sav.domain.enums import (
     TicketStatus,
     TicketPriority,
     TicketFilter,
 )
-
+from core.pagination.paginated_result import PaginatedResult
 
 
 class FindSupportTicketsUseCase:
@@ -24,7 +20,7 @@ class FindSupportTicketsUseCase:
         dto: FindSupportTicketsDTO,
         user_id: str,
         user_role,
-    ) -> FindSupportTicketsResult:
+    ) -> PaginatedResult:
 
         status = dto.status
         priority = dto.priority
@@ -52,14 +48,9 @@ class FindSupportTicketsUseCase:
             user_role=user_role,
         )
 
-        return FindSupportTicketsResult(
+        return PaginatedResult.create(
             items=items,
             page=dto.page,
             limit=dto.limit,
             total=total,
-            pages=(
-                1
-                if total == 0
-                else ceil(total / dto.limit)
-            ),
         )

@@ -1,6 +1,5 @@
 from modules.vehicles.api.schemas import (
     VehicleResponse,
-    PaginatedVehicleResponse,
     VehicleInterestStatusResponse,
     VehicleLifecycleResponse,
     OptionResponse,
@@ -10,7 +9,7 @@ from modules.vehicles.domain.entities.vehicle import Vehicle
 from modules.vehicles.domain.enums import VehicleOptionType
 
 from core.pagination.paginated_result import PaginatedResult
-
+from core.pagination.paginated_response import PaginatedResponse
 from modules.inspections.infrastructure.mappers.inspection_mapper import (
     InspectionMapper,
 )
@@ -83,10 +82,15 @@ class VehicleResponseMapper:
         # IMAGES
         # =================================================
 
+
         images = [
-            self.s3_service.generate_download_url(key)
+            {
+                "key": key,
+                "url": self.s3_service.generate_download_url(key),
+            }
             for key in vehicle.images or []
         ]
+
 
         # =================================================
         # WARRANTY
@@ -218,15 +222,16 @@ class VehicleResponseMapper:
     def to_paginated_response(
         self,
         result: PaginatedResult,
-    ) -> PaginatedVehicleResponse:
+    ) -> PaginatedResponse[VehicleResponse]:
 
-        return PaginatedVehicleResponse(
+        return PaginatedResponse[VehicleResponse](
             items=[
                 self.to_response(vehicle)
                 for vehicle in result.items
             ],
             total=result.total,
             page=result.page,
-            size=result.limit,
+            limit=result.limit,
+            total_pages=result.total_pages,
         )
 

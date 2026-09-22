@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-
 from modules.options.infrastructure.db.option_model import OptionModel
 from modules.options.infrastructure.mapper.option_mapper import OptionMapper
 from modules.options.domain.entities.option import Option
@@ -104,6 +103,30 @@ class OptionRepositorySQL(OptionRepository):
             model
         )
 
+    # =========================
+    # GET BY IDS
+    # =========================
+
+    def get_by_ids(
+        self,
+        option_ids: list[str],
+    ) -> list[Option]:
+
+        if not option_ids:
+            return []
+
+        models = (
+            self.db.query(OptionModel)
+            .filter(
+                OptionModel.id.in_(option_ids)
+            )
+            .all()
+        )
+
+        return [
+            OptionMapper.to_domain(model)
+            for model in models
+        ]
 
     # =========================
     # GET ALL

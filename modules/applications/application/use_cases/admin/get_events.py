@@ -59,6 +59,4 @@ class GetEventsUseCase:
             page=page,
             limit=limit,
             total_pages=total_pages,
-            has_next=page < total_pages,
-            has_previous=page > 1,
         )

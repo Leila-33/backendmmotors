@@ -38,6 +38,19 @@ from modules.applications.domain.repositories.application_repository import (
 from modules.applications.domain.repositories.application_trade_in_repository import (
     ApplicationTradeInRepository,
 )
+from modules.applications.application.services.pricing_calculator import PricingCalculator
+from modules.applications.application.services.rental_duration_calculator import RentalDurationCalculator
+from modules.auth.domain.exceptions import (
+    Forbidden
+)
+from modules.options.domain.repositories.option_repository import OptionRepository
+from modules.vehicles.domain.repositories.vehicle_repository import (
+    VehicleRepository
+)
+from modules.vehicles.domain.exceptions import (
+    VehicleNotFound
+)
+from modules.vehicles.domain.enums import VehicleType
 
 from modules.financing.domain.services.financing_service import (
     FinancingService,
@@ -71,26 +84,33 @@ class ApplicationFormService:
     def __init__(
         self,
         application_repository: ApplicationRepository,
+        vehicle_repository: VehicleRepository,
         trade_in_repository: ApplicationTradeInRepository,
         financing_repository: ApplicationFinancingRepository,
         application_option_repository: ApplicationOptionRepository,
+        option_repository: OptionRepository,
         reservation_repository: ReservationRepository,
         financing_service: FinancingService,
         trade_in_service: TradeInService,
         document_sync_service: DocumentSyncService,
+        rental_duration_calculator: RentalDurationCalculator,
+        pricing_calculator: PricingCalculator
     ):
         # Repositories
         self.application_repository = application_repository
+        self.vehicle_repository = vehicle_repository
         self.trade_in_repository = trade_in_repository
         self.financing_repository = financing_repository
         self.application_option_repository = application_option_repository
+        self.option_repository = option_repository
         self.reservation_repository = reservation_repository
 
         # Domain / application services
         self.financing_service = financing_service
         self.trade_in_service = trade_in_service
         self.document_sync_service = document_sync_service
-
+        self.rental_duration_calculator = rental_duration_calculator
+        self.pricing_calculator = pricing_calculator
 
     # =========================
     # MAIN METHOD
@@ -111,16 +131,91 @@ class ApplicationFormService:
 
         application = result.application
 
+        # =========================
+        # VEHICULE
+        # =========================
+
+        vehicle = (
+            self.vehicle_repository.get_by_id(
+                application.vehicle_id
+            )
+        )
+
+        if not vehicle:
+            raise VehicleNotFound()
+
+        # =========================
+        # OPTIONS
+        # =========================
+
+        options = (
+            self.option_repository.get_by_ids(
+                dto.selected_option_ids
+            )
+        )
+
+        # =========================
+        # PRICING
+        # =========================
+        if vehicle.type == VehicleType.RENT:
+
+            rental_days = (
+                self.rental_duration_calculator.calculate(
+                    start_date=dto.selected_dates.start,
+                    end_date=dto.selected_dates.end,
+                )
+            )
+
+        else:
+
+            rental_days = 1
+
+
+        pricing = self.pricing_calculator.calculate(
+            vehicle=vehicle,
+            options=options,
+            discount=application.discount or 0,
+            rental_days=rental_days,
+        )
+
+        application.base_price = (
+            pricing.base_price
+        )
+
+        application.optional_price = (
+            pricing.optional_price
+        )
+
+        application.discount = (
+            pricing.discount
+        )
+
+        application.total_price = (
+            pricing.total_price
+        )
+
+        # =========================
+        # TRADE-IN
+        # =========================
+
         trade_in_value = self._save_trade_in(
             dto,
             application.id,
         )
 
+        # =========================
+        # FINANCING
+        # =========================
+
         self._save_financing(
             dto,
-            application.id,
+            application,
             trade_in_value,
         )
+
+        # =========================
+        # AUTRES DONNEES
+        # =========================
 
         self._update_snapshot(
             dto,
@@ -142,13 +237,18 @@ class ApplicationFormService:
             application,
         )
 
-        self.application_repository.update(application)
+        # =========================
+        # PERSISTANCE
+        # =========================
+
+        self.application_repository.update(
+            application
+        )
 
         return ApplicationFormResult(
             application=application,
             is_new=result.is_new,
         )
-
 
     # =========================
     # APPLICATION
@@ -159,7 +259,6 @@ class ApplicationFormService:
         dto,
         current_user_id: str,
     ) -> ApplicationFormResult:
-
 
         # =========================
         # EXISTING APPLICATION
@@ -176,13 +275,17 @@ class ApplicationFormService:
             if not application:
                 raise ApplicationNotFound()
 
+            # Vérifie que le dossier appartient bien
+            # à l'utilisateur connecté.
+            if application.user_id != current_user_id:
+                raise Forbidden(
+                    "Vous n'êtes pas autorisé à modifier ce dossier."
+                )
 
             return ApplicationFormResult(
                 application=application,
                 is_new=False,
             )
-
-
 
         # =========================
         # EXISTING DRAFT
@@ -196,7 +299,6 @@ class ApplicationFormService:
             )
         )
 
-
         if application:
 
             return ApplicationFormResult(
@@ -204,26 +306,34 @@ class ApplicationFormService:
                 is_new=False,
             )
 
-
-
         # =========================
         # CREATE DRAFT
         # =========================
 
         application = Application(
             id=str(uuid4()),
+
             user_id=current_user_id,
+
             vehicle_id=dto.vehicle_id,
+
             status=ApplicationStatus.DRAFT,
+
+            # Valeurs tarifaires initiales.
+            # Le calcul définitif sera effectué
+            # par PricingCalculator.
+            base_price=None,
+            optional_price=0,
+            discount=0,
+            total_price=None,
+
             created_at=datetime.now(timezone.utc),
         )
-
 
         application = (
             self.application_repository
             .create_base(application)
         )
-
 
         return ApplicationFormResult(
             application=application,
@@ -231,21 +341,15 @@ class ApplicationFormService:
         )
 
 
-
     # =========================
     # TRADE IN
     # =========================
 
-
     def _save_trade_in(
         self,
         dto,
-        application_id: str,
-    ) -> float:
-
-        # =========================
-        # TRADE-IN NON ACTIVÉ
-        # =========================
+        application,
+    ) -> int:
 
         if not dto.trade_in:
             return 0
@@ -255,10 +359,6 @@ class ApplicationFormService:
 
         trade_in = dto.trade_in
 
-        # =========================
-        # DOMAIN INPUT
-        # =========================
-
         trade_in_input = TradeInInput(
             brand=trade_in.brand,
             model=trade_in.model,
@@ -267,21 +367,13 @@ class ApplicationFormService:
             condition=trade_in.condition,
         )
 
-        # =========================
-        # ESTIMATION
-        # =========================
-
         result = self.trade_in_service.estimate(
             trade_in_input
         )
 
-        # =========================
-        # SAVE
-        # =========================
-
         self.trade_in_repository.save(
             ApplicationTradeIn(
-                application_id=application_id,
+                application_id=application.id,
                 brand=trade_in.brand,
                 model=trade_in.model,
                 year=trade_in.year,
@@ -293,8 +385,6 @@ class ApplicationFormService:
 
         return result.estimated_value
 
-
-
     # =========================
     # FINANCING
     # =========================
@@ -302,20 +392,54 @@ class ApplicationFormService:
     def _save_financing(
         self,
         dto,
-        application_id: str,
-        trade_in_value,
+        application: Application,
+        trade_in_value: float = 0,
     ):
+        # =========================
+        # VÉRIFICATION
+        # =========================
 
+        # Aucun financement demandé.
         if not dto.financing:
             return
 
-        if dto.total_price is None:
+        # Le prix total doit avoir été calculé
+        # par le PricingCalculator avant cette étape.
+        if application.total_price is None:
             return
 
+        # =========================
+        # DONNÉES DU FINANCEMENT
+        # =========================
+
+        down_payment = float(
+            dto.financing.down_payment or 0
+        )
+
+        duration_months = int(
+            dto.financing.duration_months
+        )
+
+        trade_in_value = float(
+            trade_in_value or 0
+        )
+
+        # =========================
+        # CALCUL DU FINANCEMENT
+        # =========================
+
         financing_input = FinancingInput(
-            total_price=dto.total_price,
-            down_payment=dto.financing.down_payment,
-            duration_months=dto.financing.duration_months,
+            # Prix total du dossier.
+            total_price=application.total_price,
+
+            # Apport du client.
+            down_payment=down_payment,
+
+            # Durée du financement.
+            duration_months=duration_months,
+
+            # Valeur de reprise calculée
+            # côté backend.
             trade_in_value=trade_in_value,
         )
 
@@ -323,16 +447,23 @@ class ApplicationFormService:
             financing_input
         )
 
+        # =========================
+        # ENREGISTREMENT
+        # =========================
+
         self.financing_repository.save(
             ApplicationFinancing(
-                application_id=application_id,
-                down_payment=dto.financing.down_payment,
-                duration_months=dto.financing.duration_months,
+                application_id=application.id,
+
+                down_payment=down_payment,
+
+                duration_months=duration_months,
+
                 financed_amount=result.financed_amount,
+
                 monthly_payment=result.monthly_payment,
             )
         )
-
 
 
     # =========================

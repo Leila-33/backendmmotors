@@ -12,7 +12,7 @@ class BaseGetVehiclesUseCase:
 
         vehicles, total = self.repo.search(filters)
 
-        return PaginatedResult(
+        return PaginatedResult.create(
             items=vehicles,
             total=total,
             page=filters.page,

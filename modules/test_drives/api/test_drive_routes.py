@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 
 from core.security.dependencies import get_current_user
 
@@ -10,6 +10,7 @@ from modules.test_drives.api.schemas import (
     MyTestDriveResponse,
     TestDriveDetailResponse,
     TestDriveStatusResponse,
+    ExistingTestDriveResponse
 )
 
 from modules.test_drives.application.dtos.create_test_drive_dto import (
@@ -21,7 +22,9 @@ from modules.test_drives.application.dtos.get_availability_dto import (
 from modules.test_drives.application.dtos.update_test_drive_status_dto import (
     UpdateTestDriveStatusDTO,
 )
-
+from modules.test_drives.application.dtos.get_existing_test_drive_dto import (
+    GetExistingTestDriveDTO,
+)
 from modules.test_drives.application.use_cases.create_test_drive import (
     CreateTestDriveUseCase,
 )
@@ -30,6 +33,9 @@ from modules.test_drives.application.use_cases.get_availability import (
 )
 from modules.test_drives.application.use_cases.get_my_test_drives import (
     GetMyTestDrivesUseCase,
+)
+from modules.test_drives.application.use_cases.get_existing_test_drive import (
+    GetExistingTestDriveUseCase,
 )
 from modules.test_drives.application.use_cases.get_test_drive_detail import (
     GetTestDriveDetailUseCase,
@@ -44,6 +50,7 @@ from modules.test_drives.api.dependencies import (
     get_my_test_drives_usecase,
     get_get_test_drive_detail_usecase,
     get_update_test_drive_status_usecase,
+    get_existing_test_drive_usecase
 )
 
 from modules.test_drives.domain.enums import TestDriveStatus
@@ -144,6 +151,44 @@ def get_my_test_drives(
         for test_drive in result.items
     ]
 
+# =====================================================
+# ESSAI ROUTIER EXISTANT
+# =====================================================
+
+@router.get(
+    "/existing",
+    response_model=ExistingTestDriveResponse,
+)
+def get_existing_test_drive(
+    vehicle_id: str = Query(...),
+
+    current_user=Depends(
+        get_current_user
+    ),
+
+    use_case: GetExistingTestDriveUseCase = Depends(
+        get_existing_test_drive_usecase
+    ),
+):
+
+    dto = GetExistingTestDriveDTO(
+        user_id=current_user.id,
+        vehicle_id=vehicle_id,
+    )
+
+    test_drive = use_case.execute(dto)
+
+    if test_drive is None:
+
+        return ExistingTestDriveResponse(
+            test_drive=None
+        )
+
+    return ExistingTestDriveResponse(
+        test_drive=TestDriveMapper.to_response(
+            test_drive
+        )
+    )
 
 # =====================================================
 # TEST DRIVE DETAIL

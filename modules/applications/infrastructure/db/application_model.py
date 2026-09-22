@@ -108,11 +108,36 @@ class ApplicationModel(Base):
         nullable=True
     )
 
+    # =====================================================
+    # PRICING SNAPSHOT
+    # =====================================================
+
+    # Prix du véhicule au moment de la création
+    # ou de la soumission du dossier.
+    base_price = Column(
+        Float,
+        nullable=True
+    )
+
+    # Prix total des options sélectionnées.
+    optional_price = Column(
+        Float,
+        nullable=True
+    )
+
+    # Remise appliquée au dossier.
     discount = Column(
-    Float,
-    nullable=True,
-    default=0
-)
+        Float,
+        nullable=True,
+        default=0
+    )
+
+    # Prix total retenu pour le dossier.
+    total_price = Column(
+        Float,
+        nullable=True
+    )
+    
     # =====================================================
     # ARCHIVE
     # =====================================================

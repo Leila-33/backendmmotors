@@ -8,7 +8,10 @@ from modules.vehicles.domain.exceptions import (
     VehicleAlreadyExists,
     VehicleNotFound,
 )
-from modules.vehicles.domain.enums import VehicleType
+from modules.vehicles.domain.enums import (
+    VehicleType,
+    VehicleStatus
+)
 
 from modules.vehicles.application.use_cases.admin.create_vehicle import (
     AssignOptionsToVehicleUseCase,
@@ -200,6 +203,16 @@ class UpdateVehicleUseCase:
             vehicle.equipments = dto.equipments
             vehicle.condition = dto.condition
             vehicle.license_plate = license_plate
+
+            # =========================================================
+            # DISPONIBILITÉ
+            # =========================================================
+
+            vehicle.is_available = (
+                True
+                if dto.type == VehicleType.RENT
+                else vehicle.status == VehicleStatus.PUBLISHED
+            )
 
             updated_fields = [
                 "brand",

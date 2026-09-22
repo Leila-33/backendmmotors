@@ -5,9 +5,7 @@ import pytest
 from modules.sav.application.dtos.find_support_tickets_dto import (
     FindSupportTicketsDTO,
 )
-from modules.sav.application.results.find_support_tickets_result import (
-    FindSupportTicketsResult,
-)
+from core.pagination.paginated_result import PaginatedResult
 from modules.sav.application.use_cases.find_support_tickets import (
     FindSupportTicketsUseCase,
 )
@@ -104,14 +102,14 @@ def test_execute_calls_repository_with_dto_values(
 
     assert isinstance(
         result,
-        FindSupportTicketsResult,
+        PaginatedResult,
     )
 
     assert result.items == items
     assert result.page == 2
     assert result.limit == 10
     assert result.total == 2
-    assert result.pages == 1
+    assert result.total_pages == 1
 
 
 # ============================================================
@@ -155,7 +153,7 @@ def test_execute_uses_default_dto_values(
     assert result.page == 1
     assert result.limit == 10
     assert result.total == 0
-    assert result.pages == 1
+    assert result.total_pages == 1
 
 
 # ============================================================
@@ -588,7 +586,7 @@ def test_pages_are_calculated_correctly(
         user_role=user_role,
     )
 
-    assert result.pages == expected_pages
+    assert result.total_pages == expected_pages
 
 
 def test_empty_result_always_has_one_page(
@@ -614,8 +612,8 @@ def test_empty_result_always_has_one_page(
     )
 
     assert result.total == 0
-    assert result.pages == 1
-    assert result.page == 5
+    assert result.total_pages == 1
+    assert result.total_pages == 5
 
 
 # ============================================================
@@ -653,14 +651,14 @@ def test_result_contains_repository_items(
 
     assert isinstance(
         result,
-        FindSupportTicketsResult,
+        PaginatedResult,
     )
 
     assert result.items == items
     assert result.page == 2
     assert result.limit == 2
     assert result.total == 3
-    assert result.pages == 2
+    assert result.total_pages == 2
 
 
 # ============================================================

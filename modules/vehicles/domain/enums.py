@@ -7,7 +7,7 @@ class VehicleType(str, Enum):
 class EngineType(str, Enum):
     DIESEL = "diesel"
     PETROL = "petrol"
-    HYBRID = "hybride"
+    HYBRID = "hybrid"
     ELECTRIC = "electric"
 
 

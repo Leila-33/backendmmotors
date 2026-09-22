@@ -54,6 +54,21 @@ class TestDriveRepository(ABC):
     ) -> Optional[TestDrive]:
         pass
 
+    @abstractmethod
+    def get_existing_for_user_vehicle(
+        self,
+        user_id: int,
+        vehicle_id: int,
+    ):
+        pass
+
+    @abstractmethod
+    def has_existing_blocking_test_drive(
+        self,
+        user_id: int,
+        vehicle_id: int,
+    ) -> bool:
+        pass
 
     @abstractmethod
     def get_by_user_id(

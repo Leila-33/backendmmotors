@@ -1,38 +1,68 @@
 from dataclasses import dataclass
-from typing import Optional, Literal
+from typing import Literal
 
-from modules.vehicles.domain.enums import VehicleType
-
+from modules.vehicles.domain.enums import (
+    VehicleType,
+    EngineType
+)
 
 @dataclass
 class VehicleSearchFiltersDTO:
 
+    # =========================
+    # PAGINATION
+    # =========================
+
     page: int = 1
     size: int = 10
+
+    # =========================
+    # TRI
+    # =========================
 
     sort_by: Literal[
         "price",
         "year",
-        "mileage"
+        "mileage",
     ] = "year"
 
     order: Literal[
         "asc",
-        "desc"
+        "desc",
     ] = "desc"
 
-    search: Optional[str] = None
+    # =========================
+    # FILTRES COMMUNS
+    # =========================
 
-    type: Optional[VehicleType] = None
-    brand: Optional[str] = None
-    model: Optional[str] = None
+    type: VehicleType | None = None
 
-    price_min: Optional[float] = None
-    price_max: Optional[float] = None
+    # =========================
+    # FILTRES CLIENT
+    # =========================
 
-    year_min: Optional[int] = None
-    mileage_max: Optional[int] = None
+    brand: str | None = None
+    model: str | None = None
 
-    is_available: Optional[bool] = None
+    engine_type: EngineType | None = None
 
-    license_plate: Optional[str] = None
+    price_min: float | None = None
+    price_max: float | None = None
+
+    year_min: int | None = None
+    mileage_max: int | None = None
+
+    # =========================
+    # FILTRES ADMIN
+    # =========================
+
+    search: str | None = None
+    license_plate: str | None = None
+
+    # =========================
+    # RÈGLE INTERNE
+    # =========================
+
+    # Ce champ n'est pas exposé
+    # directement par le frontend client.
+    is_available: bool | None = None

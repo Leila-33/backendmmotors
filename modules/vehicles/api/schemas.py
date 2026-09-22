@@ -15,6 +15,10 @@ import re
 # =========================
 # COMMON - VEHICLE RESPONSE
 # =========================
+class VehicleImageResponse(BaseModel):
+    key: str
+    url: str
+
 class OptionResponse(BaseModel):
 
     id: str
@@ -72,7 +76,7 @@ class VehicleResponse(BaseModel):
     condition: VehicleCondition
 
     is_available: bool
-    images: list[str] = Field(default_factory=list)
+    images: list[VehicleImageResponse] = []
     status: VehicleStatus
 
     published_at: datetime | None = None
@@ -387,6 +391,7 @@ class VehicleSearchFilters(BaseModel):
     type: Optional[VehicleType] = None
     brand: Optional[str] = None
     model: Optional[str] = None
+    engine_type: Optional[EngineType] = None
 
     price_min: Optional[float] = None
     price_max: Optional[float] = None
@@ -412,11 +417,98 @@ class VehicleSearchFilters(BaseModel):
 
         return value
 
-class PaginatedVehicleResponse(BaseModel):
-    items: List[VehicleResponse]
-    total: int
-    page: int
-    size: int
+
+
+# =========================
+# ADMIN - GET VEHICLES
+# =========================
+class VehicleAdminSearchFilters(BaseModel):
+
+    page: int = Field(
+        default=1,
+        ge=1
+    )
+
+    size: int = Field(
+        default=10,
+        ge=1,
+        le=100
+    )
+
+    search: str | None = None
+
+    license_plate: str | None = None
+
+    type: VehicleType | None = None
+
+
+
+# =========================
+# CLIENT - GET VEHICLES
+# =========================
+class VehicleSearchFilters(BaseModel):
+
+    # =========================
+    # PAGINATION
+    # =========================
+
+    page: int = Field(
+        default=1,
+        ge=1,
+    )
+
+    size: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+    )
+
+    # =========================
+    # TRI
+    # =========================
+
+    sort_by: Literal[
+        "price",
+        "year",
+        "mileage",
+    ] = "year"
+
+    order: Literal[
+        "asc",
+        "desc",
+    ] = "desc"
+
+    # =========================
+    # FILTRES
+    # =========================
+
+    brand: str | None = None
+
+    model: str | None = None
+
+    type: VehicleType | None = None
+
+    engine_type: EngineType | None = None
+
+    price_min: float | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    price_max: float | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    year_min: int | None = Field(
+        default=None,
+        ge=1900,
+    )
+
+    mileage_max: int | None = Field(
+        default=None,
+        ge=0,
+    )
 
 # =========================
 # CLIENT - GET VEHICLE INTEREST STATUS

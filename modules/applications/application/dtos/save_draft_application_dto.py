@@ -38,8 +38,6 @@ class SaveDraftApplicationDTO:
 
     selected_option_ids: list[str]
 
-    total_price: float | None
-
     financing: FinancingDTO | None
 
     trade_in: TradeInDTO | None

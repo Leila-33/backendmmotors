@@ -5,15 +5,13 @@ import pytest
 from modules.applications.application.dtos.get_applications_dto import (
     GetApplicationsDTO,
 )
-from modules.applications.application.results.get_applications_result import (
-    GetApplicationsResult,
-)
+
 from modules.applications.application.use_cases.get_applications import (
     GetApplicationsUseCase,
 )
 from modules.applications.domain.exceptions import CannotRestoreApplication
 from modules.auth.domain.enums import UserRole
-
+from core.pagination.paginated_result import PaginatedResult
 
 @pytest.fixture
 def application_repository():
@@ -146,12 +144,12 @@ def test_returns_empty_result_when_no_application_found(
         user_id="user-1",
     )
 
-    assert isinstance(result, GetApplicationsResult)
+    assert isinstance(result, PaginatedResult)
     assert result.items == []
     assert result.total == 0
     assert result.page == 1
     assert result.limit == 10
-    assert result.pages == 0
+    assert result.total_pages == 0
 
 
 def test_calculates_pages_correctly(
@@ -171,7 +169,7 @@ def test_calculates_pages_correctly(
         user_id="user-1",
     )
 
-    assert result.pages == 3
+    assert result.total_pages == 3
 
 
 def test_calculates_one_page_when_total_is_less_than_limit(
@@ -191,7 +189,7 @@ def test_calculates_one_page_when_total_is_less_than_limit(
         user_id="user-1",
     )
 
-    assert result.pages == 1
+    assert result.total_pages == 1
 
 
 def test_calculates_exact_number_of_pages_when_total_is_multiple_of_limit(
@@ -211,7 +209,7 @@ def test_calculates_exact_number_of_pages_when_total_is_multiple_of_limit(
         user_id="user-1",
     )
 
-    assert result.pages == 2
+    assert result.total_pages == 2
 
 
 def test_client_has_cancel_permission_based_on_policy(
@@ -534,4 +532,4 @@ def test_returns_pagination_information(
     assert result.page == 2
     assert result.limit == 5
     assert result.total == 11
-    assert result.pages == 3
+    assert result.total_pages == 3

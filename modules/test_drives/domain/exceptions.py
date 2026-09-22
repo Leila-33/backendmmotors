@@ -42,3 +42,12 @@ class InvalidAvailabilityDate(DomainException):
             "Date de disponibilité invalide",
             400
         )
+
+class TestDriveAlreadyExists(DomainException):
+
+    def __init__(self):
+
+        super().__init__(
+            "Vous avez déjà un essai routier pour ce véhicule",
+            409
+        )

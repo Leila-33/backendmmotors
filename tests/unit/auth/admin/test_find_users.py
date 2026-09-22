@@ -94,7 +94,7 @@ def test_find_users_success():
     assert result.page == 1
     assert result.limit == 10
     assert result.total == 2
-    assert result.pages == 1
+    assert result.total_pages == 1
 
     # -------------------------------------------------
     # Items
@@ -172,7 +172,7 @@ def test_find_users_passes_filters_to_repository():
     assert result.page == 2
     assert result.limit == 5
     assert result.total == 1
-    assert result.pages == 1
+    assert result.total_pages == 1
 
 
 def test_find_users_calculates_multiple_pages():
@@ -206,7 +206,7 @@ def test_find_users_calculates_multiple_pages():
     assert result.page == 2
     assert result.limit == 10
     assert result.total == 23
-    assert result.pages == 3
+    assert result.total_pages == 3
 
     assert len(result.items) == 3
 
@@ -234,7 +234,7 @@ def test_find_users_empty_result():
     assert result.page == 1
     assert result.limit == 10
     assert result.total == 0
-    assert result.pages == 0
+    assert result.total_pages == 0
 
     user_repo.find_all.assert_called_once_with(
         page=1,
@@ -269,7 +269,7 @@ def test_find_users_with_limit_zero():
 
     assert result.limit == 0
     assert result.total == 1
-    assert result.pages == 1
+    assert result.total_pages == 1
 
     assert len(result.items) == 1
 

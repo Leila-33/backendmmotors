@@ -1,5 +1,5 @@
 import logging
-
+from datetime import datetime, timezone
 from core.database.unit_of_work import UnitOfWork
 
 from modules.applications.application.services.application_form_service import (
@@ -95,6 +95,7 @@ class SubmitApplicationUseCase:
             # STATUS
             # =========================
 
+
             application.previous_status = (
                 application.status
             )
@@ -102,6 +103,8 @@ class SubmitApplicationUseCase:
             application.status = (
                 ApplicationStatus.SUBMITTED
             )
+
+            application.submitted_at = datetime.now(timezone.utc)
 
             self.application_repository.update(
                 application

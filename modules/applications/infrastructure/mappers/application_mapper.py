@@ -72,9 +72,16 @@ class ApplicationMapper:
 
             submitted_at=model.submitted_at,
 
+            # =====================
+            # PRICING
+            # =====================
+            base_price=model.base_price,
+
+            optional_price=model.optional_price,
+
+            total_price=model.total_price,
 
             discount=model.discount,
-
 
             # =====================
             # ARCHIVE
@@ -219,6 +226,13 @@ class ApplicationMapper:
             submitted_at=entity.submitted_at,
 
 
+            # PRICING
+            base_price=entity.base_price,
+
+            optional_price=entity.optional_price,
+
+            total_price=entity.total_price,
+
             discount=entity.discount,
 
 
@@ -272,8 +286,15 @@ class ApplicationMapper:
 
         model.submitted_at = entity.submitted_at
 
+        # PRICING
+        model.base_price=entity.base_price
 
-        model.discount = entity.discount
+        model.optional_price=entity.optional_price
+
+        model.total_price=entity.total_price
+
+        model.discount=entity.discount,
+
 
 
         model.is_archived = entity.is_archived
@@ -282,35 +303,3 @@ class ApplicationMapper:
 
 
         return model
-        
-
-    @staticmethod
-    def to_dict(
-        application: Application
-    ):
-
-        return {
-
-            "id": application.id,
-
-            "quote_id": application.quote_id,
-
-            "user_id": application.user_id,
-
-            "vehicle_id": application.vehicle_id,
-
-            "first_name": application.first_name,
-
-            "last_name": application.last_name,
-
-            "email": application.email,
-
-            "phone": application.phone,
-
-            "status": application.status,
-
-            "created_at": application.created_at,
-
-            "discount": application.discount
-
-        }

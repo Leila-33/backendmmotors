@@ -165,19 +165,6 @@ class SupportTicketListItemResponse(BaseModel):
     archived_at: datetime | None = None
 
 
-class PaginatedSupportTicketsResponse(BaseModel):
-
-    items: list[SupportTicketListItemResponse]
-
-    page: int
-
-    limit: int
-
-    total: int
-
-    pages: int
-
-
 # =========================================================
 # TICKET CHAT
 # =========================================================

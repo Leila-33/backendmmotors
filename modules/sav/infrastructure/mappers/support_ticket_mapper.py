@@ -5,12 +5,10 @@ from modules.sav.api.schemas import (
     SupportTicketResponse,
     TicketMessageResponse,
     SupportTicketListItemResponse,
-    PaginatedSupportTicketsResponse,
 )
 from modules.auth.domain.enums import UserRole
-from modules.sav.application.results.find_support_tickets_result import (
-    FindSupportTicketsResult
-)
+from core.pagination.paginated_result import PaginatedResult
+from core.pagination.paginated_response import PaginatedResponse
 
 class SupportTicketMapper:
 
@@ -105,10 +103,10 @@ class SupportTicketMapper:
 
     @staticmethod
     def to_paginated_response(
-        result: FindSupportTicketsResult,
-    ) -> PaginatedSupportTicketsResponse:
+        result: PaginatedResult,
+    ) -> PaginatedResponse[SupportTicketListItemResponse]:
 
-        return PaginatedSupportTicketsResponse(
+        return PaginatedResponse(
             items=[
                 SupportTicketListItemResponse(
                     id=item.id,
@@ -131,5 +129,5 @@ class SupportTicketMapper:
             page=result.page,
             limit=result.limit,
             total=result.total,
-            pages=result.pages,
+            total_pages=result.total_pages,
         )

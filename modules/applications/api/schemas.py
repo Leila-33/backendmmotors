@@ -210,11 +210,6 @@ class SaveDraftApplicationRequest(BaseModel):
         default_factory=list
     )
 
-    total_price: float | None = Field(
-        default=None,
-        gt=0,
-    )
-
     financing: FinancingRequest | None = None
 
     trade_in: TradeInRequest | None = None
@@ -256,22 +251,6 @@ class SaveDraftApplicationRequest(BaseModel):
 
         if not re.match(phone_regex, v):
             raise ValueError("Téléphone invalide")
-
-        return v
-
-    # ========================================================
-    # PRICE VALIDATION
-    # ========================================================
-
-    @field_validator("total_price")
-    @classmethod
-    def validate_price(cls, v):
-
-        if v is None:
-            return v
-
-        if v <= 0:
-            raise ValueError("Prix invalide")
 
         return v
 
@@ -417,11 +396,6 @@ class SubmitApplicationRequest(BaseModel):
         default_factory=list
     )
 
-    # =========================
-    # PRICE
-    # =========================
-
-    total_price: float
 
     # =========================
     # FINANCING
@@ -487,23 +461,6 @@ class SubmitApplicationRequest(BaseModel):
 
         return value
 
-    # =====================================================
-    # TOTAL PRICE
-    # =====================================================
-
-    @field_validator("total_price")
-    @classmethod
-    def validate_total_price(
-        cls,
-        value: float,
-    ):
-
-        if value <= 0:
-            raise ValueError(
-                "Le prix total doit être supérieur à 0"
-            )
-
-        return value
 
     # =====================================================
     # BIRTH DATE
@@ -705,6 +662,11 @@ class EventResponse(BaseModel):
     event_metadata: dict[str, Any] | None = None
     created_at: datetime
 
+class SelectedDatesResponse(BaseModel):
+
+    start: date
+    end: date
+
 class ApplicationDetailResponse(BaseModel):
 
     # ========================================================
@@ -713,7 +675,6 @@ class ApplicationDetailResponse(BaseModel):
 
     id: str
     status: ApplicationStatus
-    discount: float | None = None
     created_at: datetime
 
     # ========================================================
@@ -736,10 +697,15 @@ class ApplicationDetailResponse(BaseModel):
     employment_status: str | None = None
 
     # ========================================================
+    # PRICING
+    # ========================================================
+    discount: float | None = None
+    
+    # ========================================================
     # RENT
     # ========================================================
 
-    selected_dates: SelectedDatesRequest | None = None
+    selected_dates: SelectedDatesResponse | None = None
 
     # ========================================================
     # VEHICLE
@@ -783,10 +749,6 @@ class ApplicationDetailResponse(BaseModel):
 
     payment_status: PaymentStatus | None = None
 
-    # ========================================================
-    # PAYMENT
-    # ========================================================
-
     can_validate: bool
     can_reject: bool
 
@@ -826,16 +788,6 @@ class ApplicationListItemUser(ApplicationListBase):
     can_cancel: bool
 
 
-class GetApplicationsResponse(BaseModel):
-    items: list[
-        ApplicationListItemAdmin |
-        ApplicationListItemUser
-    ]
-
-    page: int
-    limit: int
-    total: int
-    pages: int
 
 
 # ============================================================
@@ -897,8 +849,6 @@ class EventPaginationResponse(BaseModel):
     page: int
     limit: int
     total_pages: int
-    has_next: bool
-    has_previous: bool
 
 # ============================================================
 # UPDATE APPLICATION STATUS

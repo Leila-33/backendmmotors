@@ -56,7 +56,9 @@ from modules.test_drives.application.use_cases.get_availability import (
 from modules.test_drives.application.use_cases.get_my_test_drives import (
     GetMyTestDrivesUseCase,
 )
-
+from modules.test_drives.application.use_cases.get_existing_test_drive import (
+    GetExistingTestDriveUseCase,
+)
 # =========================
 # SHARED USE CASES
 # =========================
@@ -138,7 +140,14 @@ def get_my_test_drives_usecase(
         repository=repository,
     )
 
-
+def get_existing_test_drive_usecase(
+    repository=Depends(
+        get_test_drive_repository
+    ),
+):
+    return GetExistingTestDriveUseCase(
+        repository=repository,
+    )
 # =========================================================
 # SHARED — DETAIL
 # =========================================================

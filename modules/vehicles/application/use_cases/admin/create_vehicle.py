@@ -93,7 +93,9 @@ class CreateVehicleUseCase:
             # =========================
             # VEHICLE
             # =========================
-
+    # Un véhicule à vendre doit être marqué
+    # comme indisponible (is_available=False) jusqu'à sa validation.
+    # Un véhicule de location est disponible par défaut.
             vehicle = Vehicle(
                 id=str(uuid.uuid4()),
                 brand=dto.brand,
@@ -106,10 +108,25 @@ class CreateVehicleUseCase:
                 engine_type=dto.engine_type,
                 equipments=dto.equipments,
                 condition=dto.condition,
-                is_available=False,
+                is_available=dto.type != VehicleType.SALE,
                 images=dto.images,
                 license_plate=license_plate,
-                status=VehicleStatus.AVAILABLE,
+
+                # =========================
+                # STATUT INITIAL
+                # =========================
+                #
+                # Location :
+                #   → publié immédiatement
+                #
+                # Vente :
+                #   → disponible immédiatement
+                #
+                status=(
+                    VehicleStatus.PUBLISHED
+                    if dto.type == VehicleType.RENT
+                    else VehicleStatus.AVAILABLE
+                ),
             )
 
             # =========================

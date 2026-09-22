@@ -61,11 +61,6 @@ from modules.test_drives.api.schemas import (
 # =========================
 # MAPPERS
 # =========================
-
-from modules.test_drives.infrastructure.mappers.test_drive_mapper import (
-    TestDriveMapper,
-)
-
 from modules.test_drives.infrastructure.mappers.test_drive_admin_list_mapper import (
     TestDriveAdminListMapper,
 )

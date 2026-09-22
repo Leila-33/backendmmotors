@@ -31,7 +31,7 @@ router = APIRouter(
 # CHECK AVAILABILITY
 # =========================================================
 
-@router.get(
+@router.post(
     "/check",
     response_model=CheckAvailabilityResponse,
 )
@@ -68,5 +68,5 @@ def check_reservation_availability(
     # =====================================================
 
     return CheckAvailabilityResponse(
-        available=result.available
+        available=result
     )

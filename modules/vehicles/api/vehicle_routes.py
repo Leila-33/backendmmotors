@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from modules.vehicles.api.schemas import (
     VehicleResponse,
     VehicleSearchFilters,
-    PaginatedVehicleResponse,
+    VehicleResponse,
     VehicleInterestStatusResponse,
     UnavailableDateResponse,
 )
@@ -65,6 +65,10 @@ from modules.vehicles.infrastructure.mappers.vehicle_response_mapper import Vehi
 
 from core.security.dependencies import get_current_user
 
+# =========================
+# PAGINATION
+# =========================
+from core.pagination.paginated_response import PaginatedResponse
 
 router = APIRouter(
     tags=["Vehicles"]
@@ -101,10 +105,9 @@ def get_vehicle_detail(
 # =====================================================
 # GET VEHICLES CLIENT
 # =====================================================
-
 @router.get(
     "",
-    response_model=PaginatedVehicleResponse,
+    response_model=PaginatedResponse[VehicleResponse],
 )
 def get_vehicles(
     query: VehicleSearchFilters = Depends(),
@@ -112,6 +115,7 @@ def get_vehicles(
     use_case: GetVehiclesForClientUseCase = Depends(
         get_get_vehicles_client_usecase
     ),
+
     response_mapper: VehicleResponseMapper = Depends(
         get_vehicle_response_mapper
     ),
@@ -128,30 +132,23 @@ def get_vehicles(
         sort_by=query.sort_by,
         order=query.order,
 
-        search=query.search,
-
-        type=query.type,
         brand=query.brand,
         model=query.model,
+        type=query.type,
+        engine_type=query.engine_type,
 
         price_min=query.price_min,
         price_max=query.price_max,
 
         year_min=query.year_min,
         mileage_max=query.mileage_max,
-
-        is_available=query.is_available,
-
-        license_plate=query.license_plate,
     )
 
     # =========================
     # APPLICATION
     # =========================
 
-    result = use_case.execute(
-        dto
-    )
+    result = use_case.execute(dto)
 
     # =========================
     # APPLICATION → API
@@ -160,7 +157,6 @@ def get_vehicles(
     return response_mapper.to_paginated_response(
         result
     )
-
 
 # =====================================================
 # GET UNAVAILABLE DATES

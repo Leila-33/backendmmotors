@@ -15,8 +15,7 @@ from modules.vehicles.api.schemas import (
     CreateVehicleRequest,
     VehicleResponse,
     UpdateVehicleRequest,
-    VehicleSearchFilters,
-    PaginatedVehicleResponse,
+    VehicleAdminSearchFilters,
     VehicleLifecycleResponse,
     SetAvailabilityRequest,
     DeleteVehicleResponse,
@@ -112,8 +111,11 @@ from modules.vehicles.infrastructure.mappers.vehicle_response_mapper import (
     VehicleResponseMapper,
 )
 
+# =====================================================
+# PAGINATION
+# =====================================================
 
-
+from core.pagination.paginated_response import PaginatedResponse
 
 
 # =====================================================
@@ -244,13 +246,12 @@ def update_vehicle(
 # =====================================================
 # GET VEHICLES ADMIN
 # =====================================================
-
 @router.get(
     "",
-    response_model=PaginatedVehicleResponse,
+    response_model=PaginatedResponse[VehicleResponse],
 )
 def get_vehicles_admin(
-    query: VehicleSearchFilters = Depends(),
+    query: VehicleAdminSearchFilters = Depends(),
 
     current_admin=Depends(
         get_current_admin
@@ -273,22 +274,9 @@ def get_vehicles_admin(
         page=query.page,
         size=query.size,
 
-        sort_by=query.sort_by,
-        order=query.order,
-
         search=query.search,
 
         type=query.type,
-        brand=query.brand,
-        model=query.model,
-
-        price_min=query.price_min,
-        price_max=query.price_max,
-
-        year_min=query.year_min,
-        mileage_max=query.mileage_max,
-
-        is_available=query.is_available,
 
         license_plate=query.license_plate,
     )

@@ -5,7 +5,6 @@ from modules.auth.api.schemas import (
     CreateUserResponse,
     FindUsersRequest,
     UserItemResponse,
-    PaginatedUsersResponse,
     ToggleUserActiveRequest,
     ToggleUserActiveResponse,
     UpdateUserRoleRequest,
@@ -64,7 +63,7 @@ from modules.auth.domain.entities.user import User
 from core.security.dependencies import (
     get_current_admin,
 )
-
+from core.pagination.paginated_response import PaginatedResponse
 
 router = APIRouter(
     tags=["Admin Auth"]
@@ -115,7 +114,7 @@ def create_user(
 # =====================================================
 @router.get(
     "",
-    response_model=PaginatedUsersResponse,
+    response_model=PaginatedResponse[UserItemResponse],
 )
 def find_users(
     request: FindUsersRequest = Depends(),
@@ -150,7 +149,7 @@ def find_users(
     # RESULT → RESPONSE
     # =========================================
 
-    return PaginatedUsersResponse(
+    return PaginatedResponse(
         items=[
             UserItemResponse(
                 id=item.id,
@@ -168,7 +167,7 @@ def find_users(
         page=result.page,
         limit=result.limit,
         total=result.total,
-        pages=result.pages,
+        total_pages=result.total_pages,
     )
 
 # =====================================================

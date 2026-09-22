@@ -101,11 +101,12 @@ from modules.applications.api.schemas import (
     ApplicationByVehicleResponse,
     ApplicationActionResponse,
     ApplicationDetailResponse,
-    GetApplicationsResponse,
     SaveDraftApplicationRequest,
     SubmitApplicationRequest,
     DeleteApplicationResponse,
-    GetApplicationsRequest
+    GetApplicationsRequest,
+    ApplicationListItemAdmin,
+    ApplicationListItemUser
 )
 
 
@@ -124,6 +125,11 @@ from core.security.dependencies import (
 
 from modules.auth.domain.entities.user import User
 
+# ============================================================
+# Pagination
+# ============================================================
+
+from core.pagination.paginated_response import PaginatedResponse
 
 # ============================================================
 # Router
@@ -218,12 +224,6 @@ def save_or_update_draft_application(
         selected_option_ids=(
             request.selected_option_ids
         ),
-
-        # ----------------------------------------------------
-        # PRICE
-        # ----------------------------------------------------
-
-        total_price=request.total_price,
 
         # ----------------------------------------------------
         # FINANCING
@@ -377,12 +377,6 @@ def submit_application(
         ),
 
         # ----------------------------------------------------
-        # PRICE
-        # ----------------------------------------------------
-
-        total_price=request.total_price,
-
-        # ----------------------------------------------------
         # FINANCING
         # ----------------------------------------------------
 
@@ -447,7 +441,10 @@ def submit_application(
 
 @router.get(
     "/me",
-    response_model=GetApplicationsResponse,
+    response_model=PaginatedResponse[
+        ApplicationListItemAdmin |
+        ApplicationListItemUser
+    ],
 )
 def get_applications(
     query: GetApplicationsRequest = Depends(),
@@ -542,13 +539,14 @@ def get_application(
     dto = ApplicationIdDTO(
     application_id=application_id
 )
-    application = usecase.execute(
-        dto=dto,
-        current_user=current_user,
-    )
+    result = usecase.execute(
+    dto,
+    current_user,
+)
 
     return factory.build(
-        application=application,
+        application=result.application,
+        payment_status=result.payment_status,
         role=current_user.role
     )
 
