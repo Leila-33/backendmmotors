@@ -26,6 +26,17 @@ class VehicleResponseMapper:
     def __init__(self, s3_service):
         self.s3_service = s3_service
 
+    def map_images(self, images):
+
+        return [
+            {
+                "key": key,
+                "url": self.s3_service.generate_download_url(
+                    key
+                ),
+            }
+            for key in images or []
+        ]
     # =====================================================
     # VEHICLE DETAIL
     # =====================================================
@@ -83,13 +94,7 @@ class VehicleResponseMapper:
         # =================================================
 
 
-        images = [
-            {
-                "key": key,
-                "url": self.s3_service.generate_download_url(key),
-            }
-            for key in vehicle.images or []
-        ]
+        images=self.map_images(vehicle.images)
 
 
         # =================================================

@@ -188,8 +188,12 @@ class SendQuoteUseCase:
                 title="Nouvelle offre commerciale",
 
                 message=(
-                    "Votre conseiller vous a envoyé "
-                    "une nouvelle offre."
+                    "Bonjour,\n\n"
+                    "Votre conseiller vous a envoyé une nouvelle offre commerciale. "
+                    "Vous pouvez la consulter depuis votre espace client, "
+                    "dans la rubrique « Mes offres ».\n\n"
+                    "Cordialement,\n"
+                    "L’équipe M-Motors"
                 ),
 
                 notif_type=NotificationType.QUOTE_SENT,
@@ -204,7 +208,26 @@ class SendQuoteUseCase:
             # =================================================
 
             self.unit_of_work.commit()
+            
+            # =========================
+            # COUNT ACTIONS REQUIRED
+            # =========================
 
+            count = (
+                self.quote_repository
+                .count_action_required_by_customer(
+                    customer.id
+                )
+            )
+
+            await self.notification_service.send_update(
+                user_id=customer.id,
+                payload={
+                    "type": "QUOTE_UPDATED",
+                    "count": count,
+                },
+            )
+            
             # =================================================
             # EMAIL
             # =================================================

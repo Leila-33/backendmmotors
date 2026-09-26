@@ -15,7 +15,7 @@ from modules.sav.application.dtos.create_support_ticket_dto import (
 from modules.sav.application.results.create_support_ticket_result import (
     CreateSupportTicketResult,
 )
-
+from modules.applications.domain.exceptions import ApplicationNotFound
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +28,16 @@ class CreateSupportTicketUseCase:
         message_repository,
         assignment_service,
         event_service,
+        application_repository,
         unit_of_work,
     ):
         self.ticket_repository = ticket_repository
         self.message_repository = message_repository
         self.assignment_service = assignment_service
         self.event_service = event_service
+        self.application_repository = (
+            application_repository
+        )
         self.unit_of_work = unit_of_work
 
     # =====================================================
@@ -50,6 +54,28 @@ class CreateSupportTicketUseCase:
         ticket = None
 
         try:
+
+            # =================================================
+            # APPLICATION
+            # =================================================
+
+            application_id = (
+                dto.application_id.strip()
+                if dto.application_id
+                else None
+            )
+
+            application = None
+
+            if application_id:
+
+                application = (
+                    self.application_repository
+                    .get_by_id(application_id)
+                )
+
+                if application is None:
+                    raise ApplicationNotFound()
 
             # =================================================
             # ASSIGN AGENT
@@ -69,31 +95,21 @@ class CreateSupportTicketUseCase:
             # =================================================
             # CREATE TICKET
             # =================================================
-            application_id = (
-    dto.application_id.strip()
-    if dto.application_id
-    else None
-)
 
             ticket = SupportTicket(
                 id=str(uuid4()),
-
                 user_id=user_id,
-
-                application_id=application_id,
-
+                application_id=(
+                    application.id
+                    if application
+                    else None
+                ),
                 subject=dto.subject.strip(),
-
                 description=dto.message.strip(),
-
                 category=dto.category,
-
                 status=TicketStatus.OPEN,
-
                 priority=dto.priority,
-
                 assigned_to=assigned_to,
-
                 created_at=datetime.now(
                     timezone.utc
                 ),
@@ -110,15 +126,10 @@ class CreateSupportTicketUseCase:
 
             message = TicketMessage(
                 id=str(uuid4()),
-
                 ticket_id=ticket.id,
-
                 sender_id=user_id,
-
                 sender_role=user_role,
-
                 message=dto.message.strip(),
-
                 created_at=datetime.now(
                     timezone.utc
                 ),
@@ -134,13 +145,9 @@ class CreateSupportTicketUseCase:
 
             self.event_service.log(
                 type=EventType.SUPPORT_TICKET_CREATED,
-
                 message="Ticket SAV créé",
-
                 application_id=ticket.application_id,
-
                 user_id=user_id,
-
                 event_metadata={
                     "ticket_id": ticket.id,
                     "subject": ticket.subject,

@@ -45,7 +45,9 @@ from modules.sav.api.dependencies import (
     get_find_support_tickets_usecase,
     get_get_support_ticket_usecase,
     get_unread_ticket_count_usecase,
-    get_websocket_manager,
+)
+from modules.dependencies.dependencies import (
+    get_websocket_manager
 )
 
 from modules.sav.infrastructure.mappers.support_ticket_mapper import (

@@ -21,7 +21,6 @@ from modules.favorites.domain.repositories.favorite_repository import (
     FavoriteRepository,
 )
 
-
 # ============================================================
 # ADD FAVORITE
 # ============================================================
@@ -74,3 +73,4 @@ def get_get_favorites_usecase(
     return GetFavoritesUseCase(
         repository=repository,
     )
+

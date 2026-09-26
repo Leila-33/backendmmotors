@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from modules.favorites.domain.repositories.favorite_repository import FavoriteRepository
 from modules.favorites.infrastructure.db.favorite_model import FavoriteModel
-from modules.favorites.infrastructure.mapper.favorite_mapper import FavoriteMapper
+from modules.favorites.infrastructure.mappers.favorite_mapper import FavoriteMapper
 
 class FavoriteRepositorySQL(FavoriteRepository):
 

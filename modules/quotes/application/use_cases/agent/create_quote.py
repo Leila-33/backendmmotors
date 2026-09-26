@@ -78,8 +78,6 @@ class CreateQuoteUseCase:
         dto: CreateQuoteDTO,
     ) -> CreateQuoteResult:
 
-        lead_id = dto.lead_id
-
         try:
 
             # =================================================
@@ -299,7 +297,7 @@ class CreateQuoteUseCase:
             logger.exception(
                 "Erreur création devis",
                 extra={
-                    "lead_id": lead_id,
+                    "lead_id": dto.lead_id,
                 },
             )
 

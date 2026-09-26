@@ -150,6 +150,25 @@ class RefuseQuoteUseCase:
 
             self.unit_of_work.commit()
 
+
+            # =========================
+            # COUNT ACTIONS REQUIRED
+            # =========================
+
+            count = (
+                self.quote_repository
+                .count_action_required_by_customer(
+                    dto.customer_id
+                )
+            )
+
+            await self.notification_service.send_update(
+                user_id=dto.customer_id,
+                payload={
+                    "type": "QUOTE_UPDATED",
+                    "count": count,
+                },
+            )
             # =========================
             # LOG
             # =========================

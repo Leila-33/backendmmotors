@@ -25,11 +25,9 @@ class CompleteRentalPaymentUseCase:
 
     def __init__(
         self,
-        vehicle_repository,
         application_repository,
         event_service,
     ):
-        self.vehicle_repository = vehicle_repository
         self.application_repository = application_repository
         self.event_service = event_service
 
@@ -75,16 +73,6 @@ class CompleteRentalPaymentUseCase:
                     rental_started=True,
                     message="Location déjà activée",
                 )
-
-            # =========================
-            # VEHICLE
-            # =========================
-
-            vehicle.status = VehicleStatus.RESERVED
-
-            self.vehicle_repository.update(
-                vehicle
-            )
 
             # =========================
             # APPLICATION

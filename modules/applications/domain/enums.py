@@ -212,6 +212,28 @@ class EventType(str, Enum):
     ADMIN_ACTION = "admin_action"
 
 
+class EventCategory(str, Enum):
+    USER = "user"
+    LEAD = "lead"
+    QUOTE = "quote"
+    OPTION = "option"
+    APPLICATION = "application"
+    DOCUMENT = "document"
+    VEHICLE = "vehicle"
+    INSPECTION = "inspection"
+    RECONDITIONING = "reconditioning"
+    FINAL_CHECK = "final_check"
+    PAYMENT = "payment"
+    FINANCING = "financing"
+    SUBSCRIPTION = "subscription"
+    INSTALLMENT = "installment"
+    RENTAL = "rental"
+    TEST_DRIVE = "test_drive"
+    WARRANTY = "warranty"
+    SUPPORT_TICKET = "support_ticket"
+    ADMIN = "admin"
+
+
 class ViewMode(str, Enum):
     ACTIVE = "active"
     CANCELLED = "cancelled"

@@ -187,10 +187,6 @@ def get_complete_sale_payment_usecase(
 
 def get_complete_rental_payment_usecase(
 
-    vehicle_repository=Depends(
-        get_vehicle_repository
-    ),
-
     application_repository=Depends(
         get_application_repository
     ),
@@ -202,8 +198,6 @@ def get_complete_rental_payment_usecase(
 ):
 
     return CompleteRentalPaymentUseCase(
-
-        vehicle_repository=vehicle_repository,
 
         application_repository=application_repository,
 

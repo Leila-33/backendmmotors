@@ -15,7 +15,6 @@ from modules.vehicles.domain.enums import VehicleOptionType
 from modules.auth.domain.enums import UserRole
 from modules.applications.domain.policies.validate_application_policy import ValidateApplicationPolicy
 from modules.applications.domain.policies.reject_application_policy import RejectApplicationPolicy
-from modules.payments.domain.enums import PaymentStatus
 
 class ApplicationResponseFactory:
 

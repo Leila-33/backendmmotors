@@ -35,40 +35,6 @@ from core.email.dependencies import get_email_service
 
 
 
-def get_get_notifications_usecase(
-    repository=Depends(get_notification_repository)
-):
-    return GetNotificationsUseCase(repository)
-
-
-def get_mark_notification_read_usecase(
-    repository=Depends(get_notification_repository),
-    unit_of_work = Depends(get_unit_of_work)
-
-):
-    return MarkNotificationReadUseCase(
-        repository=repository,
-        unit_of_work=unit_of_work)
-
-
-def get_get_unread_count_usecase(
-    repository=Depends(get_notification_repository)
-):
-    return GetUnreadCountUseCase(repository)
-
-def get_delete_notification_usecase(
-    repository=Depends(get_notification_repository),
-    unit_of_work = Depends(get_unit_of_work)
-
-):
-
-    return DeleteNotificationUseCase(
-        repository=repository,
-        unit_of_work = unit_of_work
-    )
-
-
-
 
 def get_notification_service(
 
@@ -85,3 +51,44 @@ def get_notification_service(
         email_service=email_service,
         websocket_manager=websocket_manager
     )
+
+
+def get_get_notifications_usecase(
+    repository=Depends(get_notification_repository)
+):
+    return GetNotificationsUseCase(repository)
+
+
+def get_mark_notification_read_usecase(
+    repository=Depends(get_notification_repository),
+    notification_service = Depends(get_notification_service),
+    unit_of_work = Depends(get_unit_of_work)
+
+):
+    return MarkNotificationReadUseCase(
+        repository=repository,
+        notification_service=notification_service,
+        unit_of_work=unit_of_work)
+
+
+def get_get_unread_count_usecase(
+    repository=Depends(get_notification_repository)
+):
+    return GetUnreadCountUseCase(repository)
+
+def get_delete_notification_usecase(
+    repository=Depends(get_notification_repository),
+    notification_service = Depends(get_notification_service),
+    unit_of_work = Depends(get_unit_of_work)
+
+):
+
+    return DeleteNotificationUseCase(
+        repository=repository,
+        notification_service=notification_service,
+        unit_of_work = unit_of_work
+    )
+
+
+
+

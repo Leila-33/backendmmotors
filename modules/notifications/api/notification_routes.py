@@ -117,7 +117,7 @@ def get_my_notifications(
     "/{notification_id}/read",
     response_model=MarkNotificationReadResponse,
 )
-def mark_notification_read(
+async def mark_notification_read(
     notification_id: str,
     current_user: User = Depends(
         get_current_user
@@ -132,7 +132,7 @@ def mark_notification_read(
         user_id=current_user.id,
     )
 
-    result = usecase.execute(
+    result = await usecase.execute(
         dto
     )
 
@@ -179,7 +179,7 @@ def get_unread_count(
     "/{notification_id}",
     response_model=DeleteNotificationResponse,
 )
-def delete_notification(
+async def delete_notification(
     notification_id: str,
     current_user: User = Depends(
         get_current_user
@@ -194,7 +194,7 @@ def delete_notification(
         user_id=current_user.id,
     )
 
-    result = usecase.execute(
+    result = await usecase.execute(
         dto
     )
 

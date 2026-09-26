@@ -9,12 +9,14 @@ from modules.favorites.api.dependencies import (
     get_get_favorites_usecase,
 )
 
+from modules.dependencies.dependencies import (
+    get_favorite_response_mapper
+)
+
 from modules.favorites.api.schemas import (
     AddFavoriteResponse,
     RemoveFavoriteResponse,
     GetFavoritesResponse,
-    FavoriteItemResponse,
-    FavoriteVehicleResponse,
 )
 
 from modules.favorites.application.dtos.add_favorite_dto import (
@@ -35,6 +37,7 @@ from modules.favorites.application.use_cases.remove_favorite import (
 from modules.favorites.application.use_cases.get_favorites import (
     GetFavoritesUseCase,
 )
+from modules.favorites.infrastructure.mappers.favorite_response_mapper import FavoriteResponseMapper
 
 
 router = APIRouter(
@@ -105,7 +108,6 @@ def remove_favorite(
 # ============================================================
 # GET MY FAVORITES
 # ============================================================
-
 @router.get(
     "/me",
     response_model=GetFavoritesResponse,
@@ -117,29 +119,19 @@ def get_favorites(
     usecase: GetFavoritesUseCase = Depends(
         get_get_favorites_usecase
     ),
+    mapper: FavoriteResponseMapper = Depends(
+        get_favorite_response_mapper
+    ),
 ):
+
     dto = GetFavoritesDTO(
-    user_id=current_user.id,
-)
+        user_id=current_user.id,
+    )
 
     result = usecase.execute(dto)
 
     return GetFavoritesResponse(
-        items=[
-            FavoriteItemResponse(
-                id=item.id,
-                created_at=item.created_at,
-                vehicle=FavoriteVehicleResponse(
-                    id=item.vehicle.id,
-                    brand=item.vehicle.brand,
-                    model=item.vehicle.model,
-                    year=item.vehicle.year,
-                    price=item.vehicle.price,
-                    mileage=item.vehicle.mileage,
-                    type=item.vehicle.type,
-                    images=item.vehicle.images,
-                ),
-            )
-            for item in result.items
-        ]
+        items=mapper.to_response_list(
+            result.items
+        )
     )

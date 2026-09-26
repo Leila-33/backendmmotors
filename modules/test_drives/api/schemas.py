@@ -114,6 +114,9 @@ class ExistingTestDriveResponse(BaseModel):
 # =========================================================
 # SHARED — DETAIL
 # =========================================================
+class VehicleImageResponse(BaseModel):
+    key: str
+    url: str
 
 class TestDriveUserResponse(BaseModel):
 
@@ -132,7 +135,7 @@ class TestDriveVehicleResponse(BaseModel):
 
     model: str
 
-    images: list[str]
+    images: list[VehicleImageResponse] = []
 
     price: float
 

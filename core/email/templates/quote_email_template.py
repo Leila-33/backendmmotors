@@ -8,18 +8,33 @@ class QuoteEmailTemplate:
         action_url,
         is_activation=False,
     ):
+        # ==========================================================
+        # FORMATAGE DES VALEURS
+        # ==========================================================
 
+        def format_amount(value):
+            if value is None:
+                return "Non renseigné"
+
+            return f"{value:.2f} €"
+
+        def format_optional_amount(value):
+            if value is None or value == 0:
+                return "Aucune"
+
+            return f"{value:.2f} €"
+
+        # ==========================================================
+        # CONTENU DU MESSAGE
+        # ==========================================================
 
         if is_activation:
-
             subject = (
                 "Activez votre espace client "
                 "pour consulter votre offre"
             )
 
-            action_text = (
-                "Activer mon compte"
-            )
+            action_text = "Activer mon compte"
 
             intro = f"""
 Bonjour {customer.first_name},
@@ -31,14 +46,9 @@ veuillez activer votre espace client.
 """
 
         else:
+            subject = "Votre nouvelle offre commerciale"
 
-            subject = (
-                "Votre nouvelle offre commerciale"
-            )
-
-            action_text = (
-                "Accéder à mon espace client"
-            )
+            action_text = "Accéder à mon espace client"
 
             intro = f"""
 Bonjour {customer.first_name},
@@ -47,12 +57,12 @@ Votre conseiller vous a envoyé
 une nouvelle offre commerciale.
 """
 
-
+        # ==========================================================
+        # OFFRE
+        # ==========================================================
 
         body = f"""
-
 {intro}
-
 
 ---------------------------------
 
@@ -66,37 +76,37 @@ Véhicule :
 
 Prix véhicule :
 
-{quote.base_price:.2f} €
+{format_amount(quote.base_price)}
 
 
 Remise :
 
-{quote.discount:.2f} €
+{format_optional_amount(quote.discount)}
 
 
 Apport :
 
-{quote.down_payment:.2f} €
+{format_optional_amount(quote.down_payment)}
 
 
 Reprise :
 
-{quote.trade_in_value:.2f} €
+{format_optional_amount(quote.trade_in_value)}
 
 
 Montant financé :
 
-{quote.financed_amount:.2f} €
+{format_amount(quote.financed_amount)}
 
 
 Durée :
 
-{quote.duration_months} mois
+{quote.duration_months or "Non renseignée"} mois
 
 
 Mensualité estimée :
 
-{quote.monthly_payment:.2f} €/mois
+{format_optional_amount(quote.monthly_payment)}/mois
 
 
 ---------------------------------
@@ -109,15 +119,9 @@ Mensualité estimée :
 
 ---------------------------------
 
-
 Cordialement,
 
-Votre conseiller commercial
-
+L'équipe M-Motors
 """
 
-
-        return (
-            subject,
-            body
-        )
+        return subject, body

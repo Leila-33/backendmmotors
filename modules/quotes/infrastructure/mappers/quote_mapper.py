@@ -1,3 +1,4 @@
+from typing import Union
 from modules.quotes.domain.entities.quote import Quote
 from modules.quotes.infrastructure.db.quote_model import QuoteModel
 from modules.leads.infrastructure.mappers.lead_mapper import LeadMapper

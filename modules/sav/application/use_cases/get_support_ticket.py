@@ -81,6 +81,12 @@ class GetSupportTicketUseCase:
         )
 
         # =========================
+        # COMMIT
+        # =========================
+
+        self.unit_of_work.commit()
+        
+        # =========================
         # UNREAD COUNT
         # =========================
 
@@ -88,13 +94,6 @@ class GetSupportTicketUseCase:
     user_id=dto.user_id,
     user_role=dto.user_role,
 )
-
-        # =========================
-        # COMMIT
-        # =========================
-
-        self.unit_of_work.commit()
-
         # =========================
         # RESULT
         # =========================

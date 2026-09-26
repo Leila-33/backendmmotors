@@ -80,6 +80,7 @@ from modules.dependencies.dependencies import (
     get_ticket_chat_manager,
     get_websocket_manager,
     get_event_service,
+    get_application_repository
 )
 
 
@@ -119,6 +120,9 @@ def get_create_support_ticket_usecase(
     event_service=Depends(
         get_event_service
     ),
+    application_repository=Depends(
+        get_application_repository
+    ),
     unit_of_work=Depends(
         get_unit_of_work
     ),
@@ -129,6 +133,9 @@ def get_create_support_ticket_usecase(
         message_repository=message_repository,
         assignment_service=assignment_service,
         event_service=event_service,
+        application_repository=(
+            application_repository
+        ),
         unit_of_work=unit_of_work,
     )
 

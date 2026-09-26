@@ -1,6 +1,6 @@
 from modules.applications.infrastructure.db.event_model import EventModel
 from modules.applications.domain.entities.event import Event
-from modules.applications.api.schemas import EventResponse
+from modules.applications.api.schemas import EventDetailResponse
 from modules.applications.domain.enums import EventType
 
 
@@ -92,9 +92,9 @@ class EventMapper:
     @staticmethod
     def to_response(
         event: Event
-    ) -> EventResponse:
+    ) -> EventDetailResponse:
 
-        return EventResponse(
+        return EventDetailResponse(
 
             id=event.id,
 

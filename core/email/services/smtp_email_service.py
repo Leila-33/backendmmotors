@@ -83,7 +83,6 @@ class SMTPEmailService(EmailService):
         # =========================
         # ACTION URL
         # =========================
-
         if activation_token:
 
             action_url = (

@@ -17,12 +17,14 @@ class MarkNotificationReadUseCase:
     def __init__(
         self,
         repository,
+        notification_service,
         unit_of_work,
     ):
         self.repository = repository
+        self.notification_service = notification_service
         self.unit_of_work = unit_of_work
 
-    def execute(
+    async def execute(
         self,
         dto: MarkNotificationReadDTO,
     ) -> MarkNotificationReadResult:
@@ -69,6 +71,23 @@ class MarkNotificationReadUseCase:
             # =========================
 
             self.unit_of_work.commit()
+
+            
+
+            count = (
+                self.repository
+                .count_unread(
+                    dto.user_id
+                )
+            )
+
+            await self.notification_service.send_update(
+                user_id=dto.user_id,
+                payload={
+                    "type": "UNREAD_NOTIFICATIONS_UPDATED",
+                    "count": count,
+                },
+            )
 
         except Exception:
 

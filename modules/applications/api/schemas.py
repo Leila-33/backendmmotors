@@ -659,7 +659,6 @@ class EventResponse(BaseModel):
     id: str
     type: EventType
     message: str
-    event_metadata: dict[str, Any] | None = None
     created_at: datetime
 
 class SelectedDatesResponse(BaseModel):
@@ -840,15 +839,6 @@ class EventDetailResponse(BaseModel):
     user_id: str | None = None
     quote_id: str | None = None
     lead_id: str | None = None
-
-
-class EventPaginationResponse(BaseModel):
-    items: list[EventDetailResponse]
-
-    total: int
-    page: int
-    limit: int
-    total_pages: int
 
 # ============================================================
 # UPDATE APPLICATION STATUS

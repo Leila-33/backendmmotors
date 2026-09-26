@@ -141,19 +141,6 @@ def get_installment_repository(
 ):
     return InstallmentRepositorySQL(db)
 
-# =====================================================
-# FAVORITES
-# =====================================================
-
-from modules.favorites.infrastructure.repositories.favorite_repository_sql import (
-    FavoriteRepositorySQL,
-)
-
-
-def get_favorite_repository(
-    db: Session = Depends(get_db),
-):
-    return FavoriteRepositorySQL(db)
 
 # =====================================================
 # INSPECTIONS
@@ -306,20 +293,6 @@ def get_quote_trade_in_repository(
 ):
     return QuoteTradeInRepositorySQL(db)
 
-# =====================================================
-# TEST DRIVES
-# =====================================================
-
-from modules.test_drives.infrastructure.repositories.test_drive_repository_sql import (
-    TestDriveRepositorySQL,
-)
-
-
-def get_test_drive_repository(
-    db: Session = Depends(get_db),
-):
-    return TestDriveRepositorySQL(db)
-
 
 # =====================================================
 # VEHICLES
@@ -408,3 +381,55 @@ from modules.notifications.application.services.websocket_manager import manager
 def get_websocket_manager():
     return manager
 
+
+# =====================================================
+# FAVORITES
+# =====================================================
+
+from modules.favorites.infrastructure.repositories.favorite_repository_sql import (
+    FavoriteRepositorySQL,
+)
+from modules.favorites.infrastructure.mappers.favorite_response_mapper import FavoriteResponseMapper
+
+
+def get_favorite_repository(
+    db: Session = Depends(get_db),
+):
+    return FavoriteRepositorySQL(db)
+
+
+def get_favorite_response_mapper(
+    vehicle_response_mapper: VehicleResponseMapper = Depends(
+        get_vehicle_response_mapper
+    ),
+) -> FavoriteResponseMapper:
+
+    return FavoriteResponseMapper(
+        vehicle_response_mapper
+    )
+
+# =====================================================
+# TEST DRIVES
+# =====================================================
+
+from modules.test_drives.infrastructure.repositories.test_drive_repository_sql import (
+    TestDriveRepositorySQL,
+)
+from modules.test_drives.infrastructure.mappers.test_drive_response_mapper import (
+    TestDriveResponseMapper,
+)
+
+def get_test_drive_repository(
+    db: Session = Depends(get_db),
+):
+    return TestDriveRepositorySQL(db)
+
+def get_test_drive_response_mapper(
+    vehicle_response_mapper: VehicleResponseMapper = Depends(
+        get_vehicle_response_mapper
+    ),
+) -> TestDriveResponseMapper:
+
+    return TestDriveResponseMapper(
+        vehicle_response_mapper
+    )

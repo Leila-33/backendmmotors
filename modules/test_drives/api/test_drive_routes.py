@@ -55,10 +55,12 @@ from modules.test_drives.api.dependencies import (
 
 from modules.test_drives.domain.enums import TestDriveStatus
 
-from modules.test_drives.infrastructure.mappers.test_drive_mapper import (
-    TestDriveMapper,
+from modules.dependencies.dependencies import (
+    get_test_drive_response_mapper
 )
-
+from modules.test_drives.infrastructure.mappers.test_drive_response_mapper import (
+    TestDriveResponseMapper,
+)
 
 router = APIRouter(
     tags=["TestDrive"]
@@ -93,7 +95,7 @@ async def create_test_drive(
         user_id=current_user.id,
     )
 
-    return TestDriveMapper.to_response(
+    return TestDriveResponseMapper.to_response(
         result
     )
 
@@ -147,7 +149,7 @@ def get_my_test_drives(
     )
 
     return [
-        TestDriveMapper.to_customer_response(test_drive)
+        TestDriveResponseMapper.to_customer_response(test_drive)
         for test_drive in result.items
     ]
 
@@ -185,7 +187,7 @@ def get_existing_test_drive(
         )
 
     return ExistingTestDriveResponse(
-        test_drive=TestDriveMapper.to_response(
+        test_drive=TestDriveResponseMapper.to_response(
             test_drive
         )
     )
@@ -204,6 +206,9 @@ def get_test_drive_detail(
     use_case: GetTestDriveDetailUseCase = Depends(
         get_get_test_drive_detail_usecase
     ),
+    mapper: TestDriveResponseMapper = Depends(
+    get_test_drive_response_mapper
+),
 ):
 
     result = use_case.execute(
@@ -212,7 +217,7 @@ def get_test_drive_detail(
         user_role=current_user.role,
     )
 
-    return TestDriveMapper.to_detail_response(
+    return mapper.to_detail_response(
         result.test_drive,
         result.events,
     )

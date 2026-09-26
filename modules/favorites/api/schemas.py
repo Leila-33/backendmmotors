@@ -25,6 +25,9 @@ class RemoveFavoriteResponse(BaseModel):
 # ============================================================
 # GET FAVORITES
 # ============================================================
+class VehicleImageResponse(BaseModel):
+    key: str
+    url: str
 
 class FavoriteVehicleResponse(BaseModel):
     id: str
@@ -34,7 +37,7 @@ class FavoriteVehicleResponse(BaseModel):
     price: float
     mileage: int
     type: VehicleType
-    images: list[str]
+    images: list[VehicleImageResponse] = []
 
 
 class FavoriteItemResponse(BaseModel):
