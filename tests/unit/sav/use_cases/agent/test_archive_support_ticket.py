@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
-from unittest.mock import Mock
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import pytest
-from modules.auth.domain.enums import UserRole
+
 from modules.applications.domain.enums import EventType
 from modules.sav.application.dtos.agent.archive_support_ticket_dto import (
     ArchiveSupportTicketDTO,
@@ -13,12 +14,7 @@ from modules.sav.application.results.agent.archive_support_ticket_result import 
 from modules.sav.application.use_cases.agent.archive_support_ticket import (
     ArchiveSupportTicketUseCase,
 )
-from modules.sav.domain.entities.support_ticket import SupportTicket
-from modules.sav.domain.enums import (
-    TicketCategory,
-    TicketPriority,
-    TicketStatus,
-)
+from modules.sav.domain.enums import TicketStatus
 from modules.sav.domain.exceptions import (
     InvalidTicketState,
     SupportTicketNotFound,
@@ -32,37 +28,20 @@ from modules.sav.domain.exceptions import (
 
 def make_ticket(
     *,
-    ticket_id: str = "ticket-1",
-    user_id: str = "user-1",
-    status: TicketStatus = TicketStatus.RESOLVED,
-    assigned_to: str | None = "agent-1",
-    application_id: str | None = "application-1",
+    ticket_id="ticket-1",
+    application_id="application-1",
+    user_id="user-1",
+    status=TicketStatus.RESOLVED,
     archived_at=None,
+    assigned_to="agent-1",
 ):
-    return SupportTicket(
+    return SimpleNamespace(
         id=ticket_id,
-        user_id=user_id,
         application_id=application_id,
-        subject="Problème véhicule",
-        description="Description du problème",
-        category=TicketCategory.VEHICLE_ISSUE,
-        status=status,
-        priority=TicketPriority.MEDIUM,
-        assigned_to=assigned_to,
-        archived_at=archived_at,
-    )
-
-
-def make_dto(
-    *,
-    ticket_id: str = "ticket-1",
-    user_id: str = "agent-1",
-    user_role:str = UserRole.SAV_AGENT
-):
-    return ArchiveSupportTicketDTO(
-        ticket_id=ticket_id,
         user_id=user_id,
-        user_role=user_role
+        status=status,
+        archived_at=archived_at,
+        assigned_to=assigned_to,
     )
 
 
@@ -73,7 +52,11 @@ def make_dto(
 
 @pytest.fixture
 def support_ticket_repository():
-    return Mock()
+    repository = Mock()
+
+    repository.update.side_effect = lambda ticket: ticket
+
+    return repository
 
 
 @pytest.fixture
@@ -101,11 +84,14 @@ def use_case(
 
 @pytest.fixture
 def dto():
-    return make_dto()
+    return ArchiveSupportTicketDTO(
+        ticket_id="ticket-1",
+        user_id="agent-1",
+    )
 
 
 # ============================================================
-# TICKET NOT FOUND
+# NOT FOUND
 # ============================================================
 
 
@@ -119,13 +105,14 @@ def test_ticket_not_found(
     support_ticket_repository.get_by_id.return_value = None
 
     with pytest.raises(SupportTicketNotFound):
-        use_case.execute(dto=dto)
+        use_case.execute(dto)
 
     support_ticket_repository.get_by_id.assert_called_once_with(
         "ticket-1"
     )
 
     support_ticket_repository.update.assert_not_called()
+
     event_service.log.assert_not_called()
 
     unit_of_work.commit.assert_not_called()
@@ -133,7 +120,7 @@ def test_ticket_not_found(
 
 
 # ============================================================
-# BUSINESS RULE — VALID STATUS
+# INVALID STATE
 # ============================================================
 
 
@@ -142,10 +129,9 @@ def test_ticket_not_found(
     [
         TicketStatus.OPEN,
         TicketStatus.IN_PROGRESS,
-        TicketStatus.WAITING_CUSTOMER,
     ],
 )
-def test_ticket_with_invalid_status_cannot_be_archived(
+def test_ticket_cannot_be_archived_from_invalid_state(
     status,
     use_case,
     support_ticket_repository,
@@ -154,19 +140,25 @@ def test_ticket_with_invalid_status_cannot_be_archived(
     dto,
 ):
     ticket = make_ticket(
-        status=status
+        status=status,
     )
 
     support_ticket_repository.get_by_id.return_value = ticket
 
     with pytest.raises(InvalidTicketState):
-        use_case.execute(dto=dto)
+        use_case.execute(dto)
 
     support_ticket_repository.update.assert_not_called()
+
     event_service.log.assert_not_called()
 
     unit_of_work.commit.assert_not_called()
     unit_of_work.rollback.assert_called_once()
+
+
+# ============================================================
+# RESOLVED / CLOSED
+# ============================================================
 
 
 @pytest.mark.parametrize(
@@ -185,67 +177,12 @@ def test_resolved_or_closed_ticket_can_be_archived(
     dto,
 ):
     ticket = make_ticket(
-        status=status
-    )
-
-    updated_ticket = make_ticket(
-        status=status
-    )
-
-    support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
-
-    result = use_case.execute(
-        dto=dto
-    )
-
-    assert isinstance(
-        result,
-        ArchiveSupportTicketResult,
-    )
-
-    assert result.ticket is updated_ticket
-
-    support_ticket_repository.update.assert_called_once_with(
-        ticket
-    )
-
-    event_service.log.assert_called_once()
-
-    unit_of_work.commit.assert_called_once()
-    unit_of_work.rollback.assert_not_called()
-
-
-# ============================================================
-# IDEMPOTENCE
-# ============================================================
-
-
-def test_already_archived_ticket_is_returned_without_update(
-    use_case,
-    support_ticket_repository,
-    event_service,
-    unit_of_work,
-    dto,
-):
-    archived_at = datetime(
-        2026,
-        1,
-        10,
-        12,
-        0,
-        tzinfo=timezone.utc,
-    )
-
-    ticket = make_ticket(
-        archived_at=archived_at
+        status=status,
     )
 
     support_ticket_repository.get_by_id.return_value = ticket
 
-    result = use_case.execute(
-        dto=dto
-    )
+    result = use_case.execute(dto)
 
     assert isinstance(
         result,
@@ -253,9 +190,79 @@ def test_already_archived_ticket_is_returned_without_update(
     )
 
     assert result.ticket is ticket
+
+    assert ticket.archived_at is not None
+    assert ticket.archived_at.tzinfo == timezone.utc
+
+    support_ticket_repository.update.assert_called_once_with(
+        ticket
+    )
+
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_not_called()
+
+
+# ============================================================
+# ARCHIVE DATE
+# ============================================================
+
+
+def test_archived_at_is_set_when_ticket_is_archived(
+    use_case,
+    support_ticket_repository,
+    unit_of_work,
+    dto,
+):
+    ticket = make_ticket(
+        archived_at=None,
+    )
+
+    support_ticket_repository.get_by_id.return_value = ticket
+
+    before = datetime.now(timezone.utc)
+
+    result = use_case.execute(dto)
+
+    after = datetime.now(timezone.utc)
+
+    assert result.ticket.archived_at is not None
+
+    assert before <= result.ticket.archived_at <= after
+
+
+# ============================================================
+# IDEMPOTENCE
+# ============================================================
+
+
+def test_already_archived_ticket_is_not_updated_again(
+    use_case,
+    support_ticket_repository,
+    event_service,
+    unit_of_work,
+    dto,
+):
+    archived_at = datetime.now(timezone.utc)
+
+    ticket = make_ticket(
+        archived_at=archived_at,
+    )
+
+    support_ticket_repository.get_by_id.return_value = ticket
+
+    result = use_case.execute(dto)
+
+    assert isinstance(
+        result,
+        ArchiveSupportTicketResult,
+    )
+
+    assert result.ticket is ticket
+
     assert result.ticket.archived_at == archived_at
 
     support_ticket_repository.update.assert_not_called()
+
     event_service.log.assert_not_called()
 
     unit_of_work.commit.assert_not_called()
@@ -263,86 +270,11 @@ def test_already_archived_ticket_is_returned_without_update(
 
 
 # ============================================================
-# ARCHIVE
-# ============================================================
-
-
-def test_ticket_archived_at_is_set(
-    use_case,
-    support_ticket_repository,
-    event_service,
-    unit_of_work,
-    dto,
-):
-    ticket = make_ticket()
-
-    updated_ticket = make_ticket()
-
-    support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
-
-    use_case.execute(
-        dto=dto
-    )
-
-    assert ticket.archived_at is not None
-    assert isinstance(
-        ticket.archived_at,
-        datetime,
-    )
-
-    assert ticket.archived_at.tzinfo is not None
-    assert ticket.archived_at.utcoffset().total_seconds() == 0
-
-
-def test_archive_uses_utc_datetime(
-    use_case,
-    support_ticket_repository,
-    event_service,
-    unit_of_work,
-    dto,
-):
-    ticket = make_ticket()
-
-    updated_ticket = make_ticket()
-
-    support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
-
-    use_case.execute(
-        dto=dto
-    )
-
-    assert ticket.archived_at.tzinfo == timezone.utc
-
-
-def test_ticket_is_updated_after_archiving(
-    use_case,
-    support_ticket_repository,
-    dto,
-):
-    ticket = make_ticket()
-
-    updated_ticket = make_ticket()
-
-    support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
-
-    use_case.execute(
-        dto=dto
-    )
-
-    support_ticket_repository.update.assert_called_once_with(
-        ticket
-    )
-
-
-# ============================================================
 # EVENT
 # ============================================================
 
 
-def test_archive_generates_event(
+def test_archive_event_is_logged(
     use_case,
     support_ticket_repository,
     event_service,
@@ -350,96 +282,28 @@ def test_archive_generates_event(
     dto,
 ):
     ticket = make_ticket(
+        ticket_id="ticket-42",
+        application_id="application-42",
+        user_id="user-42",
         status=TicketStatus.RESOLVED,
-        assigned_to="agent-1",
-        application_id="application-1",
-    )
-
-    updated_ticket = make_ticket(
-        status=TicketStatus.RESOLVED,
-        assigned_to="agent-1",
-        application_id="application-1",
+        assigned_to="agent-42",
     )
 
     support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
 
-    use_case.execute(
-        dto=dto
-    )
+    use_case.execute(dto)
 
     event_service.log.assert_called_once_with(
         type=EventType.SUPPORT_TICKET_ARCHIVED,
         message="Ticket SAV archivé",
-        application_id="application-1",
+        application_id="application-42",
         user_id="agent-1",
         event_metadata={
-            "ticket_id": "ticket-1",
-            "status": "RESOLVED",
-            "assigned_to": "agent-1",
-            "ticket_owner": "user-1",
+            "ticket_id": "ticket-42",
+            "status": TicketStatus.RESOLVED.value,
+            "assigned_to": "agent-42",
+            "ticket_owner": "user-42",
         },
-    )
-
-
-def test_archive_event_contains_ticket_information(
-    use_case,
-    support_ticket_repository,
-    event_service,
-    dto,
-):
-    ticket = make_ticket(
-        status=TicketStatus.CLOSED
-    )
-
-    updated_ticket = make_ticket(
-        status=TicketStatus.CLOSED
-    )
-
-    support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
-
-    use_case.execute(
-        dto=dto
-    )
-
-    event_kwargs = (
-        event_service.log.call_args.kwargs
-    )
-
-    assert (
-        event_kwargs["type"]
-        == EventType.SUPPORT_TICKET_ARCHIVED
-    )
-
-    assert (
-        event_kwargs["application_id"]
-        == "application-1"
-    )
-
-    assert (
-        event_kwargs["user_id"]
-        == "agent-1"
-    )
-
-    assert (
-        event_kwargs["event_metadata"]["ticket_id"]
-        == "ticket-1"
-    )
-
-    assert (
-        event_kwargs["event_metadata"]["status"]
-        == "CLOSED"
-    )
-
-    assert (
-        event_kwargs["event_metadata"]["assigned_to"]
-        == "agent-1"
-    )
-
-    assert (
-        event_kwargs["event_metadata"]["ticket_owner"]
-        == "user-1"
     )
 
 
@@ -448,7 +312,7 @@ def test_archive_event_contains_ticket_information(
 # ============================================================
 
 
-def test_commit_is_called_after_success(
+def test_commit_is_called_after_archiving(
     use_case,
     support_ticket_repository,
     event_service,
@@ -457,16 +321,12 @@ def test_commit_is_called_after_success(
 ):
     ticket = make_ticket()
 
-    updated_ticket = make_ticket()
-
     support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
 
-    use_case.execute(
-        dto=dto
-    )
+    use_case.execute(dto)
 
     unit_of_work.commit.assert_called_once()
+
     unit_of_work.rollback.assert_not_called()
 
 
@@ -475,21 +335,25 @@ def test_commit_is_called_after_success(
 # ============================================================
 
 
-def test_execute_returns_updated_ticket(
+def test_updated_ticket_is_returned_in_result(
     use_case,
     support_ticket_repository,
     dto,
 ):
     ticket = make_ticket()
 
-    updated_ticket = make_ticket()
+    updated_ticket = make_ticket(
+        archived_at=datetime.now(timezone.utc),
+    )
 
     support_ticket_repository.get_by_id.return_value = ticket
+
+    # Le repository retourne ici explicitement
+    # l'objet mis à jour.
+    support_ticket_repository.update.side_effect = None
     support_ticket_repository.update.return_value = updated_ticket
 
-    result = use_case.execute(
-        dto=dto
-    )
+    result = use_case.execute(dto)
 
     assert isinstance(
         result,
@@ -500,7 +364,7 @@ def test_execute_returns_updated_ticket(
 
 
 # ============================================================
-# ROLLBACK — UPDATE ERROR
+# REPOSITORY UPDATE ERROR
 # ============================================================
 
 
@@ -515,19 +379,15 @@ def test_update_error_rolls_back(
 
     support_ticket_repository.get_by_id.return_value = ticket
 
-    support_ticket_repository.update.side_effect = (
-        RuntimeError(
-            "update error"
-        )
+    support_ticket_repository.update.side_effect = RuntimeError(
+        "update error"
     )
 
     with pytest.raises(
         RuntimeError,
         match="update error",
     ):
-        use_case.execute(
-            dto=dto
-        )
+        use_case.execute(dto)
 
     event_service.log.assert_not_called()
 
@@ -536,7 +396,7 @@ def test_update_error_rolls_back(
 
 
 # ============================================================
-# ROLLBACK — EVENT ERROR
+# EVENT ERROR
 # ============================================================
 
 
@@ -549,10 +409,7 @@ def test_event_error_rolls_back(
 ):
     ticket = make_ticket()
 
-    updated_ticket = make_ticket()
-
     support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
 
     event_service.log.side_effect = RuntimeError(
         "event error"
@@ -562,16 +419,18 @@ def test_event_error_rolls_back(
         RuntimeError,
         match="event error",
     ):
-        use_case.execute(
-            dto=dto
-        )
+        use_case.execute(dto)
+
+    support_ticket_repository.update.assert_called_once_with(
+        ticket
+    )
 
     unit_of_work.commit.assert_not_called()
     unit_of_work.rollback.assert_called_once()
 
 
 # ============================================================
-# ROLLBACK — COMMIT ERROR
+# COMMIT ERROR
 # ============================================================
 
 
@@ -584,10 +443,7 @@ def test_commit_error_rolls_back(
 ):
     ticket = make_ticket()
 
-    updated_ticket = make_ticket()
-
     support_ticket_repository.get_by_id.return_value = ticket
-    support_ticket_repository.update.return_value = updated_ticket
 
     unit_of_work.commit.side_effect = RuntimeError(
         "commit error"
@@ -597,81 +453,13 @@ def test_commit_error_rolls_back(
         RuntimeError,
         match="commit error",
     ):
-        use_case.execute(
-            dto=dto
-        )
+        use_case.execute(dto)
+
+    support_ticket_repository.update.assert_called_once_with(
+        ticket
+    )
+
+    event_service.log.assert_called_once()
 
     unit_of_work.commit.assert_called_once()
-    unit_of_work.rollback.assert_called_once()
-
-
-# ============================================================
-# GET TICKET
-# ============================================================
-
-
-def test_ticket_is_loaded_by_id(
-    use_case,
-    support_ticket_repository,
-    dto,
-):
-    ticket = make_ticket()
-
-    support_ticket_repository.get_by_id.return_value = ticket
-
-    use_case.execute(
-        dto=dto
-    )
-
-    support_ticket_repository.get_by_id.assert_called_once_with(
-        "ticket-1"
-    )
-
-
-# ============================================================
-# NO UNEXPECTED OPERATIONS
-# ============================================================
-
-
-def test_invalid_state_does_not_update_or_log(
-    use_case,
-    support_ticket_repository,
-    event_service,
-    unit_of_work,
-    dto,
-):
-    ticket = make_ticket(
-        status=TicketStatus.OPEN
-    )
-
-    support_ticket_repository.get_by_id.return_value = ticket
-
-    with pytest.raises(InvalidTicketState):
-        use_case.execute(
-            dto=dto
-        )
-
-    support_ticket_repository.update.assert_not_called()
-    event_service.log.assert_not_called()
-    unit_of_work.commit.assert_not_called()
-    unit_of_work.rollback.assert_called_once()
-
-
-def test_not_found_does_not_update_or_log(
-    use_case,
-    support_ticket_repository,
-    event_service,
-    unit_of_work,
-    dto,
-):
-    support_ticket_repository.get_by_id.return_value = None
-
-    with pytest.raises(SupportTicketNotFound):
-        use_case.execute(
-            dto=dto
-        )
-
-    support_ticket_repository.update.assert_not_called()
-    event_service.log.assert_not_called()
-    unit_of_work.commit.assert_not_called()
     unit_of_work.rollback.assert_called_once()

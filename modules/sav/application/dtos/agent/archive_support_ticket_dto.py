@@ -8,4 +8,3 @@ class ArchiveSupportTicketDTO:
 
     ticket_id: str
     user_id: str
-    user_role: UserRole
