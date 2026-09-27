@@ -348,7 +348,7 @@ class ApplicationFormService:
     def _save_trade_in(
         self,
         dto,
-        application,
+        application_id: str,
     ) -> int:
 
         if not dto.trade_in:
@@ -373,7 +373,7 @@ class ApplicationFormService:
 
         self.trade_in_repository.save(
             ApplicationTradeIn(
-                application_id=application.id,
+                application_id=application_id,
                 brand=trade_in.brand,
                 model=trade_in.model,
                 year=trade_in.year,

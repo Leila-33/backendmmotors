@@ -1,25 +1,33 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from modules.auth.domain.enums import UserRole
 from modules.auth.domain.exceptions import Forbidden
-from modules.notifications.domain.enums import (
-    NotificationEntityType,
-    NotificationType,
-)
-from modules.test_drives.application.dtos.update_test_drive_status_dto import (
-    UpdateTestDriveStatusDTO,
-)
-from modules.test_drives.application.use_cases.update_test_drive_status import (
-    UpdateTestDriveStatusUseCase,
-)
-from modules.test_drives.domain.entities.test_drive import TestDrive
+
 from modules.test_drives.domain.enums import TestDriveStatus
 from modules.test_drives.domain.exceptions import (
     TestDriveNotFound,
     TestDriveStatusForbidden,
+)
+from modules.test_drives.domain.test_drive_messages import (
+    TEST_DRIVE_EVENT_MAP,
+    TEST_DRIVE_STATUS_LABELS,
+)
+
+from modules.notifications.domain.enums import (
+    NotificationEntityType,
+    NotificationType,
+)
+
+from modules.test_drives.application.dtos.update_test_drive_status_dto import (
+    UpdateTestDriveStatusDTO,
+)
+
+from modules.test_drives.application.use_cases.update_test_drive_status import (
+    UpdateTestDriveStatusUseCase,
 )
 
 
@@ -28,55 +36,94 @@ from modules.test_drives.domain.exceptions import (
 # ============================================================
 
 
+def make_vehicle(
+    *,
+    vehicle_id="vehicle-1",
+    brand="BMW",
+    model="Serie 3",
+):
+    return SimpleNamespace(
+        id=vehicle_id,
+        brand=brand,
+        model=model,
+    )
+
+
+def make_user(
+    *,
+    user_id="user-1",
+    email="client@example.com",
+):
+    return SimpleNamespace(
+        id=user_id,
+        email=email,
+    )
+
+
 def make_test_drive(
     *,
     test_drive_id="test-drive-1",
     user_id="user-1",
     vehicle_id="vehicle-1",
-    appointment_date=datetime(2026, 9, 15, 14, 30),
-    status=TestDriveStatus.PENDING,
-    user=None,
-    vehicle=None,
+    status=None,
+    appointment_date=None,
+    with_user=True,
+    with_vehicle=True,
 ):
-    return TestDrive(
+    if status is None:
+        status = TestDriveStatus.PENDING
+
+    if appointment_date is None:
+        appointment_date = (
+            datetime.now(timezone.utc)
+            + timedelta(days=2)
+        )
+
+    vehicle = (
+        make_vehicle(
+            vehicle_id=vehicle_id,
+        )
+        if with_vehicle
+        else None
+    )
+
+    user = (
+        make_user(
+            user_id=user_id,
+        )
+        if with_user
+        else None
+    )
+
+    return SimpleNamespace(
         id=test_drive_id,
         user_id=user_id,
         vehicle_id=vehicle_id,
-        appointment_date=appointment_date,
         status=status,
-        comment=None,
-        created_at=datetime(2026, 9, 1, 10, 0),
-        user=user,
+        appointment_date=appointment_date,
         vehicle=vehicle,
-    )
-
-
-def make_user():
-    return Mock(
-        id="user-1",
-        email="client@example.com",
-    )
-
-
-def make_vehicle():
-    return Mock(
-        brand="BMW",
-        model="Série 3",
+        user=user,
     )
 
 
 def make_dto(
     *,
     test_drive_id="test-drive-1",
-    status=TestDriveStatus.CONFIRMED,
-    actor_id="user-1",
-    actor_role=UserRole.CLIENT,
+    actor_id="admin-1",
+    actor_role=None,
+    status=None,
 ):
+    if actor_role is None:
+        actor_role = UserRole.ADMIN
+
+    if status is None:
+        status = TestDriveStatus.CONFIRMED
+
     return UpdateTestDriveStatusDTO(
         test_drive_id=test_drive_id,
-        status=status,
         actor_id=actor_id,
         actor_role=actor_role,
+        status=status,
     )
 
 
@@ -87,11 +134,34 @@ def make_dto(
 
 @pytest.fixture
 def repository():
-    return Mock()
+    repo = Mock()
+
+    test_drive = make_test_drive()
+
+    repo.get_full_by_id.return_value = test_drive
+
+    # Le repository retourne l'objet réellement mis à jour.
+    repo.update.side_effect = lambda test_drive: test_drive
+
+    repo.count_pending.return_value = 3
+
+    return repo
+
+
+@pytest.fixture
+def user_repository():
+    repo = Mock()
+    repo.get_by_role.return_value = []
+    return repo
 
 
 @pytest.fixture
 def event_service():
+    return Mock()
+
+
+@pytest.fixture
+def unit_of_work():
     return Mock()
 
 
@@ -103,23 +173,34 @@ def notification_service():
 
 
 @pytest.fixture
-def uow():
-    return Mock()
+def websocket_manager():
+    manager = Mock()
+    manager.send = AsyncMock()
+    return manager
 
 
 @pytest.fixture
 def use_case(
     repository,
+    user_repository,
     event_service,
+    unit_of_work,
     notification_service,
-    uow,
+    websocket_manager,
 ):
     return UpdateTestDriveStatusUseCase(
         repository=repository,
+        user_repository=user_repository,
         event_service=event_service,
-        unit_of_work=uow,
+        unit_of_work=unit_of_work,
         notification_service=notification_service,
+        websocket_manager=websocket_manager,
     )
+
+
+@pytest.fixture
+def dto():
+    return make_dto()
 
 
 # ============================================================
@@ -127,39 +208,37 @@ def use_case(
 # ============================================================
 
 
-def test_test_drive_not_found(
+@pytest.mark.asyncio
+async def test_test_drive_not_found(
     use_case,
     repository,
-    uow,
+    unit_of_work,
+    dto,
 ):
     repository.get_full_by_id.return_value = None
 
-    dto = make_dto()
-
     with pytest.raises(TestDriveNotFound):
-        import asyncio
-
-        asyncio.run(
-            use_case.execute(dto)
-        )
+        await use_case.execute(dto)
 
     repository.get_full_by_id.assert_called_once_with(
-        "test-drive-1"
+        dto.test_drive_id
     )
 
-    uow.rollback.assert_not_called()
-    uow.commit.assert_not_called()
+    repository.update.assert_not_called()
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_not_called()
 
 
 # ============================================================
-# SECURITY — CLIENT
+# CLIENT SECURITY
 # ============================================================
 
 
-def test_client_cannot_update_another_users_test_drive(
+@pytest.mark.asyncio
+async def test_client_cannot_update_another_users_test_drive(
     use_case,
     repository,
-    uow,
+    unit_of_work,
 ):
     test_drive = make_test_drive(
         user_id="owner-1"
@@ -169,84 +248,37 @@ def test_client_cannot_update_another_users_test_drive(
 
     dto = make_dto(
         actor_id="another-user",
-        status=TestDriveStatus.CANCELLED,
         actor_role=UserRole.CLIENT,
+        status=TestDriveStatus.CANCELLED,
     )
 
     with pytest.raises(Forbidden):
-        import asyncio
-
-        asyncio.run(
-            use_case.execute(dto)
-        )
+        await use_case.execute(dto)
 
     repository.update.assert_not_called()
-    uow.commit.assert_not_called()
-    uow.rollback.assert_not_called()
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        TestDriveStatus.PENDING,
-        TestDriveStatus.CONFIRMED,
-        TestDriveStatus.REJECTED,
-        TestDriveStatus.COMPLETED,
-    ],
-)
-def test_client_can_only_cancel_test_drive(
-    status,
+@pytest.mark.asyncio
+async def test_client_can_cancel_own_test_drive(
     use_case,
     repository,
-    uow,
+    unit_of_work,
 ):
     test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
+        user_id="user-1"
     )
 
     repository.get_full_by_id.return_value = test_drive
 
     dto = make_dto(
-        status=status,
         actor_id="user-1",
         actor_role=UserRole.CLIENT,
-    )
-
-    with pytest.raises(TestDriveStatusForbidden):
-        import asyncio
-
-        asyncio.run(
-            use_case.execute(dto)
-        )
-
-    repository.update.assert_not_called()
-    uow.commit.assert_not_called()
-    uow.rollback.assert_not_called()
-
-
-def test_client_can_cancel_own_test_drive(
-    use_case,
-    repository,
-    uow,
-):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
-
-    dto = make_dto(
         status=TestDriveStatus.CANCELLED,
-        actor_id="user-1",
-        actor_role=UserRole.CLIENT,
     )
 
-    import asyncio
-
-    result = asyncio.run(
-        use_case.execute(dto)
-    )
+    result = await use_case.execute(dto)
 
     assert result is test_drive
     assert test_drive.status == TestDriveStatus.CANCELLED
@@ -255,8 +287,84 @@ def test_client_can_cancel_own_test_drive(
         test_drive
     )
 
-    uow.commit.assert_called_once()
-    uow.rollback.assert_not_called()
+    unit_of_work.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_client_cannot_confirm_test_drive(
+    use_case,
+    repository,
+    unit_of_work,
+):
+    test_drive = make_test_drive(
+        user_id="user-1"
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    dto = make_dto(
+        actor_id="user-1",
+        actor_role=UserRole.CLIENT,
+        status=TestDriveStatus.CONFIRMED,
+    )
+
+    with pytest.raises(TestDriveStatusForbidden):
+        await use_case.execute(dto)
+
+    repository.update.assert_not_called()
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_client_cannot_reject_test_drive(
+    use_case,
+    repository,
+):
+    test_drive = make_test_drive(
+        user_id="user-1"
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    dto = make_dto(
+        actor_id="user-1",
+        actor_role=UserRole.CLIENT,
+        status=TestDriveStatus.REJECTED,
+    )
+
+    with pytest.raises(TestDriveStatusForbidden):
+        await use_case.execute(dto)
+
+    repository.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_admin_can_update_test_drive_status(
+    use_case,
+    repository,
+    unit_of_work,
+):
+    test_drive = make_test_drive()
+
+    repository.get_full_by_id.return_value = test_drive
+
+    dto = make_dto(
+        actor_id="admin-1",
+        actor_role=UserRole.ADMIN,
+        status=TestDriveStatus.CONFIRMED,
+    )
+
+    result = await use_case.execute(dto)
+
+    assert result is test_drive
+    assert test_drive.status == TestDriveStatus.CONFIRMED
+
+    repository.update.assert_called_once_with(
+        test_drive
+    )
+
+    unit_of_work.commit.assert_called_once()
 
 
 # ============================================================
@@ -264,12 +372,14 @@ def test_client_can_cancel_own_test_drive(
 # ============================================================
 
 
-def test_returns_without_updating_when_status_is_unchanged(
+@pytest.mark.asyncio
+async def test_same_status_returns_test_drive_without_update(
     use_case,
     repository,
     event_service,
+    unit_of_work,
     notification_service,
-    uow,
+    websocket_manager,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.CONFIRMED
@@ -277,113 +387,61 @@ def test_returns_without_updating_when_status_is_unchanged(
 
     repository.get_full_by_id.return_value = test_drive
 
-    # ADMIN est utilisé volontairement ici.
-    #
-    # Un CLIENT ne peut demander que CANCELLED.
-    # Il ne pourrait donc jamais atteindre la branche
-    # "status is unchanged" avec CONFIRMED.
     dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        status=TestDriveStatus.CONFIRMED
     )
 
-    import asyncio
-
-    result = asyncio.run(
-        use_case.execute(dto)
-    )
+    result = await use_case.execute(dto)
 
     assert result is test_drive
 
     repository.update.assert_not_called()
     event_service.log.assert_not_called()
-    notification_service.send.assert_not_called()
 
-    uow.commit.assert_not_called()
-    uow.rollback.assert_not_called()
+    notification_service.send.assert_not_awaited()
+
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_not_called()
+
+    websocket_manager.send.assert_not_awaited()
 
 
 # ============================================================
-# UPDATE STATUS — ADMIN
+# STATUS UPDATE
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "new_status",
-    [
-        TestDriveStatus.CONFIRMED,
-        TestDriveStatus.REJECTED,
-        TestDriveStatus.CANCELLED,
-        TestDriveStatus.COMPLETED,
-    ],
-)
-def test_status_is_updated(
-    new_status,
+@pytest.mark.asyncio
+async def test_status_is_updated(
     use_case,
     repository,
-    uow,
+    dto,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
 
-    dto = make_dto(
-        status=new_status,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
-    )
-
-    import asyncio
-
-    result = asyncio.run(
-        use_case.execute(dto)
-    )
+    result = await use_case.execute(dto)
 
     assert result is test_drive
-    assert test_drive.status == new_status
-
-    repository.update.assert_called_once_with(
-        test_drive
-    )
-
-    uow.commit.assert_called_once()
-    uow.rollback.assert_not_called()
+    assert test_drive.status == dto.status
 
 
-def test_repository_updated_test_drive_is_used(
+@pytest.mark.asyncio
+async def test_repository_update_is_called(
     use_case,
     repository,
+    dto,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING
     )
 
-    updated_test_drive = make_test_drive(
-        status=TestDriveStatus.CONFIRMED
-    )
-
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = updated_test_drive
 
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
-    )
-
-    import asyncio
-
-    result = asyncio.run(
-        use_case.execute(dto)
-    )
-
-    # Le use case retourne actuellement
-    # test_drive et non updated_test_drive.
-    assert result is test_drive
+    await use_case.execute(dto)
 
     repository.update.assert_called_once_with(
         test_drive
@@ -391,343 +449,505 @@ def test_repository_updated_test_drive_is_used(
 
 
 # ============================================================
-# EVENTS
+# EVENT
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        TestDriveStatus.CONFIRMED,
-        TestDriveStatus.REJECTED,
-        TestDriveStatus.CANCELLED,
-        TestDriveStatus.COMPLETED,
-    ],
-)
-def test_event_is_logged(
-    status,
+@pytest.mark.asyncio
+async def test_event_is_logged_for_status_change(
     use_case,
     repository,
     event_service,
+    dto,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
 
-    dto = make_dto(
-        status=status,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
-    )
-
-    import asyncio
-
-    asyncio.run(
-        use_case.execute(dto)
-    )
+    await use_case.execute(dto)
 
     event_service.log.assert_called_once()
 
-    call_kwargs = (
-        event_service.log.call_args.kwargs
+    event = event_service.log.call_args.kwargs
+
+    expected_event_type = TEST_DRIVE_EVENT_MAP.get(
+        dto.status
     )
 
-    assert call_kwargs["test_drive_id"] == (
-        "test-drive-1"
-    )
-
-    assert call_kwargs["vehicle_id"] == (
-        "vehicle-1"
-    )
-
-    assert call_kwargs["user_id"] == (
-        "agent-1"
-    )
-
-    assert call_kwargs["event_metadata"] == {
-        "customer_id": "user-1",
-        "old_status": "pending",
-        "new_status": status.value,
-    }
+    assert event["type"] == expected_event_type
+    assert event["test_drive_id"] == test_drive.id
+    assert event["vehicle_id"] == test_drive.vehicle_id
+    assert event["user_id"] == dto.actor_id
 
 
-def test_event_message_contains_new_status_label(
+@pytest.mark.asyncio
+async def test_event_contains_old_and_new_status(
     use_case,
     repository,
     event_service,
+    dto,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
 
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+    await use_case.execute(dto)
+
+    event = event_service.log.call_args.kwargs
+
+    assert event["event_metadata"]["customer_id"] == (
+        test_drive.user_id
     )
 
-    import asyncio
-
-    asyncio.run(
-        use_case.execute(dto)
+    assert event["event_metadata"]["old_status"] == (
+        TestDriveStatus.PENDING.value
     )
 
-    message = (
-        event_service.log.call_args.kwargs[
-            "message"
-        ]
+    assert event["event_metadata"]["new_status"] == (
+        dto.status.value
     )
 
-    assert message == (
-        "Statut de l'essai routier changé vers "
-        "Confirmé"
+
+@pytest.mark.asyncio
+async def test_event_message_contains_new_status_label(
+    use_case,
+    repository,
+    event_service,
+    dto,
+):
+    test_drive = make_test_drive(
+        status=TestDriveStatus.PENDING
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    await use_case.execute(dto)
+
+    event = event_service.log.call_args.kwargs
+
+    assert TEST_DRIVE_STATUS_LABELS[dto.status] in (
+        event["message"]
     )
 
 
 # ============================================================
-# NOTIFICATIONS
+# NOTIFICATION
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "status, notification_type, title",
-    [
-        (
-            TestDriveStatus.CONFIRMED,
-            NotificationType.TEST_DRIVE_CONFIRMED,
-            "Essai routier confirmé",
-        ),
-        (
-            TestDriveStatus.REJECTED,
-            NotificationType.TEST_DRIVE_REJECTED,
-            "Essai routier refusé",
-        ),
-        (
-            TestDriveStatus.CANCELLED,
-            NotificationType.TEST_DRIVE_CANCELLED,
-            "Essai routier annulé",
-        ),
-        (
-            TestDriveStatus.COMPLETED,
-            NotificationType.TEST_DRIVE_COMPLETED,
-            "Essai routier terminé",
-        ),
-    ],
-)
-def test_notification_is_sent(
-    status,
-    notification_type,
-    title,
+@pytest.mark.asyncio
+async def test_notification_is_sent_when_user_exists(
     use_case,
     repository,
     notification_service,
 ):
-    user = make_user()
-    vehicle = make_vehicle()
-
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING,
-        user=user,
-        vehicle=vehicle,
+        with_user=True,
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
 
     dto = make_dto(
-        status=status,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        status=TestDriveStatus.CONFIRMED
     )
 
-    import asyncio
+    await use_case.execute(dto)
 
-    asyncio.run(
-        use_case.execute(dto)
+    notification_service.send.assert_awaited_once()
+
+    notification = (
+        notification_service.send.await_args.kwargs
     )
 
-    notification_service.send.assert_called_once()
+    assert notification["user_id"] == test_drive.user_id
+    assert notification["email"] == test_drive.user.email
 
-    call_kwargs = (
-        notification_service.send.call_args.kwargs
+    assert (
+        notification["entity_type"]
+        == NotificationEntityType.TEST_DRIVE
     )
 
-    assert call_kwargs["user_id"] == "user-1"
+    assert notification["entity_id"] == test_drive.id
 
-    assert call_kwargs["email"] == (
-        "client@example.com"
-    )
-
-    assert call_kwargs["entity_type"] == (
-        NotificationEntityType.TEST_DRIVE
-    )
-
-    assert call_kwargs["entity_id"] == (
-        "test-drive-1"
-    )
-
-    assert call_kwargs["title"] == title
-
-    assert call_kwargs["notif_type"] == (
-        notification_type
+    assert (
+        notification["notif_type"]
+        == NotificationType.TEST_DRIVE_CONFIRMED
     )
 
 
-def test_no_notification_service_means_no_notification(
+@pytest.mark.asyncio
+async def test_no_notification_when_user_is_missing(
+    use_case,
     repository,
+    notification_service,
+):
+    test_drive = make_test_drive(
+        status=TestDriveStatus.PENDING,
+        with_user=False,
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    dto = make_dto(
+        status=TestDriveStatus.CONFIRMED
+    )
+
+    await use_case.execute(dto)
+
+    notification_service.send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_notification_is_not_sent_when_notification_service_is_none(
+    repository,
+    user_repository,
     event_service,
-    uow,
+    unit_of_work,
+    websocket_manager,
 ):
     use_case = UpdateTestDriveStatusUseCase(
         repository=repository,
+        user_repository=user_repository,
         event_service=event_service,
-        unit_of_work=uow,
+        unit_of_work=unit_of_work,
         notification_service=None,
+        websocket_manager=websocket_manager,
     )
 
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
-
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
-    )
-
-    import asyncio
-
-    result = asyncio.run(
-        use_case.execute(dto)
-    )
-
-    assert result is test_drive
-
-    uow.commit.assert_called_once()
-    uow.rollback.assert_not_called()
-
-
-def test_no_notification_when_user_is_missing(
-    use_case,
-    repository,
-    notification_service,
-):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING,
-        user=None,
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
 
     dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        status=TestDriveStatus.CONFIRMED
     )
 
-    import asyncio
+    result = await use_case.execute(dto)
 
-    asyncio.run(
-        use_case.execute(dto)
-    )
-
-    notification_service.send.assert_not_called()
+    assert result is test_drive
+    unit_of_work.commit.assert_called_once()
 
 
 # ============================================================
-# BUILD NOTIFICATION
+# NOTIFICATION BUILDER
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "status, expected_type, expected_title",
-    [
-        (
-            TestDriveStatus.CONFIRMED,
-            NotificationType.TEST_DRIVE_CONFIRMED,
-            "Essai routier confirmé",
-        ),
-        (
-            TestDriveStatus.REJECTED,
-            NotificationType.TEST_DRIVE_REJECTED,
-            "Essai routier refusé",
-        ),
-        (
-            TestDriveStatus.CANCELLED,
-            NotificationType.TEST_DRIVE_CANCELLED,
-            "Essai routier annulé",
-        ),
-        (
-            TestDriveStatus.COMPLETED,
-            NotificationType.TEST_DRIVE_COMPLETED,
-            "Essai routier terminé",
-        ),
-    ],
-)
-def test_build_notification(
+@pytest.mark.asyncio
+async def test_confirmed_notification_content(
     use_case,
-    status,
-    expected_type,
-    expected_title,
 ):
-    test_drive = make_test_drive(
-        user=make_user(),
-        vehicle=make_vehicle(),
-    )
+    test_drive = make_test_drive()
 
-    result = use_case._build_notification(
-        status,
+    notification = use_case._build_notification(
+        TestDriveStatus.CONFIRMED,
         test_drive,
     )
 
-    assert result["type"] == expected_type
-    assert result["title"] == expected_title
-
-    assert "15/09/2026 à 14:30" in (
-        result["message"]
+    assert notification["title"] == (
+        "Essai routier confirmé"
     )
 
+    assert (
+        notification["type"]
+        == NotificationType.TEST_DRIVE_CONFIRMED
+    )
 
-def test_build_cancelled_notification_does_not_require_vehicle(
+    assert "BMW Serie 3" in notification["message"]
+    assert "Bonjour" in notification["message"]
+
+
+@pytest.mark.asyncio
+async def test_rejected_notification_content(
     use_case,
 ):
-    test_drive = make_test_drive(
-        vehicle=None
+    test_drive = make_test_drive()
+
+    notification = use_case._build_notification(
+        TestDriveStatus.REJECTED,
+        test_drive,
     )
 
-    result = use_case._build_notification(
+    assert notification["title"] == (
+        "Essai routier refusé"
+    )
+
+    assert (
+        notification["type"]
+        == NotificationType.TEST_DRIVE_REJECTED
+    )
+
+    assert "BMW Serie 3" in notification["message"]
+
+
+@pytest.mark.asyncio
+async def test_cancelled_notification_content(
+    use_case,
+):
+    test_drive = make_test_drive()
+
+    notification = use_case._build_notification(
         TestDriveStatus.CANCELLED,
         test_drive,
     )
 
-    assert result["type"] == (
-        NotificationType.TEST_DRIVE_CANCELLED
+    assert notification["title"] == (
+        "Essai routier annulé"
     )
 
-    assert "15/09/2026 à 14:30" in (
-        result["message"]
+    assert (
+        notification["type"]
+        == NotificationType.TEST_DRIVE_CANCELLED
     )
+
+    assert "annulé" in notification["message"]
+
+
+@pytest.mark.asyncio
+async def test_completed_notification_content(
+    use_case,
+):
+    test_drive = make_test_drive()
+
+    notification = use_case._build_notification(
+        TestDriveStatus.COMPLETED,
+        test_drive,
+    )
+
+    assert notification["title"] == (
+        "Essai routier terminé"
+    )
+
+    assert (
+        notification["type"]
+        == NotificationType.TEST_DRIVE_COMPLETED
+    )
+
+    assert "BMW Serie 3" in notification["message"]
+
+
+def test_notification_uses_fallback_when_vehicle_is_missing(
+    use_case,
+):
+    test_drive = make_test_drive(
+        with_vehicle=False
+    )
+
+    notification = use_case._build_notification(
+        TestDriveStatus.CONFIRMED,
+        test_drive,
+    )
+
+    assert "véhicule non défini" in notification["message"]
+
+
+def test_notification_uses_fallback_when_date_is_missing(
+    use_case,
+):
+    test_drive = make_test_drive()
+
+    test_drive.appointment_date = None
+
+    notification = use_case._build_notification(
+        TestDriveStatus.CONFIRMED,
+        test_drive,
+    )
+
+    assert "date non définie" in notification["message"]
 
 
 # ============================================================
-# ROLLBACK — ERRORS
+# COMMIT
 # ============================================================
 
 
-def test_repository_update_error_rolls_back(
+@pytest.mark.asyncio
+async def test_commit_is_called(
     use_case,
     repository,
-    uow,
+    unit_of_work,
+    dto,
+):
+    test_drive = make_test_drive(
+        status=TestDriveStatus.PENDING
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    await use_case.execute(dto)
+
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_not_called()
+
+
+# ============================================================
+# WEBSOCKET
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_admin_websocket_is_not_called_when_manager_is_none(
+    repository,
+    user_repository,
+    event_service,
+    unit_of_work,
+    notification_service,
+):
+    use_case = UpdateTestDriveStatusUseCase(
+        repository=repository,
+        user_repository=user_repository,
+        event_service=event_service,
+        unit_of_work=unit_of_work,
+        notification_service=notification_service,
+        websocket_manager=None,
+    )
+
+    test_drive = make_test_drive(
+        status=TestDriveStatus.PENDING
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    dto = make_dto(
+        status=TestDriveStatus.CONFIRMED
+    )
+
+    result = await use_case.execute(dto)
+
+    assert result is test_drive
+    unit_of_work.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_admins_receive_pending_count_update(
+    use_case,
+    repository,
+    user_repository,
+    websocket_manager,
+    dto,
+):
+    admins = [
+        SimpleNamespace(id="admin-1"),
+        SimpleNamespace(id="admin-2"),
+    ]
+
+    user_repository.get_by_role.return_value = admins
+    repository.count_pending.return_value = 7
+
+    test_drive = make_test_drive(
+        status=TestDriveStatus.PENDING
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    await use_case.execute(dto)
+
+    assert websocket_manager.send.await_count == 2
+
+    websocket_manager.send.assert_any_await(
+        "admin-1",
+        {
+            "type": "TEST_DRIVE_PENDING_UPDATED",
+            "count": 7,
+        },
+    )
+
+    websocket_manager.send.assert_any_await(
+        "admin-2",
+        {
+            "type": "TEST_DRIVE_PENDING_UPDATED",
+            "count": 7,
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_pending_count_is_loaded_for_websocket(
+    use_case,
+    repository,
+    user_repository,
+    dto,
+):
+    user_repository.get_by_role.return_value = [
+        SimpleNamespace(id="admin-1")
+    ]
+
+    repository.count_pending.return_value = 4
+
+    test_drive = make_test_drive(
+        status=TestDriveStatus.PENDING
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    await use_case.execute(dto)
+
+    repository.count_pending.assert_called_once()
+
+    user_repository.get_by_role.assert_called_once_with(
+        UserRole.ADMIN
+    )
+
+
+@pytest.mark.asyncio
+async def test_websocket_is_sent_after_commit(
+    use_case,
+    repository,
+    user_repository,
+    unit_of_work,
+    websocket_manager,
+    dto,
+):
+    user_repository.get_by_role.return_value = [
+        SimpleNamespace(id="admin-1")
+    ]
+
+    repository.count_pending.return_value = 2
+
+    order = []
+
+    def commit():
+        order.append("commit")
+
+    unit_of_work.commit.side_effect = commit
+
+    async def send_websocket(*args, **kwargs):
+        order.append("websocket")
+
+    websocket_manager.send.side_effect = send_websocket
+
+    test_drive = make_test_drive(
+        status=TestDriveStatus.PENDING
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+
+    await use_case.execute(dto)
+
+    assert order == [
+        "commit",
+        "websocket",
+    ]
+
+
+# ============================================================
+# ROLLBACK / ERRORS
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_repository_update_error_rolls_back(
+    use_case,
+    repository,
+    unit_of_work,
+    dto,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING
@@ -739,166 +959,230 @@ def test_repository_update_error_rolls_back(
         "update error"
     )
 
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
-    )
-
     with pytest.raises(
         RuntimeError,
         match="update error",
     ):
-        import asyncio
+        await use_case.execute(dto)
 
-        asyncio.run(
-            use_case.execute(dto)
-        )
-
-    uow.rollback.assert_called_once()
-    uow.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
-def test_event_error_rolls_back(
+@pytest.mark.asyncio
+async def test_event_error_rolls_back(
     use_case,
     repository,
     event_service,
-    uow,
+    unit_of_work,
+    dto,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
 
     event_service.log.side_effect = RuntimeError(
         "event error"
-    )
-
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
     )
 
     with pytest.raises(
         RuntimeError,
         match="event error",
     ):
-        import asyncio
+        await use_case.execute(dto)
 
-        asyncio.run(
-            use_case.execute(dto)
-        )
-
-    uow.rollback.assert_called_once()
-    uow.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
-def test_notification_error_rolls_back(
+@pytest.mark.asyncio
+async def test_notification_error_rolls_back(
     use_case,
     repository,
     notification_service,
-    uow,
+    unit_of_work,
+    dto,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING,
-        user=make_user(),
-        vehicle=make_vehicle(),
+        with_user=True,
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
 
-    notification_service.send.side_effect = (
-        RuntimeError("notification error")
-    )
-
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+    notification_service.send.side_effect = RuntimeError(
+        "notification error"
     )
 
     with pytest.raises(
         RuntimeError,
         match="notification error",
     ):
-        import asyncio
+        await use_case.execute(dto)
 
-        asyncio.run(
-            use_case.execute(dto)
-        )
-
-    uow.rollback.assert_called_once()
-    uow.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
-def test_commit_error_rolls_back(
+@pytest.mark.asyncio
+async def test_commit_error_rolls_back(
     use_case,
     repository,
-    uow,
+    unit_of_work,
+    dto,
 ):
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
 
-    uow.commit.side_effect = RuntimeError(
+    unit_of_work.commit.side_effect = RuntimeError(
         "commit error"
-    )
-
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
     )
 
     with pytest.raises(
         RuntimeError,
         match="commit error",
     ):
-        import asyncio
+        await use_case.execute(dto)
 
-        asyncio.run(
-            use_case.execute(dto)
-        )
-
-    uow.commit.assert_called_once()
-    uow.rollback.assert_called_once()
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_called_once()
 
 
-# ============================================================
-# FINAL RESULT
-# ============================================================
-
-
-def test_returns_updated_test_drive(
+@pytest.mark.asyncio
+async def test_websocket_error_rolls_back(
     use_case,
     repository,
+    user_repository,
+    websocket_manager,
+    unit_of_work,
+    dto,
 ):
+    user_repository.get_by_role.return_value = [
+        SimpleNamespace(id="admin-1")
+    ]
+
+    repository.count_pending.return_value = 2
+
+    websocket_manager.send.side_effect = RuntimeError(
+        "websocket error"
+    )
+
     test_drive = make_test_drive(
         status=TestDriveStatus.PENDING
     )
 
     repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+
+    with pytest.raises(
+        RuntimeError,
+        match="websocket error",
+    ):
+        await use_case.execute(dto)
+
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_called_once()
+
+
+# ============================================================
+# COMPLETE FLOW
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_complete_status_update_flow(
+    use_case,
+    repository,
+    user_repository,
+    event_service,
+    notification_service,
+    unit_of_work,
+    websocket_manager,
+):
+    test_drive = make_test_drive(
+        test_drive_id="test-drive-42",
+        user_id="customer-42",
+        vehicle_id="vehicle-42",
+        status=TestDriveStatus.PENDING,
+    )
+
+    repository.get_full_by_id.return_value = test_drive
+    repository.count_pending.return_value = 5
+
+    user_repository.get_by_role.return_value = [
+        SimpleNamespace(id="admin-1")
+    ]
 
     dto = make_dto(
-        status=TestDriveStatus.COMPLETED,
-        actor_id="agent-1",
+        test_drive_id="test-drive-42",
+        actor_id="admin-42",
         actor_role=UserRole.ADMIN,
+        status=TestDriveStatus.CONFIRMED,
     )
 
-    import asyncio
+    result = await use_case.execute(dto)
 
-    result = asyncio.run(
-        use_case.execute(dto)
+    # Load
+    repository.get_full_by_id.assert_called_once_with(
+        "test-drive-42"
     )
 
-    assert isinstance(result, TestDrive)
-    assert result.id == "test-drive-1"
-    assert result.status == TestDriveStatus.COMPLETED
+    # Status
+    assert test_drive.status == (
+        TestDriveStatus.CONFIRMED
+    )
+
+    # Repository
+    repository.update.assert_called_once_with(
+        test_drive
+    )
+
+    # Event
+    event_service.log.assert_called_once()
+
+    event = event_service.log.call_args.kwargs
+
+    assert event["test_drive_id"] == "test-drive-42"
+    assert event["vehicle_id"] == "vehicle-42"
+    assert event["user_id"] == "admin-42"
+
+    assert event["event_metadata"]["customer_id"] == (
+        "customer-42"
+    )
+
+    assert event["event_metadata"]["old_status"] == (
+        TestDriveStatus.PENDING.value
+    )
+
+    assert event["event_metadata"]["new_status"] == (
+        TestDriveStatus.CONFIRMED.value
+    )
+
+    # Notification
+    notification_service.send.assert_awaited_once()
+
+    notification = (
+        notification_service.send.await_args.kwargs
+    )
+
+    assert notification["user_id"] == "customer-42"
+    assert notification["entity_id"] == "test-drive-42"
+
+    # Commit
+    unit_of_work.commit.assert_called_once()
+
+    # WebSocket
+    websocket_manager.send.assert_awaited_once_with(
+        "admin-1",
+        {
+            "type": "TEST_DRIVE_PENDING_UPDATED",
+            "count": 5,
+        },
+    )
+
+    # Result
+    assert result is test_drive

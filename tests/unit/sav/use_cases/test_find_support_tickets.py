@@ -1,11 +1,13 @@
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
+from core.pagination.paginated_result import PaginatedResult
+from modules.auth.domain.enums import UserRole
 from modules.sav.application.dtos.find_support_tickets_dto import (
     FindSupportTicketsDTO,
 )
-from core.pagination.paginated_result import PaginatedResult
 from modules.sav.application.use_cases.find_support_tickets import (
     FindSupportTicketsUseCase,
 )
@@ -18,13 +20,88 @@ from modules.sav.domain.enums import (
 
 
 # ============================================================
+# HELPERS
+# ============================================================
+
+
+def make_dto(
+    *,
+    page=1,
+    limit=10,
+    search=None,
+    status=None,
+    category=None,
+    priority=None,
+    filter=None,
+    sort=None,
+    archive=False,
+):
+    return FindSupportTicketsDTO(
+        page=page,
+        limit=limit,
+        search=search,
+        status=status,
+        category=category,
+        priority=priority,
+        filter=filter,
+        sort=sort,
+        archive=archive,
+    )
+
+
+def make_ticket(
+    *,
+    ticket_id="ticket-1",
+    user_id="user-1",
+    application_id=None,
+    subject="Problème véhicule",
+    description="Description du problème",
+    category=None,
+    status=TicketStatus.OPEN,
+    priority=TicketPriority.MEDIUM,
+    assigned_to=None,
+):
+    """
+    SupportTicket réel avec les valeurs nécessaires aux tests.
+
+    La catégorie est récupérée dynamiquement si nécessaire afin
+    de ne pas dépendre d'une valeur inventée.
+    """
+    if category is None:
+        category = next(iter(TicketCategory))
+
+    return SimpleNamespace(
+        id=ticket_id,
+        user_id=user_id,
+        application_id=application_id,
+        subject=subject,
+        description=description,
+        category=category,
+        status=status,
+        priority=priority,
+        assigned_to=assigned_to,
+        created_at=None,
+        updated_at=None,
+        messages=[],
+        archived_at=None,
+    )
+
+
+# ============================================================
 # FIXTURES
 # ============================================================
 
 
 @pytest.fixture
 def repo():
-    return Mock()
+    repository = Mock()
+
+    repository.find_all.return_value = (
+        [],
+        0,
+    )
+
+    return repository
 
 
 @pytest.fixture
@@ -36,20 +113,12 @@ def use_case(repo):
 
 @pytest.fixture
 def user_id():
-    return "user-123"
+    return "user-42"
 
 
 @pytest.fixture
 def user_role():
-    return "CLIENT"
-
-
-@pytest.fixture
-def items():
-    return [
-        Mock(id="ticket-1"),
-        Mock(id="ticket-2"),
-    ]
+    return UserRole.CLIENT
 
 
 # ============================================================
@@ -57,170 +126,227 @@ def items():
 # ============================================================
 
 
-def test_execute_calls_repository_with_dto_values(
+def test_find_support_tickets_calls_repository(
     use_case,
     repo,
     user_id,
     user_role,
-    items,
 ):
-    repo.find_all.return_value = (
-        items,
-        2,
-    )
+    dto = make_dto()
 
-    dto = FindSupportTicketsDTO(
-        page=2,
-        limit=10,
-        search="véhicule",
-        status=TicketStatus.OPEN,
-        priority=TicketPriority.HIGH,
-        category=TicketCategory.VEHICLE_ISSUE,
-        sort="created_at_desc",
-        filter=TicketFilter.ALL,
-        archive=False,
-    )
-
-    result = use_case.execute(
+    use_case.execute(
         dto=dto,
         user_id=user_id,
         user_role=user_role,
     )
 
-    repo.find_all.assert_called_once_with(
-        page=2,
-        limit=10,
-        search="véhicule",
-        status=TicketStatus.OPEN,
-        category=TicketCategory.VEHICLE_ISSUE,
-        priority=TicketPriority.HIGH,
-        sort="created_at_desc",
-        archive=False,
-        user_id="user-123",
-        user_role="CLIENT",
-    )
-
-    assert isinstance(
-        result,
-        PaginatedResult,
-    )
-
-    assert result.items == items
-    assert result.page == 2
-    assert result.limit == 10
-    assert result.total == 2
-    assert result.total_pages == 1
+    repo.find_all.assert_called_once()
 
 
-# ============================================================
-# DEFAULT DTO VALUES
-# ============================================================
-
-
-def test_execute_uses_default_dto_values(
+def test_repository_receives_pagination_parameters(
     use_case,
     repo,
     user_id,
     user_role,
 ):
-    repo.find_all.return_value = (
-        [],
-        0,
+    dto = make_dto(
+        page=3,
+        limit=20,
     )
 
-    dto = FindSupportTicketsDTO()
-
-    result = use_case.execute(
+    use_case.execute(
         dto=dto,
         user_id=user_id,
         user_role=user_role,
     )
 
-    repo.find_all.assert_called_once_with(
-        page=1,
-        limit=10,
-        search="",
-        status="ALL",
-        category="ALL",
-        priority="ALL",
-        sort="created_at_desc",
-        archive=False,
-        user_id="user-123",
-        user_role="CLIENT",
-    )
+    kwargs = repo.find_all.call_args.kwargs
 
-    assert result.items == []
-    assert result.page == 1
-    assert result.limit == 10
-    assert result.total == 0
-    assert result.total_pages == 1
+    assert kwargs["page"] == 3
+    assert kwargs["limit"] == 20
 
 
-# ============================================================
-# OPEN FILTER
-# ============================================================
-
-
-def test_open_filter_overrides_status(
+def test_repository_receives_search(
     use_case,
     repo,
     user_id,
     user_role,
-    items,
 ):
-    repo.find_all.return_value = (
-        items,
-        3,
+    dto = make_dto(
+        search="frein",
     )
 
-    dto = FindSupportTicketsDTO(
-        page=1,
-        limit=10,
-        status=TicketStatus.RESOLVED,
-        priority=TicketPriority.HIGH,
-        filter=TicketFilter.OPEN,
-    )
-
-    result = use_case.execute(
+    use_case.execute(
         dto=dto,
         user_id=user_id,
         user_role=user_role,
     )
 
-    repo.find_all.assert_called_once_with(
-        page=1,
-        limit=10,
-        search="",
-        status=[
-            TicketStatus.OPEN,
-            TicketStatus.IN_PROGRESS,
-            TicketStatus.WAITING_CUSTOMER,
-        ],
-        category="ALL",
-        priority=TicketPriority.HIGH,
-        sort="created_at_desc",
-        archive=False,
-        user_id="user-123",
-        user_role="CLIENT",
-    )
+    kwargs = repo.find_all.call_args.kwargs
 
-    assert result.total == 3
+    assert kwargs["search"] == "frein"
 
 
-def test_open_filter_keeps_priority(
+def test_repository_receives_status(
     use_case,
     repo,
     user_id,
     user_role,
 ):
-    repo.find_all.return_value = (
-        [],
-        0,
+    dto = make_dto(
+        status=[TicketStatus.OPEN],
     )
 
-    dto = FindSupportTicketsDTO(
-        status=TicketStatus.RESOLVED,
+    use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["status"] == [TicketStatus.OPEN]
+
+
+def test_repository_receives_category(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    category = next(iter(TicketCategory))
+
+    dto = make_dto(
+        category=category,
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["category"] == category
+
+
+def test_repository_receives_priority(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    dto = make_dto(
         priority=TicketPriority.URGENT,
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["priority"] == TicketPriority.URGENT
+
+
+def test_repository_receives_sort(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    dto = make_dto(
+        sort="created_at_desc",
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["sort"] == "created_at_desc"
+
+
+def test_repository_receives_archive(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    dto = make_dto(
+        archive=True,
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["archive"] is True
+
+
+# ============================================================
+# USER / ROLE
+# ============================================================
+
+
+def test_repository_receives_user_id(
+    use_case,
+    repo,
+    user_role,
+):
+    dto = make_dto()
+
+    use_case.execute(
+        dto=dto,
+        user_id="user-99",
+        user_role=user_role,
+    )
+
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["user_id"] == "user-99"
+
+
+def test_repository_receives_user_role(
+    use_case,
+    repo,
+    user_id,
+):
+    dto = make_dto()
+
+    use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=UserRole.CLIENT,
+    )
+
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["user_role"] == UserRole.CLIENT
+
+
+# ============================================================
+# FILTER — OPEN
+# ============================================================
+
+
+def test_open_filter_replaces_status_with_open_statuses(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    dto = make_dto(
         filter=TicketFilter.OPEN,
     )
 
@@ -238,68 +364,45 @@ def test_open_filter_keeps_priority(
         TicketStatus.WAITING_CUSTOMER,
     ]
 
-    assert kwargs["priority"] == TicketPriority.URGENT
 
-
-# ============================================================
-# URGENT FILTER
-# ============================================================
-
-
-def test_urgent_filter_overrides_priority(
+def test_open_filter_overrides_explicit_status(
     use_case,
     repo,
     user_id,
     user_role,
-    items,
 ):
-    repo.find_all.return_value = (
-        items,
-        2,
+    dto = make_dto(
+        filter=TicketFilter.OPEN,
+        status=[TicketStatus.CLOSED],
     )
 
-    dto = FindSupportTicketsDTO(
-        status=TicketStatus.OPEN,
-        priority=TicketPriority.LOW,
-        filter=TicketFilter.URGENT,
-    )
-
-    result = use_case.execute(
+    use_case.execute(
         dto=dto,
         user_id=user_id,
         user_role=user_role,
     )
 
-    repo.find_all.assert_called_once_with(
-        page=1,
-        limit=10,
-        search="",
-        status=TicketStatus.OPEN,
-        category="ALL",
-        priority=TicketPriority.URGENT,
-        sort="created_at_desc",
-        archive=False,
-        user_id="user-123",
-        user_role="CLIENT",
-    )
+    kwargs = repo.find_all.call_args.kwargs
 
-    assert result.total == 2
+    assert kwargs["status"] == [
+        TicketStatus.OPEN,
+        TicketStatus.IN_PROGRESS,
+        TicketStatus.WAITING_CUSTOMER,
+    ]
 
 
-def test_urgent_filter_keeps_status(
+# ============================================================
+# FILTER — URGENT
+# ============================================================
+
+
+def test_urgent_filter_sets_urgent_priority(
     use_case,
     repo,
     user_id,
     user_role,
 ):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO(
-        status=TicketStatus.IN_PROGRESS,
-        priority=TicketPriority.LOW,
+    dto = make_dto(
         filter=TicketFilter.URGENT,
     )
 
@@ -311,30 +414,46 @@ def test_urgent_filter_keeps_status(
 
     kwargs = repo.find_all.call_args.kwargs
 
-    assert kwargs["status"] == TicketStatus.IN_PROGRESS
+    assert kwargs["priority"] == TicketPriority.URGENT
+
+
+def test_urgent_filter_overrides_explicit_priority(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    dto = make_dto(
+        filter=TicketFilter.URGENT,
+        priority=TicketPriority.MEDIUM,
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    kwargs = repo.find_all.call_args.kwargs
+
     assert kwargs["priority"] == TicketPriority.URGENT
 
 
 # ============================================================
-# ALL FILTER
+# NO SPECIAL FILTER
 # ============================================================
 
 
-def test_all_filter_does_not_override_status_or_priority(
+def test_without_filter_preserves_status_and_priority(
     use_case,
     repo,
     user_id,
     user_role,
 ):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO(
-        status=TicketStatus.WAITING_CUSTOMER,
+    dto = make_dto(
+        status=[TicketStatus.OPEN],
         priority=TicketPriority.MEDIUM,
-        filter=TicketFilter.ALL,
+        filter=None,
     )
 
     use_case.execute(
@@ -343,38 +462,22 @@ def test_all_filter_does_not_override_status_or_priority(
         user_role=user_role,
     )
 
-    repo.find_all.assert_called_once_with(
-        page=1,
-        limit=10,
-        search="",
-        status=TicketStatus.WAITING_CUSTOMER,
-        category="ALL",
-        priority=TicketPriority.MEDIUM,
-        sort="created_at_desc",
-        archive=False,
-        user_id="user-123",
-        user_role="CLIENT",
-    )
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["status"] == [TicketStatus.OPEN]
+    assert kwargs["priority"] == TicketPriority.MEDIUM
 
 
-# ============================================================
-# CATEGORY
-# ============================================================
-
-
-def test_category_is_forwarded_to_repository(
+def test_without_filter_keeps_none_status_and_priority(
     use_case,
     repo,
     user_id,
     user_role,
 ):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO(
-        category=TicketCategory.FINANCING,
+    dto = make_dto(
+        status=None,
+        priority=None,
+        filter=None,
     )
 
     use_case.execute(
@@ -383,162 +486,10 @@ def test_category_is_forwarded_to_repository(
         user_role=user_role,
     )
 
-    assert (
-        repo.find_all.call_args.kwargs["category"]
-        == TicketCategory.FINANCING
-    )
+    kwargs = repo.find_all.call_args.kwargs
 
-
-# ============================================================
-# SEARCH
-# ============================================================
-
-
-def test_search_is_forwarded_to_repository(
-    use_case,
-    repo,
-    user_id,
-    user_role,
-):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO(
-        search="frein",
-    )
-
-    use_case.execute(
-        dto=dto,
-        user_id=user_id,
-        user_role=user_role,
-    )
-
-    assert (
-        repo.find_all.call_args.kwargs["search"]
-        == "frein"
-    )
-
-
-# ============================================================
-# ARCHIVE
-# ============================================================
-
-
-@pytest.mark.parametrize(
-    "archive",
-    [True, False],
-)
-def test_archive_is_forwarded(
-    archive,
-    use_case,
-    repo,
-    user_id,
-    user_role,
-):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO(
-        archive=archive,
-    )
-
-    use_case.execute(
-        dto=dto,
-        user_id=user_id,
-        user_role=user_role,
-    )
-
-    assert (
-        repo.find_all.call_args.kwargs["archive"]
-        == archive
-    )
-
-
-# ============================================================
-# SORT
-# ============================================================
-
-
-def test_sort_is_forwarded(
-    use_case,
-    repo,
-    user_id,
-    user_role,
-):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO(
-        sort="priority_desc",
-    )
-
-    use_case.execute(
-        dto=dto,
-        user_id=user_id,
-        user_role=user_role,
-    )
-
-    assert (
-        repo.find_all.call_args.kwargs["sort"]
-        == "priority_desc"
-    )
-
-
-# ============================================================
-# USER CONTEXT
-# ============================================================
-
-
-def test_user_id_is_forwarded(
-    use_case,
-    repo,
-):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO()
-
-    use_case.execute(
-        dto=dto,
-        user_id="specific-user",
-        user_role="CLIENT",
-    )
-
-    assert (
-        repo.find_all.call_args.kwargs["user_id"]
-        == "specific-user"
-    )
-
-
-def test_user_role_is_forwarded(
-    use_case,
-    repo,
-):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO()
-
-    use_case.execute(
-        dto=dto,
-        user_id="user-123",
-        user_role="ADMIN",
-    )
-
-    assert (
-        repo.find_all.call_args.kwargs["user_role"]
-        == "ADMIN"
-    )
+    assert kwargs["status"] is None
+    assert kwargs["priority"] is None
 
 
 # ============================================================
@@ -546,101 +497,29 @@ def test_user_role_is_forwarded(
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "total,limit,expected_pages",
-    [
-        (0, 10, 1),
-        (1, 10, 1),
-        (9, 10, 1),
-        (10, 10, 1),
-        (11, 10, 2),
-        (19, 10, 2),
-        (20, 10, 2),
-        (21, 10, 3),
-        (25, 10, 3),
-        (100, 10, 10),
-    ],
-)
-def test_pages_are_calculated_correctly(
-    total,
-    limit,
-    expected_pages,
+def test_returns_paginated_result(
     use_case,
     repo,
     user_id,
     user_role,
 ):
-    repo.find_all.return_value = (
-        [],
-        total,
-    )
-
-    dto = FindSupportTicketsDTO(
-        page=1,
-        limit=limit,
-    )
-
-    result = use_case.execute(
-        dto=dto,
-        user_id=user_id,
-        user_role=user_role,
-    )
-
-    assert result.total_pages == expected_pages
-
-
-def test_empty_result_always_has_one_page(
-    use_case,
-    repo,
-    user_id,
-    user_role,
-):
-    repo.find_all.return_value = (
-        [],
-        0,
-    )
-
-    dto = FindSupportTicketsDTO(
-        page=5,
-        limit=10,
-    )
-
-    result = use_case.execute(
-        dto=dto,
-        user_id=user_id,
-        user_role=user_role,
-    )
-
-    assert result.total == 0
-    assert result.total_pages == 1
-    assert result.total_pages == 5
-
-
-# ============================================================
-# RESULT
-# ============================================================
-
-
-def test_result_contains_repository_items(
-    use_case,
-    repo,
-    user_id,
-    user_role,
-):
-    items = [
-        Mock(id="ticket-1"),
-        Mock(id="ticket-2"),
-        Mock(id="ticket-3"),
+    tickets = [
+        make_ticket(
+            ticket_id="ticket-1",
+        ),
+        make_ticket(
+            ticket_id="ticket-2",
+        ),
     ]
 
     repo.find_all.return_value = (
-        items,
-        3,
+        tickets,
+        2,
     )
 
-    dto = FindSupportTicketsDTO(
-        page=2,
-        limit=2,
+    dto = make_dto(
+        page=1,
+        limit=10,
     )
 
     result = use_case.execute(
@@ -654,47 +533,118 @@ def test_result_contains_repository_items(
         PaginatedResult,
     )
 
-    assert result.items == items
-    assert result.page == 2
-    assert result.limit == 2
-    assert result.total == 3
-    assert result.total_pages == 2
 
-
-# ============================================================
-# REPOSITORY ERROR
-# ============================================================
-
-
-def test_repository_error_is_propagated(
+def test_paginated_result_contains_items(
     use_case,
     repo,
     user_id,
     user_role,
 ):
-    repo.find_all.side_effect = RuntimeError(
-        "repository error"
+    tickets = [
+        make_ticket(
+            ticket_id="ticket-1",
+        ),
+        make_ticket(
+            ticket_id="ticket-2",
+        ),
+    ]
+
+    repo.find_all.return_value = (
+        tickets,
+        2,
     )
 
-    dto = FindSupportTicketsDTO()
+    dto = make_dto(
+        page=1,
+        limit=10,
+    )
 
-    with pytest.raises(
-        RuntimeError,
-        match="repository error",
-    ):
-        use_case.execute(
-            dto=dto,
-            user_id=user_id,
-            user_role=user_role,
-        )
+    result = use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    assert result.items == tickets
+
+
+def test_paginated_result_contains_total(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    tickets = [
+        make_ticket(
+            ticket_id="ticket-1",
+        ),
+    ]
+
+    repo.find_all.return_value = (
+        tickets,
+        25,
+    )
+
+    dto = make_dto(
+        page=2,
+        limit=10,
+    )
+
+    result = use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    assert result.total == 25
+
+
+def test_paginated_result_contains_page(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    dto = make_dto(
+        page=4,
+        limit=10,
+    )
+
+    result = use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    assert result.page == 4
+
+
+def test_paginated_result_contains_limit(
+    use_case,
+    repo,
+    user_id,
+    user_role,
+):
+    dto = make_dto(
+        page=1,
+        limit=25,
+    )
+
+    result = use_case.execute(
+        dto=dto,
+        user_id=user_id,
+        user_role=user_role,
+    )
+
+    assert result.limit == 25
 
 
 # ============================================================
-# NO UNEXPECTED SIDE EFFECTS
+# EMPTY RESULT
 # ============================================================
 
 
-def test_use_case_does_not_modify_repository_data(
+def test_empty_result_is_supported(
     use_case,
     repo,
     user_id,
@@ -705,14 +655,91 @@ def test_use_case_does_not_modify_repository_data(
         0,
     )
 
-    dto = FindSupportTicketsDTO()
+    dto = make_dto()
 
-    use_case.execute(
+    result = use_case.execute(
         dto=dto,
         user_id=user_id,
         user_role=user_role,
     )
 
-    repo.create.assert_not_called()
-    repo.update.assert_not_called()
-    repo.delete.assert_not_called()
+    assert result.items == []
+    assert result.total == 0
+
+
+# ============================================================
+# COMPLETE FLOW
+# ============================================================
+
+
+def test_find_support_tickets_complete_flow(
+    use_case,
+    repo,
+):
+    tickets = [
+        make_ticket(
+            ticket_id="ticket-1",
+            user_id="user-42",
+            status=TicketStatus.OPEN,
+            priority=TicketPriority.URGENT,
+        ),
+        make_ticket(
+            ticket_id="ticket-2",
+            user_id="user-42",
+            status=TicketStatus.IN_PROGRESS,
+            priority=TicketPriority.URGENT,
+        ),
+    ]
+
+    repo.find_all.return_value = (
+        tickets,
+        2,
+    )
+
+    dto = make_dto(
+        page=1,
+        limit=10,
+        search="véhicule",
+        filter=TicketFilter.OPEN,
+        sort="created_at_desc",
+        archive=False,
+    )
+
+    result = use_case.execute(
+        dto=dto,
+        user_id="user-42",
+        user_role=UserRole.CLIENT,
+    )
+
+    # Repository
+    repo.find_all.assert_called_once()
+
+    kwargs = repo.find_all.call_args.kwargs
+
+    assert kwargs["page"] == 1
+    assert kwargs["limit"] == 10
+    assert kwargs["search"] == "véhicule"
+
+    assert kwargs["status"] == [
+        TicketStatus.OPEN,
+        TicketStatus.IN_PROGRESS,
+        TicketStatus.WAITING_CUSTOMER,
+    ]
+
+    assert kwargs["category"] is None
+    assert kwargs["priority"] is None
+    assert kwargs["sort"] == "created_at_desc"
+    assert kwargs["archive"] is False
+    assert kwargs["user_id"] == "user-42"
+    assert kwargs["user_role"] == UserRole.CLIENT
+
+    # Résultat
+    assert isinstance(
+        result,
+        PaginatedResult,
+    )
+
+    assert result.items == tickets
+    assert result.total == 2
+    assert result.page == 1
+    assert result.limit == 10

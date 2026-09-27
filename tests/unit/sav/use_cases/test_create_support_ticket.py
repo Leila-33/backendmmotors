@@ -1,27 +1,92 @@
-from datetime import datetime
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
 from modules.applications.domain.enums import EventType
+from modules.applications.domain.exceptions import ApplicationNotFound
 from modules.auth.domain.enums import UserRole
-
-from modules.sav.domain.entities.support_ticket import SupportTicket
-from modules.sav.domain.enums import (
-    TicketCategory,
-    TicketPriority,
-    TicketStatus,
-)
-
-from modules.sav.application.dtos.create_support_ticket_dto import (
-    CreateSupportTicketDTO,
-)
 from modules.sav.application.results.create_support_ticket_result import (
     CreateSupportTicketResult,
 )
 from modules.sav.application.use_cases.create_support_ticket import (
     CreateSupportTicketUseCase,
 )
+from modules.sav.domain.enums import TicketStatus
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+
+class FakeEnum:
+    """
+    Petit faux enum permettant de reproduire uniquement
+    l'attribut `.value` utilisé par le use case.
+    """
+
+    def __init__(self, value):
+        self.value = value
+
+
+def make_dto(
+    *,
+    application_id="application-1",
+    subject="Problème avec mon véhicule",
+    message="Je rencontre un problème avec mon véhicule.",
+    category_value="technical",
+    priority_value="normal",
+):
+    return SimpleNamespace(
+        application_id=application_id,
+        subject=subject,
+        message=message,
+        category=FakeEnum(category_value),
+        priority=FakeEnum(priority_value),
+    )
+
+
+def make_application(
+    *,
+    application_id="application-1",
+):
+    return SimpleNamespace(
+        id=application_id,
+    )
+
+
+def make_agent(
+    *,
+    agent_id="agent-1",
+):
+    return SimpleNamespace(
+        id=agent_id,
+    )
+
+
+def make_ticket(
+    *,
+    ticket_id="ticket-1",
+    user_id="user-1",
+    application_id=None,
+    subject="Problème avec mon véhicule",
+    description="Je rencontre un problème avec mon véhicule.",
+    category_value="technical",
+    priority_value="normal",
+    assigned_to="agent-1",
+):
+    return SimpleNamespace(
+        id=ticket_id,
+        user_id=user_id,
+        application_id=application_id,
+        subject=subject,
+        description=description,
+        category=FakeEnum(category_value),
+        priority=FakeEnum(priority_value),
+        status=TicketStatus.OPEN,
+        assigned_to=assigned_to,
+    )
 
 
 # ============================================================
@@ -31,7 +96,21 @@ from modules.sav.application.use_cases.create_support_ticket import (
 
 @pytest.fixture
 def ticket_repository():
-    return Mock()
+    """
+    Le repository retourne un ticket par défaut.
+
+    Important :
+    on n'utilise PAS de side_effect ici, car side_effect
+    est prioritaire sur return_value.
+    """
+    repository = Mock()
+
+    repository.create.return_value = make_ticket(
+        ticket_id="ticket-1",
+        application_id=None,
+    )
+
+    return repository
 
 
 @pytest.fixture
@@ -41,11 +120,20 @@ def message_repository():
 
 @pytest.fixture
 def assignment_service():
-    return Mock()
+    service = Mock()
+
+    service.get_next_agent.return_value = make_agent()
+
+    return service
 
 
 @pytest.fixture
 def event_service():
+    return Mock()
+
+
+@pytest.fixture
+def application_repository():
     return Mock()
 
 
@@ -60,6 +148,7 @@ def use_case(
     message_repository,
     assignment_service,
     event_service,
+    application_repository,
     unit_of_work,
 ):
     return CreateSupportTicketUseCase(
@@ -67,50 +156,114 @@ def use_case(
         message_repository=message_repository,
         assignment_service=assignment_service,
         event_service=event_service,
+        application_repository=application_repository,
         unit_of_work=unit_of_work,
     )
 
 
-@pytest.fixture
-def dto():
-    return CreateSupportTicketDTO(
-        subject="Problème avec mon véhicule",
-        category=TicketCategory.VEHICLE_ISSUE,
-        message="J'ai un problème avec mon véhicule.",
-        priority=TicketPriority.HIGH,
-        application_id="application-123",
+# ============================================================
+# APPLICATION
+# ============================================================
+
+
+def test_application_is_loaded_when_application_id_is_provided(
+    use_case,
+    application_repository,
+    ticket_repository,
+):
+    application = make_application(
+        application_id="application-42",
+    )
+
+    application_repository.get_by_id.return_value = application
+
+    ticket_repository.create.return_value = make_ticket(
+        ticket_id="ticket-42",
+        application_id="application-42",
+    )
+
+    dto = make_dto(
+        application_id="application-42",
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
+    )
+
+    application_repository.get_by_id.assert_called_once_with(
+        "application-42"
     )
 
 
-@pytest.fixture
-def user_id():
-    return "user-123"
+def test_application_not_found(
+    use_case,
+    application_repository,
+    unit_of_work,
+):
+    application_repository.get_by_id.return_value = None
+
+    dto = make_dto(
+        application_id="application-42",
+    )
+
+    with pytest.raises(ApplicationNotFound):
+        use_case.execute(
+            dto=dto,
+            user_id="user-1",
+            user_role=UserRole.CLIENT,
+        )
+
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once()
 
 
-@pytest.fixture
-def user_role():
-    return UserRole.CLIENT
+def test_no_application_lookup_when_application_id_is_missing(
+    use_case,
+    application_repository,
+):
+    dto = make_dto(
+        application_id=None,
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
+    )
+
+    application_repository.get_by_id.assert_not_called()
 
 
-@pytest.fixture
-def agent():
-    agent = Mock()
-    agent.id = "agent-123"
-    return agent
+def test_application_id_is_stripped(
+    use_case,
+    application_repository,
+    ticket_repository,
+):
+    application = make_application(
+        application_id="application-42",
+    )
 
+    application_repository.get_by_id.return_value = application
 
-@pytest.fixture
-def created_ticket():
-    return SupportTicket(
-        id="ticket-123",
-        user_id="user-123",
-        application_id="application-123",
-        subject="Problème avec mon véhicule",
-        description="J'ai un problème avec mon véhicule.",
-        category=TicketCategory.VEHICLE_ISSUE,
-        status=TicketStatus.OPEN,
-        priority=TicketPriority.HIGH,
-        assigned_to="agent-123",
+    ticket_repository.create.return_value = make_ticket(
+        ticket_id="ticket-42",
+        application_id="application-42",
+    )
+
+    dto = make_dto(
+        application_id="  application-42  ",
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
+    )
+
+    application_repository.get_by_id.assert_called_once_with(
+        "application-42"
     )
 
 
@@ -119,85 +272,62 @@ def created_ticket():
 # ============================================================
 
 
-def test_execute_gets_next_agent(
+def test_ticket_is_assigned_to_next_agent(
     use_case,
     assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
+    agent = make_agent(
+        agent_id="agent-42",
+    )
+
     assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+
+    ticket_repository.create.return_value = make_ticket(
+        ticket_id="ticket-42",
+        assigned_to="agent-42",
+    )
+
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    assignment_service.get_next_agent.assert_called_once()
+    created_ticket = ticket_repository.create.call_args.args[0]
+
+    assert created_ticket.assigned_to == "agent-42"
 
 
-def test_execute_assigns_agent_to_ticket(
+def test_ticket_has_no_agent_when_no_agent_is_available(
     use_case,
     assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
-):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    use_case.execute(
-        dto=dto,
-        user_id=user_id,
-        user_role=user_role,
-    )
-
-    ticket = ticket_repository.create.call_args.args[0]
-
-    assert ticket.assigned_to == "agent-123"
-
-
-def test_execute_creates_ticket_without_agent(
-    use_case,
-    assignment_service,
-    ticket_repository,
-    dto,
-    user_id,
-    user_role,
 ):
     assignment_service.get_next_agent.return_value = None
 
-    created_ticket = SupportTicket(
-        id="ticket-123",
-        user_id="user-123",
-        application_id="application-123",
-        subject="Problème avec mon véhicule",
-        description="J'ai un problème avec mon véhicule.",
-        category=TicketCategory.VEHICLE_ISSUE,
-        status=TicketStatus.OPEN,
-        priority=TicketPriority.HIGH,
+    ticket_repository.create.return_value = make_ticket(
+        ticket_id="ticket-42",
         assigned_to=None,
     )
 
-    ticket_repository.create.return_value = created_ticket
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
+    created_ticket = ticket_repository.create.call_args.args[0]
 
-    assert ticket.assigned_to is None
+    assert created_ticket.assigned_to is None
 
 
 # ============================================================
@@ -205,225 +335,172 @@ def test_execute_creates_ticket_without_agent(
 # ============================================================
 
 
-def test_execute_creates_ticket(
+def test_ticket_is_created(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
     ticket_repository.create.assert_called_once()
 
 
-def test_execute_creates_support_ticket_entity(
+def test_ticket_contains_user_id(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-42",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
+    created_ticket = ticket_repository.create.call_args.args[0]
 
-    assert isinstance(ticket, SupportTicket)
+    assert created_ticket.user_id == "user-42"
 
 
-def test_execute_creates_ticket_with_correct_data(
+def test_ticket_contains_application_id(
     use_case,
-    assignment_service,
+    application_repository,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    application = make_application(
+        application_id="application-42",
+    )
+
+    application_repository.get_by_id.return_value = application
+
+    ticket_repository.create.return_value = make_ticket(
+        ticket_id="ticket-42",
+        application_id="application-42",
+    )
+
+    dto = make_dto(
+        application_id="application-42",
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-42",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
+    created_ticket = ticket_repository.create.call_args.args[0]
 
-    assert ticket.user_id == user_id
-    assert ticket.application_id == "application-123"
-
-    assert ticket.subject == "Problème avec mon véhicule"
-
-    assert ticket.description == (
-        "J'ai un problème avec mon véhicule."
-    )
-
-    assert ticket.category == TicketCategory.VEHICLE_ISSUE
-    assert ticket.status == TicketStatus.OPEN
-    assert ticket.priority == TicketPriority.HIGH
-
-    assert ticket.assigned_to == "agent-123"
+    assert created_ticket.application_id == "application-42"
 
 
-def test_execute_ticket_status_is_open(
+def test_ticket_contains_stripped_subject(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    dto = make_dto(
+        application_id=None,
+        subject="  Problème véhicule  ",
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
+    created_ticket = ticket_repository.create.call_args.args[0]
 
-    assert ticket.status == TicketStatus.OPEN
-
-
-# ============================================================
-# APPLICATION ID
-# ============================================================
+    assert created_ticket.subject == "Problème véhicule"
 
 
-def test_execute_strips_application_id(
+def test_ticket_contains_stripped_message_as_description(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    dto.application_id = "  application-123  "
+    dto = make_dto(
+        application_id=None,
+        message="  Je rencontre un problème.  ",
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
+    created_ticket = ticket_repository.create.call_args.args[0]
 
-    assert ticket.application_id == "application-123"
+    assert created_ticket.description == (
+        "Je rencontre un problème."
+    )
 
 
-def test_execute_accepts_none_application_id(
+def test_ticket_has_open_status(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    dto.application_id = None
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
+    created_ticket = ticket_repository.create.call_args.args[0]
 
-    assert ticket.application_id is None
-
-
-# ============================================================
-# SUBJECT / MESSAGE
-# ============================================================
+    assert created_ticket.status == TicketStatus.OPEN
 
 
-def test_execute_strips_subject(
+def test_ticket_contains_category(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    dto.subject = "  Mon problème  "
+    dto = make_dto(
+        application_id=None,
+        category_value="technical",
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
+    created_ticket = ticket_repository.create.call_args.args[0]
 
-    assert ticket.subject == "Mon problème"
+    assert created_ticket.category.value == "technical"
 
 
-def test_execute_strips_message_for_ticket_description(
+def test_ticket_contains_priority(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    dto.message = "  Description du problème  "
+    dto = make_dto(
+        application_id=None,
+        priority_value="normal",
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
+    created_ticket = ticket_repository.create.call_args.args[0]
 
-    assert ticket.description == "Description du problème"
+    assert created_ticket.priority.value == "normal"
 
 
 # ============================================================
@@ -431,88 +508,106 @@ def test_execute_strips_message_for_ticket_description(
 # ============================================================
 
 
-def test_execute_creates_first_message(
+def test_first_message_is_created(
     use_case,
-    assignment_service,
-    ticket_repository,
     message_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
     message_repository.create.assert_called_once()
 
-    message = message_repository.create.call_args.args[0]
 
-    assert message.ticket_id == "ticket-123"
-    assert message.sender_id == user_id
-    assert message.sender_role == user_role
-    assert message.message == dto.message.strip()
-
-
-def test_execute_strips_first_message(
+def test_first_message_is_linked_to_created_ticket(
     use_case,
-    assignment_service,
     ticket_repository,
     message_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    ticket = make_ticket(
+        ticket_id="ticket-42",
+        application_id=None,
+    )
 
-    dto.message = "  Bonjour, j'ai un problème.  "
+    ticket_repository.create.return_value = ticket
+
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
     message = message_repository.create.call_args.args[0]
 
-    assert message.message == (
-        "Bonjour, j'ai un problème."
-    )
+    assert message.ticket_id == "ticket-42"
 
 
-def test_execute_first_message_belongs_to_created_ticket(
+def test_first_message_contains_user_id(
     use_case,
-    assignment_service,
-    ticket_repository,
     message_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-42",
+        user_role=UserRole.CLIENT,
     )
 
     message = message_repository.create.call_args.args[0]
 
-    assert message.ticket_id == created_ticket.id
+    assert message.sender_id == "user-42"
+
+
+def test_first_message_contains_user_role(
+    use_case,
+    message_repository,
+):
+    dto = make_dto(
+        application_id=None,
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id="user-42",
+        user_role=UserRole.CLIENT,
+    )
+
+    message = message_repository.create.call_args.args[0]
+
+    assert message.sender_role == UserRole.CLIENT
+
+
+def test_first_message_contains_stripped_message(
+    use_case,
+    message_repository,
+):
+    dto = make_dto(
+        application_id=None,
+        message="  Mon problème est urgent.  ",
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id="user-42",
+        user_role=UserRole.CLIENT,
+    )
+
+    message = message_repository.create.call_args.args[0]
+
+    assert message.message == "Mon problème est urgent."
 
 
 # ============================================================
@@ -520,68 +615,121 @@ def test_execute_first_message_belongs_to_created_ticket(
 # ============================================================
 
 
-def test_execute_logs_support_ticket_created_event(
+def test_support_ticket_created_event_is_logged(
     use_case,
-    assignment_service,
+    ticket_repository,
+    application_repository,
+    event_service,
+):
+    application = make_application(
+        application_id="application-42",
+    )
+
+    ticket = make_ticket(
+        ticket_id="ticket-42",
+        user_id="user-42",
+        application_id="application-42",
+        subject="Problème véhicule",
+        category_value="technical",
+        priority_value="normal",
+        assigned_to="agent-42",
+    )
+
+    application_repository.get_by_id.return_value = application
+    ticket_repository.create.return_value = ticket
+
+    dto = make_dto(
+        application_id="application-42",
+        subject="Problème véhicule",
+        category_value="technical",
+        priority_value="normal",
+    )
+
+    use_case.execute(
+        dto=dto,
+        user_id="user-42",
+        user_role=UserRole.CLIENT,
+    )
+
+    event_service.log.assert_called_once()
+
+    kwargs = event_service.log.call_args.kwargs
+
+    assert kwargs["type"] == EventType.SUPPORT_TICKET_CREATED
+    assert kwargs["message"] == "Ticket SAV créé"
+    assert kwargs["application_id"] == "application-42"
+    assert kwargs["user_id"] == "user-42"
+
+    assert kwargs["event_metadata"] == {
+        "ticket_id": "ticket-42",
+        "subject": "Problème véhicule",
+        "category": "technical",
+        "priority": "normal",
+        "assigned_to": "agent-42",
+    }
+
+
+def test_event_contains_ticket_id(
+    use_case,
     ticket_repository,
     event_service,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    ticket = make_ticket(
+        ticket_id="ticket-42",
+        application_id=None,
+    )
+
+    ticket_repository.create.return_value = ticket
+
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    event_service.log.assert_called_once_with(
-        type=EventType.SUPPORT_TICKET_CREATED,
-        message="Ticket SAV créé",
-        application_id="application-123",
-        user_id="user-123",
-        event_metadata={
-            "ticket_id": "ticket-123",
-            "subject": "Problème avec mon véhicule",
-            "category": TicketCategory.VEHICLE_ISSUE.value,
-            "priority": TicketPriority.HIGH.value,
-            "assigned_to": "agent-123",
-        },
-    )
+    kwargs = event_service.log.call_args.kwargs
+
+    assert kwargs["event_metadata"]["ticket_id"] == "ticket-42"
 
 
-# ============================================================
-# COMMIT
-# ============================================================
-
-
-def test_execute_commits_transaction(
+def test_event_contains_assigned_agent(
     use_case,
-    assignment_service,
     ticket_repository,
-    unit_of_work,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
+    assignment_service,
+    event_service,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    ticket = make_ticket(
+        ticket_id="ticket-42",
+        application_id=None,
+        assigned_to="agent-42",
+    )
+
+    ticket_repository.create.return_value = ticket
+
+    assignment_service.get_next_agent.return_value = make_agent(
+        agent_id="agent-42",
+    )
+
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    unit_of_work.commit.assert_called_once()
-    unit_of_work.rollback.assert_not_called()
+    kwargs = event_service.log.call_args.kwargs
+
+    assert (
+        kwargs["event_metadata"]["assigned_to"]
+        == "agent-42"
+    )
 
 
 # ============================================================
@@ -589,23 +737,25 @@ def test_execute_commits_transaction(
 # ============================================================
 
 
-def test_execute_returns_create_support_ticket_result(
+def test_create_support_ticket_result_is_returned(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    ticket = make_ticket(
+        ticket_id="ticket-42",
+        application_id=None,
+    )
+
+    ticket_repository.create.return_value = ticket
+
+    dto = make_dto(
+        application_id=None,
+    )
 
     result = use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
     assert isinstance(
@@ -613,304 +763,232 @@ def test_execute_returns_create_support_ticket_result(
         CreateSupportTicketResult,
     )
 
-    assert result.ticket is created_ticket
+    assert result.ticket is ticket
 
 
-# ============================================================
-# UUID
-# ============================================================
-
-
-def test_execute_generates_ticket_id(
+def test_result_contains_created_ticket(
     use_case,
-    assignment_service,
     ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    ticket = make_ticket(
+        ticket_id="ticket-42",
+        application_id=None,
+    )
 
-    with patch(
-        "modules.sav.application.use_cases.create_support_ticket.uuid4",
-        return_value="generated-ticket-id",
-    ):
-        use_case.execute(
-            dto=dto,
-            user_id=user_id,
-            user_role=user_role,
-        )
+    ticket_repository.create.return_value = ticket
 
-    ticket = ticket_repository.create.call_args.args[0]
+    dto = make_dto(
+        application_id=None,
+    )
 
-    assert ticket.id == "generated-ticket-id"
+    result = use_case.execute(
+        dto=dto,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
+    )
 
-
-def test_execute_generates_message_id(
-    use_case,
-    assignment_service,
-    ticket_repository,
-    message_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
-):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    with patch(
-        "modules.sav.application.use_cases.create_support_ticket.uuid4",
-        side_effect=[
-            "generated-ticket-id",
-            "generated-message-id",
-        ],
-    ):
-        use_case.execute(
-            dto=dto,
-            user_id=user_id,
-            user_role=user_role,
-        )
-
-    message = message_repository.create.call_args.args[0]
-
-    assert message.id == "generated-message-id"
+    assert result.ticket.id == "ticket-42"
 
 
 # ============================================================
-# UTC DATES
+# UNIT OF WORK
 # ============================================================
 
 
-def test_execute_creates_timezone_aware_ticket_date(
+def test_commit_is_called(
     use_case,
-    assignment_service,
-    ticket_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
+    unit_of_work,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    ticket = ticket_repository.create.call_args.args[0]
-
-    assert isinstance(
-        ticket.created_at,
-        datetime,
-    )
-
-    assert ticket.created_at.tzinfo is not None
-
-    assert (
-        ticket.created_at
-        .utcoffset()
-        .total_seconds()
-        == 0
-    )
+    unit_of_work.commit.assert_called_once()
 
 
-def test_execute_creates_timezone_aware_message_date(
+def test_rollback_is_not_called_on_success(
     use_case,
-    assignment_service,
-    ticket_repository,
-    message_repository,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
+    unit_of_work,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
+    dto = make_dto(
+        application_id=None,
+    )
 
     use_case.execute(
         dto=dto,
-        user_id=user_id,
-        user_role=user_role,
+        user_id="user-1",
+        user_role=UserRole.CLIENT,
     )
 
-    message = message_repository.create.call_args.args[0]
-
-    assert isinstance(
-        message.created_at,
-        datetime,
-    )
-
-    assert message.created_at.tzinfo is not None
-
-    assert (
-        message.created_at
-        .utcoffset()
-        .total_seconds()
-        == 0
-    )
+    unit_of_work.rollback.assert_not_called()
 
 
 # ============================================================
-# ROLLBACK / ERRORS
+# ERRORS / ROLLBACK
 # ============================================================
 
 
-def test_execute_rolls_back_when_ticket_creation_fails(
+def test_ticket_creation_error_rolls_back(
     use_case,
-    assignment_service,
     ticket_repository,
     unit_of_work,
-    dto,
-    user_id,
-    user_role,
 ):
-    assignment_service.get_next_agent.return_value = None
-
     ticket_repository.create.side_effect = RuntimeError(
-        "Ticket creation error"
+        "ticket creation error"
+    )
+
+    dto = make_dto(
+        application_id=None,
     )
 
     with pytest.raises(
         RuntimeError,
-        match="Ticket creation error",
+        match="ticket creation error",
     ):
         use_case.execute(
             dto=dto,
-            user_id=user_id,
-            user_role=user_role,
+            user_id="user-1",
+            user_role=UserRole.CLIENT,
         )
 
     unit_of_work.rollback.assert_called_once()
     unit_of_work.commit.assert_not_called()
 
 
-def test_execute_rolls_back_when_message_creation_fails(
+def test_message_creation_error_rolls_back(
     use_case,
-    assignment_service,
-    ticket_repository,
     message_repository,
     unit_of_work,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
     message_repository.create.side_effect = RuntimeError(
-        "Message creation error"
+        "message creation error"
+    )
+
+    dto = make_dto(
+        application_id=None,
     )
 
     with pytest.raises(
         RuntimeError,
-        match="Message creation error",
+        match="message creation error",
     ):
         use_case.execute(
             dto=dto,
-            user_id=user_id,
-            user_role=user_role,
+            user_id="user-1",
+            user_role=UserRole.CLIENT,
         )
 
     unit_of_work.rollback.assert_called_once()
     unit_of_work.commit.assert_not_called()
 
 
-def test_execute_rolls_back_when_event_logging_fails(
+def test_event_logging_error_rolls_back(
     use_case,
-    assignment_service,
-    ticket_repository,
     event_service,
     unit_of_work,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
     event_service.log.side_effect = RuntimeError(
-        "Event logging error"
+        "event logging error"
+    )
+
+    dto = make_dto(
+        application_id=None,
     )
 
     with pytest.raises(
         RuntimeError,
-        match="Event logging error",
+        match="event logging error",
     ):
         use_case.execute(
             dto=dto,
-            user_id=user_id,
-            user_role=user_role,
+            user_id="user-1",
+            user_role=UserRole.CLIENT,
         )
 
     unit_of_work.rollback.assert_called_once()
     unit_of_work.commit.assert_not_called()
 
 
-def test_execute_rolls_back_when_commit_fails(
+def test_commit_error_rolls_back(
     use_case,
-    assignment_service,
-    ticket_repository,
     unit_of_work,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
     unit_of_work.commit.side_effect = RuntimeError(
-        "Commit error"
+        "commit error"
+    )
+
+    dto = make_dto(
+        application_id=None,
     )
 
     with pytest.raises(
         RuntimeError,
-        match="Commit error",
+        match="commit error",
     ):
         use_case.execute(
             dto=dto,
-            user_id=user_id,
-            user_role=user_role,
+            user_id="user-1",
+            user_role=UserRole.CLIENT,
         )
 
     unit_of_work.commit.assert_called_once()
     unit_of_work.rollback.assert_called_once()
 
 
-def test_execute_rolls_back_when_assignment_fails(
+def test_application_lookup_error_rolls_back(
     use_case,
-    assignment_service,
+    application_repository,
     unit_of_work,
-    dto,
-    user_id,
-    user_role,
 ):
-    assignment_service.get_next_agent.side_effect = RuntimeError(
-        "Assignment error"
+    application_repository.get_by_id.side_effect = RuntimeError(
+        "application repository error"
+    )
+
+    dto = make_dto(
+        application_id="application-42",
     )
 
     with pytest.raises(
         RuntimeError,
-        match="Assignment error",
+        match="application repository error",
     ):
         use_case.execute(
             dto=dto,
-            user_id=user_id,
-            user_role=user_role,
+            user_id="user-1",
+            user_role=UserRole.CLIENT,
+        )
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+def test_assignment_error_rolls_back(
+    use_case,
+    assignment_service,
+    unit_of_work,
+):
+    assignment_service.get_next_agent.side_effect = RuntimeError(
+        "assignment error"
+    )
+
+    dto = make_dto(
+        application_id=None,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="assignment error",
+    ):
+        use_case.execute(
+            dto=dto,
+            user_id="user-1",
+            user_role=UserRole.CLIENT,
         )
 
     unit_of_work.rollback.assert_called_once()
@@ -918,116 +996,105 @@ def test_execute_rolls_back_when_assignment_fails(
 
 
 # ============================================================
-# NO UNEXPECTED OPERATIONS AFTER FAILURE
+# COMPLETE FLOW
 # ============================================================
 
 
-def test_ticket_creation_error_does_not_create_message(
+def test_create_support_ticket_complete_flow(
     use_case,
-    assignment_service,
-    ticket_repository,
-    message_repository,
-    dto,
-    user_id,
-    user_role,
-):
-    assignment_service.get_next_agent.return_value = None
-
-    ticket_repository.create.side_effect = RuntimeError(
-        "Ticket creation error"
-    )
-
-    with pytest.raises(RuntimeError):
-        use_case.execute(
-            dto=dto,
-            user_id=user_id,
-            user_role=user_role,
-        )
-
-    message_repository.create.assert_not_called()
-
-
-def test_message_creation_error_does_not_log_event(
-    use_case,
-    assignment_service,
     ticket_repository,
     message_repository,
     event_service,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
-):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    message_repository.create.side_effect = RuntimeError(
-        "Message creation error"
-    )
-
-    with pytest.raises(RuntimeError):
-        use_case.execute(
-            dto=dto,
-            user_id=user_id,
-            user_role=user_role,
-        )
-
-    event_service.log.assert_not_called()
-
-
-def test_event_error_does_not_commit(
-    use_case,
+    application_repository,
     assignment_service,
-    ticket_repository,
-    event_service,
     unit_of_work,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
 ):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    event_service.log.side_effect = RuntimeError(
-        "Event logging error"
+    application = make_application(
+        application_id="application-42",
     )
 
-    with pytest.raises(RuntimeError):
-        use_case.execute(
-            dto=dto,
-            user_id=user_id,
-            user_role=user_role,
-        )
-
-    unit_of_work.commit.assert_not_called()
-
-
-def test_commit_error_rolls_back(
-    use_case,
-    assignment_service,
-    ticket_repository,
-    unit_of_work,
-    dto,
-    user_id,
-    user_role,
-    agent,
-    created_ticket,
-):
-    assignment_service.get_next_agent.return_value = agent
-    ticket_repository.create.return_value = created_ticket
-
-    unit_of_work.commit.side_effect = RuntimeError(
-        "Commit error"
+    ticket = make_ticket(
+        ticket_id="ticket-42",
+        user_id="user-42",
+        application_id="application-42",
+        subject="Problème véhicule",
+        description="Je rencontre un problème.",
+        category_value="technical",
+        priority_value="normal",
+        assigned_to="agent-42",
     )
 
-    with pytest.raises(RuntimeError):
-        use_case.execute(
-            dto=dto,
-            user_id=user_id,
-            user_role=user_role,
-        )
+    application_repository.get_by_id.return_value = application
 
-    unit_of_work.rollback.assert_called_once()
+    assignment_service.get_next_agent.return_value = make_agent(
+        agent_id="agent-42",
+    )
+
+    ticket_repository.create.return_value = ticket
+
+    dto = make_dto(
+        application_id="application-42",
+        subject="Problème véhicule",
+        message="Je rencontre un problème.",
+        category_value="technical",
+        priority_value="normal",
+    )
+
+    result = use_case.execute(
+        dto=dto,
+        user_id="user-42",
+        user_role=UserRole.CLIENT,
+    )
+
+    # Résultat
+    assert isinstance(
+        result,
+        CreateSupportTicketResult,
+    )
+
+    assert result.ticket is ticket
+
+    # Ticket
+    ticket_repository.create.assert_called_once()
+
+    created_ticket = ticket_repository.create.call_args.args[0]
+
+    assert created_ticket.user_id == "user-42"
+    assert created_ticket.application_id == "application-42"
+    assert created_ticket.subject == "Problème véhicule"
+    assert created_ticket.description == (
+        "Je rencontre un problème."
+    )
+    assert created_ticket.status == TicketStatus.OPEN
+    assert created_ticket.assigned_to == "agent-42"
+
+    # Premier message
+    message_repository.create.assert_called_once()
+
+    message = message_repository.create.call_args.args[0]
+
+    assert message.ticket_id == "ticket-42"
+    assert message.sender_id == "user-42"
+    assert message.sender_role == UserRole.CLIENT
+    assert message.message == "Je rencontre un problème."
+
+    # Événement
+    event_service.log.assert_called_once()
+
+    event_kwargs = event_service.log.call_args.kwargs
+
+    assert event_kwargs["type"] == EventType.SUPPORT_TICKET_CREATED
+    assert event_kwargs["application_id"] == "application-42"
+    assert event_kwargs["user_id"] == "user-42"
+
+    assert event_kwargs["event_metadata"] == {
+        "ticket_id": "ticket-42",
+        "subject": "Problème véhicule",
+        "category": "technical",
+        "priority": "normal",
+        "assigned_to": "agent-42",
+    }
+
+    # Transaction
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_not_called()

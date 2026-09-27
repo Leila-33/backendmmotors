@@ -1,25 +1,24 @@
-from datetime import datetime
-from unittest.mock import AsyncMock, Mock
-
 import pytest
+from unittest.mock import AsyncMock, Mock
+from types import SimpleNamespace
 
-from modules.auth.domain.enums import UserRole
-from modules.auth.domain.exceptions import Forbidden
-from modules.notifications.domain.enums import (
-    NotificationEntityType,
-    NotificationType,
+from modules.sav.application.dtos.agent.update_support_ticket_status_dto import (
+    UpdateSupportTicketStatusDTO,
 )
-from modules.test_drives.application.dtos.update_test_drive_status_dto import (
-    UpdateTestDriveStatusDTO,
+from modules.sav.application.results.agent.update_support_ticket_status_result import (
+    UpdateSupportTicketStatusResult,
 )
-from modules.test_drives.application.use_cases.update_test_drive_status import (
-    UpdateTestDriveStatusUseCase,
+from modules.sav.application.use_cases.agent.update_support_ticket_status import (
+    UpdateSupportTicketStatusUseCase,
 )
-from modules.test_drives.domain.entities.test_drive import TestDrive
-from modules.test_drives.domain.enums import TestDriveStatus
-from modules.test_drives.domain.exceptions import (
-    TestDriveNotFound,
-    TestDriveStatusForbidden,
+from modules.sav.domain.exceptions import (
+    SupportTicketNotFound,
+)
+from modules.sav.domain.enums import (
+    TicketStatus,
+)
+from modules.applications.domain.enums import (
+    EventType,
 )
 
 
@@ -28,55 +27,44 @@ from modules.test_drives.domain.exceptions import (
 # ============================================================
 
 
-def make_test_drive(
+def make_ticket(
     *,
-    test_drive_id="test-drive-1",
+    ticket_id="ticket-1",
+    application_id="application-1",
     user_id="user-1",
-    vehicle_id="vehicle-1",
-    appointment_date=datetime(2026, 9, 15, 14, 30),
-    status=TestDriveStatus.PENDING,
-    user=None,
-    vehicle=None,
+    assigned_to="agent-1",
+    status=None,
 ):
-    return TestDrive(
-        id=test_drive_id,
+    if status is None:
+        status = next(iter(TicketStatus))
+
+    return SimpleNamespace(
+        id=ticket_id,
+        application_id=application_id,
         user_id=user_id,
-        vehicle_id=vehicle_id,
-        appointment_date=appointment_date,
+        assigned_to=assigned_to,
         status=status,
-        comment=None,
-        created_at=datetime(2026, 9, 1, 10, 0),
-        user=user,
-        vehicle=vehicle,
-    )
-
-
-def make_user():
-    return Mock(
-        id="user-1",
-        email="client@example.com",
-    )
-
-
-def make_vehicle():
-    return Mock(
-        brand="BMW",
-        model="Série 3",
     )
 
 
 def make_dto(
     *,
-    test_drive_id="test-drive-1",
-    status=TestDriveStatus.CONFIRMED,
-    actor_id="user-1",
-    actor_role=UserRole.CLIENT,
+    ticket_id="ticket-1",
+    user_id="agent-1",
+    status=None,
 ):
-    return UpdateTestDriveStatusDTO(
-        test_drive_id=test_drive_id,
+    if status is None:
+        statuses = list(TicketStatus)
+
+        if len(statuses) < 2:
+            status = statuses[0]
+        else:
+            status = statuses[1]
+
+    return SimpleNamespace(
+        ticket_id=ticket_id,
+        user_id=user_id,
         status=status,
-        actor_id=actor_id,
-        actor_role=actor_role,
     )
 
 
@@ -86,8 +74,15 @@ def make_dto(
 
 
 @pytest.fixture
-def repository():
+def repo():
     return Mock()
+
+
+@pytest.fixture
+def chat_manager():
+    manager = Mock()
+    manager.broadcast = AsyncMock()
+    return manager
 
 
 @pytest.fixture
@@ -96,166 +91,58 @@ def event_service():
 
 
 @pytest.fixture
-def notification_service():
-    service = Mock()
-    service.send = AsyncMock()
-    return service
-
-
-@pytest.fixture
-def uow():
+def unit_of_work():
     return Mock()
 
 
 @pytest.fixture
 def use_case(
-    repository,
+    repo,
+    chat_manager,
     event_service,
-    notification_service,
-    uow,
+    unit_of_work,
 ):
-    return UpdateTestDriveStatusUseCase(
-        repository=repository,
+    return UpdateSupportTicketStatusUseCase(
+        repo=repo,
+        chat_manager=chat_manager,
         event_service=event_service,
-        unit_of_work=uow,
-        notification_service=notification_service,
+        unit_of_work=unit_of_work,
     )
 
 
+@pytest.fixture
+def ticket():
+    return make_ticket()
+
+
 # ============================================================
-# NOT FOUND
+# TICKET NOT FOUND
 # ============================================================
 
 
-def test_test_drive_not_found(
+@pytest.mark.asyncio
+async def test_ticket_not_found(
     use_case,
-    repository,
-    uow,
+    repo,
+    unit_of_work,
 ):
-    repository.get_full_by_id.return_value = None
-
     dto = make_dto()
 
-    with pytest.raises(TestDriveNotFound):
-        import asyncio
+    repo.get_by_id.return_value = None
 
-        asyncio.run(
-            use_case.execute(dto)
-        )
+    with pytest.raises(
+        SupportTicketNotFound
+    ):
+        await use_case.execute(dto)
 
-    repository.get_full_by_id.assert_called_once_with(
-        "test-drive-1"
+    repo.get_by_id.assert_called_once_with(
+        "ticket-1"
     )
 
-    uow.rollback.assert_not_called()
-    uow.commit.assert_not_called()
+    repo.update.assert_not_called()
 
-
-# ============================================================
-# SECURITY — CLIENT
-# ============================================================
-
-
-def test_client_cannot_update_another_users_test_drive(
-    use_case,
-    repository,
-    uow,
-):
-    test_drive = make_test_drive(
-        user_id="owner-1"
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-
-    dto = make_dto(
-        actor_id="another-user",
-        status=TestDriveStatus.CANCELLED,
-        actor_role=UserRole.CLIENT,
-    )
-
-    with pytest.raises(Forbidden):
-        import asyncio
-
-        asyncio.run(
-            use_case.execute(dto)
-        )
-
-    repository.update.assert_not_called()
-    uow.commit.assert_not_called()
-    uow.rollback.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "status",
-    [
-        TestDriveStatus.PENDING,
-        TestDriveStatus.CONFIRMED,
-        TestDriveStatus.REJECTED,
-        TestDriveStatus.COMPLETED,
-    ],
-)
-def test_client_can_only_cancel_test_drive(
-    status,
-    use_case,
-    repository,
-    uow,
-):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-
-    dto = make_dto(
-        status=status,
-        actor_role=UserRole.CLIENT,
-        actor_id="user-1",
-    )
-
-    with pytest.raises(TestDriveStatusForbidden):
-        import asyncio
-
-        asyncio.run(
-            use_case.execute(dto)
-        )
-
-    repository.update.assert_not_called()
-    uow.commit.assert_not_called()
-    uow.rollback.assert_not_called()
-
-
-def test_client_can_cancel_own_test_drive(
-    use_case,
-    repository,
-    uow,
-):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
-
-    dto = make_dto(
-        status=TestDriveStatus.CANCELLED,
-        actor_id="user-1",
-        actor_role=UserRole.CLIENT,
-    )
-
-    import asyncio
-
-    result = asyncio.run(
-        use_case.execute(dto)
-    )
-
-    assert result is test_drive
-    assert test_drive.status == TestDriveStatus.CANCELLED
-
-    repository.update.assert_called_once_with(
-        test_drive
-    )
-
-    uow.commit.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once()
 
 
 # ============================================================
@@ -263,632 +150,666 @@ def test_client_can_cancel_own_test_drive(
 # ============================================================
 
 
-def test_returns_without_updating_when_status_is_unchanged(
+@pytest.mark.asyncio
+async def test_same_status_returns_without_update(
     use_case,
-    repository,
+    repo,
     event_service,
-    notification_service,
-    uow,
+    chat_manager,
+    unit_of_work,
+    ticket,
 ):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.CONFIRMED
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-
     dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        ticket_id="ticket-1",
+        status=ticket.status,
     )
 
-    import asyncio
+    repo.get_by_id.return_value = ticket
 
-    result = asyncio.run(
-        use_case.execute(dto)
+    result = await use_case.execute(dto)
+
+    assert isinstance(
+        result,
+        UpdateSupportTicketStatusResult,
     )
 
-    assert result is test_drive
+    assert result.ticket is ticket
 
-    repository.update.assert_not_called()
+    repo.update.assert_not_called()
+
     event_service.log.assert_not_called()
-    notification_service.send.assert_not_called()
-    uow.commit.assert_not_called()
-    uow.rollback.assert_not_called()
+
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_not_called()
+
+    chat_manager.broadcast.assert_not_awaited()
 
 
 # ============================================================
-# UPDATE STATUS
+# STATUS UPDATE
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "new_status",
-    [
-        TestDriveStatus.CONFIRMED,
-        TestDriveStatus.REJECTED,
-        TestDriveStatus.CANCELLED,
-        TestDriveStatus.COMPLETED,
-    ],
-)
-def test_status_is_updated(
-    new_status,
+@pytest.mark.asyncio
+async def test_ticket_status_is_updated(
     use_case,
-    repository,
-    uow,
+    repo,
+    unit_of_work,
+    ticket,
 ):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
+    statuses = list(TicketStatus)
 
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
+
+    old_status = statuses[0]
+    new_status = statuses[1]
+
+    ticket.status = old_status
 
     dto = make_dto(
+        ticket_id="ticket-1",
         status=new_status,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
     )
 
-    import asyncio
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
 
-    result = asyncio.run(
-        use_case.execute(dto)
+    result = await use_case.execute(dto)
+
+    assert ticket.status == new_status
+
+    repo.update.assert_called_once_with(
+        ticket
     )
 
-    assert result is test_drive
-    assert test_drive.status == new_status
+    assert result.ticket is ticket
 
-    repository.update.assert_called_once_with(
-        test_drive
-    )
-
-    uow.commit.assert_called_once()
-
-
-def test_repository_updated_test_drive_is_used(
-    use_case,
-    repository,
-):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
-
-    updated_test_drive = make_test_drive(
-        status=TestDriveStatus.CONFIRMED
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = updated_test_drive
-
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
-    )
-
-    import asyncio
-
-    result = asyncio.run(
-        use_case.execute(dto)
-    )
-
-    # Le use case retourne actuellement test_drive
-    # et non updated_test_drive.
-    assert result is test_drive
-
-    repository.update.assert_called_once_with(
-        test_drive
-    )
+    unit_of_work.commit.assert_called_once()
 
 
 # ============================================================
-# EVENTS
+# REPOSITORY UPDATE
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        TestDriveStatus.CONFIRMED,
-        TestDriveStatus.REJECTED,
-        TestDriveStatus.CANCELLED,
-        TestDriveStatus.COMPLETED,
-    ],
-)
-def test_event_is_logged(
-    status,
+@pytest.mark.asyncio
+async def test_updated_ticket_returned_by_repository_is_used(
     use_case,
-    repository,
+    repo,
     event_service,
+    unit_of_work,
+    ticket,
 ):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
+    statuses = list(TicketStatus)
 
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
+
+    old_status = statuses[0]
+    new_status = statuses[1]
+
+    ticket.status = old_status
 
     dto = make_dto(
-        status=status,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        ticket_id="ticket-1",
+        status=new_status,
     )
 
-    import asyncio
-
-    asyncio.run(
-        use_case.execute(dto)
+    updated_ticket = make_ticket(
+        ticket_id="ticket-1",
+        application_id="application-42",
+        user_id="user-42",
+        assigned_to="agent-42",
+        status=new_status,
     )
+
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = updated_ticket
+
+    result = await use_case.execute(dto)
+
+    assert result.ticket is updated_ticket
 
     event_service.log.assert_called_once()
 
-    call_kwargs = (
-        event_service.log.call_args.kwargs
+    event_kwargs = event_service.log.call_args.kwargs
+
+    assert event_kwargs["application_id"] == (
+        "application-42"
     )
 
-    assert call_kwargs["test_drive_id"] == (
-        "test-drive-1"
+    assert event_kwargs["event_metadata"]["ticket_id"] == (
+        "ticket-1"
     )
 
-    assert call_kwargs["vehicle_id"] == (
-        "vehicle-1"
+    assert event_kwargs["event_metadata"]["ticket_owner"] == (
+        "user-42"
     )
 
-    assert call_kwargs["user_id"] == (
-        "agent-1"
+    assert event_kwargs["event_metadata"]["assigned_to"] == (
+        "agent-42"
     )
 
-    assert call_kwargs["event_metadata"] == {
-        "customer_id": "user-1",
-        "old_status": "pending",
-        "new_status": status.value,
-    }
+
+# ============================================================
+# EVENT
+# ============================================================
 
 
-def test_event_message_contains_new_status_label(
+@pytest.mark.asyncio
+async def test_status_changed_event_is_logged(
     use_case,
-    repository,
+    repo,
     event_service,
+    unit_of_work,
+    ticket,
 ):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
+    statuses = list(TicketStatus)
 
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
+
+    old_status = statuses[0]
+    new_status = statuses[1]
+
+    ticket.status = old_status
 
     dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        ticket_id="ticket-1",
+        user_id="agent-42",
+        status=new_status,
     )
 
-    import asyncio
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
 
-    asyncio.run(
-        use_case.execute(dto)
+    await use_case.execute(dto)
+
+    event_service.log.assert_called_once_with(
+        type=EventType.SUPPORT_TICKET_STATUS_CHANGED,
+        message="Statut du ticket SAV modifié",
+        application_id="application-1",
+        user_id="agent-42",
+        event_metadata={
+            "ticket_id": "ticket-1",
+            "old_status": old_status.value,
+            "new_status": new_status.value,
+            "ticket_owner": "user-1",
+            "assigned_to": "agent-1",
+        },
     )
 
-    message = (
-        event_service.log.call_args.kwargs[
-            "message"
-        ]
-    )
-
-    assert message == (
-        "Statut de l'essai routier changé vers "
-        "Confirmé"
-    )
+    unit_of_work.commit.assert_called_once()
 
 
 # ============================================================
-# NOTIFICATIONS
+# COMMIT
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "status, notification_type, title",
-    [
-        (
-            TestDriveStatus.CONFIRMED,
-            NotificationType.TEST_DRIVE_CONFIRMED,
-            "Essai routier confirmé",
-        ),
-        (
-            TestDriveStatus.REJECTED,
-            NotificationType.TEST_DRIVE_REJECTED,
-            "Essai routier refusé",
-        ),
-        (
-            TestDriveStatus.CANCELLED,
-            NotificationType.TEST_DRIVE_CANCELLED,
-            "Essai routier annulé",
-        ),
-        (
-            TestDriveStatus.COMPLETED,
-            NotificationType.TEST_DRIVE_COMPLETED,
-            "Essai routier terminé",
-        ),
-    ],
-)
-def test_notification_is_sent(
-    status,
-    notification_type,
-    title,
+@pytest.mark.asyncio
+async def test_commit_is_called(
     use_case,
-    repository,
-    notification_service,
+    repo,
+    unit_of_work,
+    ticket,
 ):
-    user = make_user()
-    vehicle = make_vehicle()
+    statuses = list(TicketStatus)
 
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING,
-        user=user,
-        vehicle=vehicle,
-    )
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
 
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+    ticket.status = statuses[0]
 
     dto = make_dto(
-        status=status,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        status=statuses[1]
     )
 
-    import asyncio
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
 
-    asyncio.run(
-        use_case.execute(dto)
-    )
+    await use_case.execute(dto)
 
-    notification_service.send.assert_called_once()
-
-    call_kwargs = (
-        notification_service.send.call_args.kwargs
-    )
-
-    assert call_kwargs["user_id"] == "user-1"
-
-    assert call_kwargs["email"] == (
-        "client@example.com"
-    )
-
-    assert call_kwargs["entity_type"] == (
-        NotificationEntityType.TEST_DRIVE
-    )
-
-    assert call_kwargs["entity_id"] == (
-        "test-drive-1"
-    )
-
-    assert call_kwargs["title"] == title
-
-    assert call_kwargs["notif_type"] == (
-        notification_type
-    )
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_not_called()
 
 
-def test_no_notification_service_means_no_notification(
-    repository,
-    event_service,
-    uow,
+# ============================================================
+# WEBSOCKET
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_websocket_broadcast_is_sent(
+    use_case,
+    repo,
+    chat_manager,
+    unit_of_work,
+    ticket,
 ):
-    use_case = UpdateTestDriveStatusUseCase(
-        repository=repository,
-        event_service=event_service,
-        unit_of_work=uow,
-        notification_service=None,
-    )
+    statuses = list(TicketStatus)
 
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
 
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+    old_status = statuses[0]
+    new_status = statuses[1]
+
+    ticket.status = old_status
 
     dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        ticket_id="ticket-1",
+        status=new_status,
     )
 
-    import asyncio
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
 
-    result = asyncio.run(
-        use_case.execute(dto)
+    await use_case.execute(dto)
+
+    chat_manager.broadcast.assert_awaited_once_with(
+        ticket_id="ticket-1",
+        payload={
+            "type": "STATUS_UPDATED",
+            "data": {
+                "ticket_id": "ticket-1",
+                "old_status": old_status.value,
+                "status": new_status.value,
+            },
+        },
     )
 
-    assert result is test_drive
-    uow.commit.assert_called_once()
+    unit_of_work.commit.assert_called_once()
 
 
-def test_no_notification_when_user_is_missing(
+# ============================================================
+# WEBSOCKET AFTER COMMIT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_websocket_is_called_after_commit(
     use_case,
-    repository,
-    notification_service,
+    repo,
+    chat_manager,
+    unit_of_work,
+    ticket,
 ):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING,
-        user=None,
-    )
+    statuses = list(TicketStatus)
 
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
+
+    ticket.status = statuses[0]
 
     dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        status=statuses[1]
     )
 
-    import asyncio
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
 
-    asyncio.run(
-        use_case.execute(dto)
+    call_order = []
+
+    unit_of_work.commit.side_effect = (
+        lambda: call_order.append("commit")
     )
 
-    notification_service.send.assert_not_called()
+    async def broadcast(*args, **kwargs):
+        call_order.append("broadcast")
+
+    chat_manager.broadcast.side_effect = broadcast
+
+    await use_case.execute(dto)
+
+    assert call_order == [
+        "commit",
+        "broadcast",
+    ]
 
 
 # ============================================================
-# BUILD NOTIFICATION
+# ROLLBACK — REPOSITORY GET
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "status, expected_type, expected_title",
-    [
-        (
-            TestDriveStatus.CONFIRMED,
-            NotificationType.TEST_DRIVE_CONFIRMED,
-            "Essai routier confirmé",
-        ),
-        (
-            TestDriveStatus.REJECTED,
-            NotificationType.TEST_DRIVE_REJECTED,
-            "Essai routier refusé",
-        ),
-        (
-            TestDriveStatus.CANCELLED,
-            NotificationType.TEST_DRIVE_CANCELLED,
-            "Essai routier annulé",
-        ),
-        (
-            TestDriveStatus.COMPLETED,
-            NotificationType.TEST_DRIVE_COMPLETED,
-            "Essai routier terminé",
-        ),
-    ],
-)
-def test_build_notification(
+@pytest.mark.asyncio
+async def test_get_ticket_error_rolls_back(
     use_case,
-    status,
-    expected_type,
-    expected_title,
+    repo,
+    unit_of_work,
 ):
-    test_drive = make_test_drive(
-        user=make_user(),
-        vehicle=make_vehicle(),
+    dto = make_dto()
+
+    repo.get_by_id.side_effect = RuntimeError(
+        "repository error"
     )
 
-    result = use_case._build_notification(
-        status,
-        test_drive,
-    )
+    with pytest.raises(
+        RuntimeError,
+        match="repository error",
+    ):
+        await use_case.execute(dto)
 
-    assert result["type"] == expected_type
-    assert result["title"] == expected_title
-
-    assert "15/09/2026 à 14:30" in (
-        result["message"]
-    )
-
-
-def test_build_cancelled_notification_does_not_require_vehicle(
-    use_case,
-):
-    test_drive = make_test_drive(
-        vehicle=None
-    )
-
-    result = use_case._build_notification(
-        TestDriveStatus.CANCELLED,
-        test_drive,
-    )
-
-    assert result["type"] == (
-        NotificationType.TEST_DRIVE_CANCELLED
-    )
-
-    assert "15/09/2026 à 14:30" in (
-        result["message"]
-    )
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
 # ============================================================
-# ROLLBACK — ERRORS
+# ROLLBACK — REPOSITORY UPDATE
 # ============================================================
 
 
-def test_repository_update_error_rolls_back(
+@pytest.mark.asyncio
+async def test_update_error_rolls_back(
     use_case,
-    repository,
-    uow,
+    repo,
+    unit_of_work,
+    ticket,
 ):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
+    statuses = list(TicketStatus)
+
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
+
+    ticket.status = statuses[0]
+
+    dto = make_dto(
+        status=statuses[1]
     )
 
-    repository.get_full_by_id.return_value = test_drive
+    repo.get_by_id.return_value = ticket
 
-    repository.update.side_effect = RuntimeError(
+    repo.update.side_effect = RuntimeError(
         "update error"
-    )
-
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
     )
 
     with pytest.raises(
         RuntimeError,
         match="update error",
     ):
-        import asyncio
+        await use_case.execute(dto)
 
-        asyncio.run(
-            use_case.execute(dto)
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+# ============================================================
+# ROLLBACK — EVENT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_event_error_rolls_back(
+    use_case,
+    repo,
+    event_service,
+    unit_of_work,
+    ticket,
+):
+    statuses = list(TicketStatus)
+
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
         )
 
-    uow.rollback.assert_called_once()
-    uow.commit.assert_not_called()
+    ticket.status = statuses[0]
 
-
-def test_event_error_rolls_back(
-    use_case,
-    repository,
-    event_service,
-    uow,
-):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
+    dto = make_dto(
+        status=statuses[1]
     )
 
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
 
     event_service.log.side_effect = RuntimeError(
         "event error"
-    )
-
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
     )
 
     with pytest.raises(
         RuntimeError,
         match="event error",
     ):
-        import asyncio
+        await use_case.execute(dto)
 
-        asyncio.run(
-            use_case.execute(dto)
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+# ============================================================
+# ROLLBACK — COMMIT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_commit_error_rolls_back(
+    use_case,
+    repo,
+    unit_of_work,
+    ticket,
+):
+    statuses = list(TicketStatus)
+
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
         )
 
-    uow.rollback.assert_called_once()
-    uow.commit.assert_not_called()
-
-
-def test_notification_error_rolls_back(
-    use_case,
-    repository,
-    notification_service,
-    uow,
-):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING,
-        user=make_user(),
-        vehicle=make_vehicle(),
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
-
-    notification_service.send.side_effect = (
-        RuntimeError("notification error")
-    )
+    ticket.status = statuses[0]
 
     dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        status=statuses[1]
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match="notification error",
-    ):
-        import asyncio
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
 
-        asyncio.run(
-            use_case.execute(dto)
-        )
-
-    uow.rollback.assert_called_once()
-    uow.commit.assert_not_called()
-
-
-def test_commit_error_rolls_back(
-    use_case,
-    repository,
-    uow,
-):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
-
-    uow.commit.side_effect = RuntimeError(
+    unit_of_work.commit.side_effect = RuntimeError(
         "commit error"
-    )
-
-    dto = make_dto(
-        status=TestDriveStatus.CONFIRMED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
     )
 
     with pytest.raises(
         RuntimeError,
         match="commit error",
     ):
-        import asyncio
+        await use_case.execute(dto)
 
-        asyncio.run(
-            use_case.execute(dto)
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_called_once()
+
+
+# ============================================================
+# ROLLBACK — WEBSOCKET
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_websocket_error_rolls_back(
+    use_case,
+    repo,
+    chat_manager,
+    unit_of_work,
+    ticket,
+):
+    statuses = list(TicketStatus)
+
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
         )
 
-    uow.commit.assert_called_once()
-    uow.rollback.assert_called_once()
-
-
-# ============================================================
-# FINAL RESULT
-# ============================================================
-
-
-def test_returns_updated_test_drive(
-    use_case,
-    repository,
-):
-    test_drive = make_test_drive(
-        status=TestDriveStatus.PENDING
-    )
-
-    repository.get_full_by_id.return_value = test_drive
-    repository.update.return_value = test_drive
+    ticket.status = statuses[0]
 
     dto = make_dto(
-        status=TestDriveStatus.COMPLETED,
-        actor_id="agent-1",
-        actor_role=UserRole.ADMIN,
+        status=statuses[1]
     )
 
-    import asyncio
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
 
-    result = asyncio.run(
-        use_case.execute(dto)
+    chat_manager.broadcast.side_effect = RuntimeError(
+        "websocket error"
     )
 
-    assert isinstance(result, TestDrive)
-    assert result.id == "test-drive-1"
-    assert result.status == TestDriveStatus.COMPLETED
+    with pytest.raises(
+        RuntimeError,
+        match="websocket error",
+    ):
+        await use_case.execute(dto)
+
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_called_once()
+
+
+# ============================================================
+# RESULT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_result_is_returned(
+    use_case,
+    repo,
+    unit_of_work,
+    ticket,
+):
+    statuses = list(TicketStatus)
+
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
+
+    old_status = statuses[0]
+    new_status = statuses[1]
+
+    ticket.status = old_status
+
+    dto = make_dto(
+        ticket_id="ticket-1",
+        status=new_status,
+    )
+
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
+
+    result = await use_case.execute(dto)
+
+    assert isinstance(
+        result,
+        UpdateSupportTicketStatusResult,
+    )
+
+    assert result.ticket is ticket
+
+
+# ============================================================
+# COMPLETE FLOW
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_update_support_ticket_status_complete_flow(
+    use_case,
+    repo,
+    event_service,
+    chat_manager,
+    unit_of_work,
+):
+    statuses = list(TicketStatus)
+
+    if len(statuses) < 2:
+        pytest.skip(
+            "TicketStatus doit contenir au moins deux statuts."
+        )
+
+    old_status = statuses[0]
+    new_status = statuses[1]
+
+    ticket = make_ticket(
+        ticket_id="ticket-42",
+        application_id="application-42",
+        user_id="customer-42",
+        assigned_to="agent-42",
+        status=old_status,
+    )
+
+    dto = make_dto(
+        ticket_id="ticket-42",
+        user_id="agent-42",
+        status=new_status,
+    )
+
+    repo.get_by_id.return_value = ticket
+    repo.update.return_value = ticket
+
+    result = await use_case.execute(dto)
+
+    # Ticket récupéré
+    repo.get_by_id.assert_called_once_with(
+        "ticket-42"
+    )
+
+    # Statut modifié
+    assert ticket.status == new_status
+
+    # Repository
+    repo.update.assert_called_once_with(
+        ticket
+    )
+
+    # Event
+    event_service.log.assert_called_once_with(
+        type=EventType.SUPPORT_TICKET_STATUS_CHANGED,
+        message="Statut du ticket SAV modifié",
+        application_id="application-42",
+        user_id="agent-42",
+        event_metadata={
+            "ticket_id": "ticket-42",
+            "old_status": old_status.value,
+            "new_status": new_status.value,
+            "ticket_owner": "customer-42",
+            "assigned_to": "agent-42",
+        },
+    )
+
+    # Transaction
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_not_called()
+
+    # WebSocket
+    chat_manager.broadcast.assert_awaited_once_with(
+        ticket_id="ticket-42",
+        payload={
+            "type": "STATUS_UPDATED",
+            "data": {
+                "ticket_id": "ticket-42",
+                "old_status": old_status.value,
+                "status": new_status.value,
+            },
+        },
+    )
+
+    # Result
+    assert isinstance(
+        result,
+        UpdateSupportTicketStatusResult,
+    )
+
+    assert result.ticket is ticket

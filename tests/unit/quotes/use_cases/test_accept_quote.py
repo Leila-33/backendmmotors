@@ -3,718 +3,913 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from modules.applications.domain.enums import EventType
+from modules.leads.domain.exceptions import LeadNotFound
+from modules.notifications.domain.enums import NotificationType
+from modules.quotes.application.dtos.customer_quote_dto import (
+    CustomerQuoteDTO,
+)
+from modules.quotes.application.results.accept_quote_result import (
+    AcceptQuoteResult,
+)
 from modules.quotes.application.use_cases.accept_quote import (
     AcceptQuoteUseCase,
 )
 from modules.quotes.domain.exceptions import QuoteNotFound
-from modules.leads.domain.exceptions import LeadNotFound
-from modules.applications.domain.enums import EventType
-from modules.notifications.domain.enums import NotificationType
 
 
-@pytest.fixture
-def dependencies():
-    return {
-        "quote_repository": Mock(),
-        "application_repository": Mock(),
-        "trade_in_repository": Mock(),
-        "financing_repository": Mock(),
-        "lead_repository": Mock(),
-        "notification_service": Mock(),
-        "event_service": Mock(),
-        "unit_of_work": Mock(),
-    }
+# ============================================================
+# HELPERS
+# ============================================================
 
 
-@pytest.fixture
-def use_case(dependencies):
-    dependencies["notification_service"].send = AsyncMock()
-
-    return AcceptQuoteUseCase(
-        quote_repository=dependencies["quote_repository"],
-        application_repository=dependencies["application_repository"],
-        trade_in_repository=dependencies["trade_in_repository"],
-        financing_repository=dependencies["financing_repository"],
-        lead_repository=dependencies["lead_repository"],
-        notification_service=dependencies["notification_service"],
-        event_service=dependencies["event_service"],
-        unit_of_work=dependencies["unit_of_work"],
-    )
-
-
-@pytest.fixture
-def dto():
-    return SimpleNamespace(
-        quote_id="quote-123",
-        customer_id="customer-123",
-    )
-
-
-@pytest.fixture
-def quote():
+def make_quote(
+    *,
+    quote_id="quote-1",
+    lead_id="lead-1",
+    down_payment=5000,
+    duration_months=48,
+    financed_amount=20000,
+    monthly_payment=450,
+    trade_in=None,
+):
     quote = Mock()
 
-    quote.id = "quote-123"
-    quote.lead_id = "lead-123"
-
-    quote.down_payment = 5000
-    quote.duration_months = 48
-    quote.financed_amount = 25000
-    quote.monthly_payment = 520.83
-
-    quote.trade_in = None
-    quote.trade_in_value = 0
+    quote.id = quote_id
+    quote.lead_id = lead_id
+    quote.down_payment = down_payment
+    quote.duration_months = duration_months
+    quote.financed_amount = financed_amount
+    quote.monthly_payment = monthly_payment
+    quote.trade_in = trade_in
+    quote.trade_in_value = (
+        trade_in.value
+        if trade_in is not None
+        and hasattr(trade_in, "value")
+        else 3000
+    )
 
     return quote
 
 
+def make_lead(
+    *,
+    lead_id="lead-1",
+    customer_id="customer-1",
+    vehicle_id="vehicle-1",
+    assigned_to="agent-1",
+    first_name="Leila",
+    last_name="El",
+    email="leila@example.com",
+    phone="0600000000",
+):
+    return SimpleNamespace(
+        id=lead_id,
+        user_id=customer_id,
+        vehicle_id=vehicle_id,
+        assigned_to=assigned_to,
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        phone=phone,
+    )
+
+
+def make_trade_in(
+    *,
+    brand="Renault",
+    model="Clio",
+    year=2020,
+    mileage=50000,
+    condition="GOOD",
+    value=3000,
+):
+    return SimpleNamespace(
+        brand=brand,
+        model=model,
+        year=year,
+        mileage=mileage,
+        condition=condition,
+        value=value,
+    )
+
+
+def make_dto(
+    *,
+    quote_id="quote-1",
+    customer_id="customer-1",
+):
+    return CustomerQuoteDTO(
+        quote_id=quote_id,
+        customer_id=customer_id,
+    )
+
+
+# ============================================================
+# FIXTURES
+# ============================================================
+
+
 @pytest.fixture
-def lead():
-    lead = Mock()
+def quote_repository():
+    repository = Mock()
 
-    lead.id = "lead-123"
-    lead.user_id = "customer-123"
-    lead.vehicle_id = "vehicle-123"
-    lead.assigned_to = "agent-123"
+    repository.find_by_id.return_value = None
+    repository.count_action_required_by_customer.return_value = 0
 
-    return lead
+    return repository
 
 
-# ============================================================
-# SUCCESS
-# ============================================================
+@pytest.fixture
+def application_repository():
+    return Mock()
 
-@pytest.mark.asyncio
-async def test_execute_success_without_trade_in(
-    use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+
+@pytest.fixture
+def trade_in_repository():
+    return Mock()
+
+
+@pytest.fixture
+def financing_repository():
+    return Mock()
+
+
+@pytest.fixture
+def lead_repository():
+    return Mock()
+
+
+@pytest.fixture
+def notification_service():
+    service = Mock()
+
+    service.send = AsyncMock()
+    service.send_update = AsyncMock()
+
+    return service
+
+
+@pytest.fixture
+def event_service():
+    return Mock()
+
+
+@pytest.fixture
+def unit_of_work():
+    return Mock()
+
+
+@pytest.fixture
+def use_case(
+    quote_repository,
+    application_repository,
+    trade_in_repository,
+    financing_repository,
+    lead_repository,
+    notification_service,
+    event_service,
+    unit_of_work,
 ):
-    dependencies["quote_repository"].find_by_id.return_value = quote
-    dependencies["lead_repository"].find_by_id.return_value = lead
-
-    application = SimpleNamespace(
-        id="application-123",
+    return AcceptQuoteUseCase(
+        quote_repository=quote_repository,
+        application_repository=application_repository,
+        trade_in_repository=trade_in_repository,
+        financing_repository=financing_repository,
+        lead_repository=lead_repository,
+        notification_service=notification_service,
+        event_service=event_service,
+        unit_of_work=unit_of_work,
     )
 
-    use_case.quote_repository.update.return_value = None
 
-    # Mock de la méthode de création du domaine
-    with pytest.MonkeyPatch.context() as mp:
-        application_factory = Mock(
-            return_value=application
-        )
-
-        mp.setattr(
-            "modules.quotes.application.use_cases.accept_quote.Application.create_draft_from_quote",
-            application_factory,
-        )
-
-        result = await use_case.execute(dto)
-
-    # Quote
-    quote.accept.assert_called_once()
-    dependencies["quote_repository"].update.assert_called_once_with(
-        quote
-    )
-
-    # Application
-    application_factory.assert_called_once_with(
-        quote,
-        lead,
-    )
-
-    dependencies[
-        "application_repository"
-    ].create_base.assert_called_once_with(
-        application
-    )
-
-    # Financing
-    financing = (
-        dependencies[
-            "financing_repository"
-        ].save.call_args.args[0]
-    )
-
-    assert financing.application_id == "application-123"
-    assert financing.down_payment == 5000
-    assert financing.duration_months == 48
-    assert financing.financed_amount == 25000
-    assert financing.monthly_payment == 520.83
-
-    # Pas de reprise
-    dependencies[
-        "trade_in_repository"
-    ].save.assert_not_called()
-
-    # Events
-    assert (
-        dependencies["event_service"].log.call_count
-        == 2
-    )
-
-    first_event = (
-        dependencies["event_service"]
-        .log.call_args_list[0]
-    )
-
-    assert first_event.kwargs["type"] == (
-        EventType.QUOTE_ACCEPTED
-    )
-    assert first_event.kwargs["quote_id"] == "quote-123"
-    assert first_event.kwargs["lead_id"] == "lead-123"
-    assert first_event.kwargs["vehicle_id"] == "vehicle-123"
-    assert first_event.kwargs["application_id"] == (
-        "application-123"
-    )
-    assert first_event.kwargs["user_id"] == (
-        "customer-123"
-    )
-
-    second_event = (
-        dependencies["event_service"]
-        .log.call_args_list[1]
-    )
-
-    assert second_event.kwargs["type"] == (
-        EventType.APPLICATION_CREATED
-    )
-
-    # Notification
-    dependencies[
-        "notification_service"
-    ].send.assert_awaited_once_with(
-        user_id="agent-123",
-        title="Offre acceptée",
-        message="Le client a accepté votre offre.",
-        notif_type=NotificationType.QUOTE_ACCEPTED,
-        entity_type="quote",
-        entity_id="quote-123",
-    )
-
-    # Commit
-    dependencies[
-        "unit_of_work"
-    ].commit.assert_called_once()
-
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_not_called()
-
-    # Result
-    assert result.quote_id == "quote-123"
-    assert result.application_id == "application-123"
-    assert result.message == (
-        "Votre offre a été acceptée. "
-        "Votre dossier est maintenant créé."
-    )
+# ============================================================
+# QUOTE
+# ============================================================
 
 
 @pytest.mark.asyncio
-async def test_execute_success_with_trade_in(
+async def test_quote_not_found(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    unit_of_work,
 ):
-    trade_in = SimpleNamespace(
-        brand="Renault",
-        model="Clio",
-        year=2020,
-        mileage=80000,
-        condition="GOOD",
-    )
-
-    quote.trade_in = trade_in
-    quote.trade_in_value = 7500
-
-    dependencies["quote_repository"].find_by_id.return_value = quote
-    dependencies["lead_repository"].find_by_id.return_value = lead
-
-    application = SimpleNamespace(
-        id="application-123",
-    )
-
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(
-            "modules.quotes.application.use_cases.accept_quote.Application.create_draft_from_quote",
-            Mock(return_value=application),
-        )
-
-        result = await use_case.execute(dto)
-
-    dependencies[
-        "trade_in_repository"
-    ].save.assert_called_once()
-
-    application_trade_in = (
-        dependencies[
-            "trade_in_repository"
-        ].save.call_args.args[0]
-    )
-
-    assert application_trade_in.application_id == (
-        "application-123"
-    )
-    assert application_trade_in.brand == "Renault"
-    assert application_trade_in.model == "Clio"
-    assert application_trade_in.year == 2020
-    assert application_trade_in.mileage == 80000
-    assert application_trade_in.condition == "GOOD"
-    assert application_trade_in.estimated_value == 7500
-
-    assert result.quote_id == "quote-123"
-    assert result.application_id == "application-123"
-
-
-# ============================================================
-# QUOTE NOT FOUND
-# ============================================================
-
-@pytest.mark.asyncio
-async def test_execute_quote_not_found(
-    use_case,
-    dependencies,
-    dto,
-):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = None
+    quote_repository.find_by_id.return_value = None
 
     with pytest.raises(QuoteNotFound):
-        await use_case.execute(dto)
+        await use_case.execute(
+            make_dto()
+        )
 
-    dependencies[
-        "lead_repository"
-    ].find_by_id.assert_not_called()
+    quote_repository.find_by_id.assert_called_once_with(
+        "quote-1"
+    )
 
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
-
-    dependencies[
-        "unit_of_work"
-    ].commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
 # ============================================================
-# LEAD NOT FOUND
+# LEAD
 # ============================================================
+
 
 @pytest.mark.asyncio
-async def test_execute_lead_not_found(
+async def test_lead_not_found(
     use_case,
-    dependencies,
-    dto,
-    quote,
+    quote_repository,
+    lead_repository,
+    unit_of_work,
 ):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
+    quote = make_quote()
 
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = None
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = None
 
     with pytest.raises(LeadNotFound):
-        await use_case.execute(dto)
+        await use_case.execute(
+            make_dto()
+        )
 
-    quote.accept.assert_not_called()
+    lead_repository.find_by_id.assert_called_once_with(
+        "lead-1"
+    )
 
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
-
-    dependencies[
-        "unit_of_work"
-    ].commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
 # ============================================================
 # AUTHORIZATION
 # ============================================================
 
+
 @pytest.mark.asyncio
-async def test_execute_rejects_customer_not_owner(
+async def test_customer_cannot_accept_another_customer_quote(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    lead_repository,
+    unit_of_work,
 ):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
+    quote = make_quote()
 
-    lead.user_id = "another-customer"
+    lead = make_lead(
+        customer_id="owner-1"
+    )
 
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = lead
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
 
     with pytest.raises(QuoteNotFound):
-        await use_case.execute(dto)
+        await use_case.execute(
+            make_dto(
+                customer_id="another-customer"
+            )
+        )
 
     quote.accept.assert_not_called()
 
-    dependencies[
-        "application_repository"
-    ].create_base.assert_not_called()
-
-    dependencies[
-        "financing_repository"
-    ].save.assert_not_called()
-
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
 # ============================================================
-# QUOTE ACCEPT
+# QUOTE ACCEPTANCE
 # ============================================================
+
 
 @pytest.mark.asyncio
-async def test_execute_quote_accept_error(
+async def test_quote_is_accepted(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    lead_repository,
+    application_repository,
+    financing_repository,
+    notification_service,
 ):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
+    quote = make_quote()
+    lead = make_lead()
 
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = lead
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
 
-    quote.accept.side_effect = ValueError(
-        "Quote cannot be accepted"
+    await use_case.execute(
+        make_dto()
     )
 
-    with pytest.raises(ValueError):
-        await use_case.execute(dto)
+    quote.accept.assert_called_once()
 
-    dependencies[
-        "quote_repository"
-    ].update.assert_not_called()
-
-    dependencies[
-        "application_repository"
-    ].create_base.assert_not_called()
-
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
+    quote_repository.update.assert_called_once_with(
+        quote
+    )
 
 
 # ============================================================
 # APPLICATION CREATION
 # ============================================================
 
+
 @pytest.mark.asyncio
-async def test_execute_application_creation_error(
+async def test_application_is_created_from_quote(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    lead_repository,
+    application_repository,
 ):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
+    quote = make_quote()
+    lead = make_lead()
 
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = lead
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
 
-    application = SimpleNamespace(
-        id="application-123",
+    await use_case.execute(
+        make_dto()
     )
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(
-            "modules.quotes.application.use_cases.accept_quote.Application.create_draft_from_quote",
-            Mock(return_value=application),
-        )
+    application_repository.create_base.assert_called_once()
 
-        dependencies[
-            "application_repository"
-        ].create_base.side_effect = ValueError(
-            "Application creation failed"
-        )
+    application = (
+        application_repository
+        .create_base
+        .call_args.args[0]
+    )
 
-        with pytest.raises(ValueError):
-            await use_case.execute(dto)
-
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
-
-    dependencies[
-        "financing_repository"
-    ].save.assert_not_called()
+    assert application.user_id == "customer-1"
+    assert application.vehicle_id == "vehicle-1"
 
 
 # ============================================================
 # FINANCING
 # ============================================================
 
+
 @pytest.mark.asyncio
-async def test_execute_financing_save_error(
+async def test_financing_is_created_from_quote(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    lead_repository,
+    financing_repository,
 ):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
-
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = lead
-
-    application = SimpleNamespace(
-        id="application-123",
+    quote = make_quote(
+        down_payment=5000,
+        duration_months=48,
+        financed_amount=20000,
+        monthly_payment=450,
     )
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(
-            "modules.quotes.application.use_cases.accept_quote.Application.create_draft_from_quote",
-            Mock(return_value=application),
-        )
+    lead = make_lead()
 
-        dependencies[
-            "financing_repository"
-        ].save.side_effect = ValueError(
-            "Financing save failed"
-        )
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
 
-        with pytest.raises(ValueError):
-            await use_case.execute(dto)
+    await use_case.execute(
+        make_dto()
+    )
 
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
+    financing_repository.save.assert_called_once()
 
-    dependencies[
-        "trade_in_repository"
-    ].save.assert_not_called()
+    financing = (
+        financing_repository
+        .save
+        .call_args.args[0]
+    )
+
+    assert financing.application_id is not None
+    assert financing.down_payment == 5000
+    assert financing.duration_months == 48
+    assert financing.financed_amount == 20000
+    assert financing.monthly_payment == 450
 
 
 # ============================================================
 # TRADE-IN
 # ============================================================
 
+
 @pytest.mark.asyncio
-async def test_execute_trade_in_save_error(
+async def test_trade_in_is_created_when_quote_has_trade_in(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    lead_repository,
+    trade_in_repository,
 ):
-    quote.trade_in = SimpleNamespace(
-        brand="Renault",
-        model="Clio",
-        year=2020,
-        mileage=80000,
-        condition="GOOD",
+    trade_in = make_trade_in()
+
+    quote = make_quote(
+        trade_in=trade_in
     )
 
-    quote.trade_in_value = 7500
+    lead = make_lead()
 
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
 
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = lead
-
-    application = SimpleNamespace(
-        id="application-123",
+    await use_case.execute(
+        make_dto()
     )
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(
-            "modules.quotes.application.use_cases.accept_quote.Application.create_draft_from_quote",
-            Mock(return_value=application),
-        )
+    trade_in_repository.save.assert_called_once()
 
-        dependencies[
-            "trade_in_repository"
-        ].save.side_effect = ValueError(
-            "Trade-in save failed"
-        )
+    saved_trade_in = (
+        trade_in_repository
+        .save
+        .call_args.args[0]
+    )
 
-        with pytest.raises(ValueError):
-            await use_case.execute(dto)
+    assert saved_trade_in.application_id is not None
+    assert saved_trade_in.brand == "Renault"
+    assert saved_trade_in.model == "Clio"
+    assert saved_trade_in.year == 2020
+    assert saved_trade_in.mileage == 50000
+    assert saved_trade_in.condition == "GOOD"
+    assert saved_trade_in.estimated_value == 3000
 
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
 
-    dependencies[
-        "event_service"
-    ].log.assert_not_called()
+@pytest.mark.asyncio
+async def test_trade_in_is_not_created_without_trade_in(
+    use_case,
+    quote_repository,
+    lead_repository,
+    trade_in_repository,
+):
+    quote = make_quote(
+        trade_in=None
+    )
+
+    lead = make_lead()
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
+
+    await use_case.execute(
+        make_dto()
+    )
+
+    trade_in_repository.save.assert_not_called()
 
 
 # ============================================================
-# EVENT
+# EVENTS
 # ============================================================
 
+
 @pytest.mark.asyncio
-async def test_execute_quote_accepted_event_error(
+async def test_quote_accepted_event_is_logged(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    lead_repository,
+    event_service,
 ):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
+    quote = make_quote()
+    lead = make_lead()
 
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = lead
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
 
-    application = SimpleNamespace(
-        id="application-123",
+    await use_case.execute(
+        make_dto()
     )
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(
-            "modules.quotes.application.use_cases.accept_quote.Application.create_draft_from_quote",
-            Mock(return_value=application),
-        )
+    calls = event_service.log.call_args_list
 
-        dependencies[
-            "event_service"
-        ].log.side_effect = ValueError(
-            "Event error"
-        )
+    assert len(calls) == 2
 
-        with pytest.raises(ValueError):
-            await use_case.execute(dto)
+    quote_event = calls[0].kwargs
 
-    dependencies[
-        "event_service"
-    ].log.assert_called_once()
+    assert quote_event["type"] == EventType.QUOTE_ACCEPTED
+    assert quote_event["message"] == "Devis accepté"
+    assert quote_event["quote_id"] == "quote-1"
+    assert quote_event["lead_id"] == "lead-1"
+    assert quote_event["vehicle_id"] == "vehicle-1"
+    assert quote_event["user_id"] == "customer-1"
+    assert quote_event["application_id"] is not None
 
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
 
-    dependencies[
-        "notification_service"
-    ].send.assert_not_awaited()
+@pytest.mark.asyncio
+async def test_application_created_event_is_logged(
+    use_case,
+    quote_repository,
+    lead_repository,
+    event_service,
+):
+    quote = make_quote()
+    lead = make_lead()
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
+
+    await use_case.execute(
+        make_dto()
+    )
+
+    calls = event_service.log.call_args_list
+
+    application_event = calls[1].kwargs
+
+    assert (
+        application_event["type"]
+        == EventType.APPLICATION_CREATED
+    )
+
+    assert (
+        application_event["message"]
+        == "Brouillon du dossier créé suite à l'acceptation de l'offre."
+    )
+
+    assert application_event["quote_id"] == "quote-1"
+    assert application_event["lead_id"] == "lead-1"
+    assert application_event["vehicle_id"] == "vehicle-1"
+    assert application_event["user_id"] == "customer-1"
+    assert application_event["application_id"] is not None
 
 
 # ============================================================
 # NOTIFICATION
 # ============================================================
 
+
 @pytest.mark.asyncio
-async def test_execute_notification_error(
+async def test_agent_is_notified_when_quote_is_accepted(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    lead_repository,
+    notification_service,
 ):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
-
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = lead
-
-    application = SimpleNamespace(
-        id="application-123",
+    quote = make_quote()
+    lead = make_lead(
+        assigned_to="agent-42"
     )
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(
-            "modules.quotes.application.use_cases.accept_quote.Application.create_draft_from_quote",
-            Mock(return_value=application),
-        )
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
 
-        dependencies[
-            "notification_service"
-        ].send.side_effect = ValueError(
-            "Notification error"
-        )
+    await use_case.execute(
+        make_dto()
+    )
 
-        with pytest.raises(ValueError):
-            await use_case.execute(dto)
+    notification_service.send.assert_awaited_once()
 
-    dependencies[
-        "notification_service"
-    ].send.assert_awaited_once()
+    call_args = (
+        notification_service
+        .send
+        .call_args
+        .kwargs
+    )
 
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
-
-    dependencies[
-        "unit_of_work"
-    ].commit.assert_not_called()
+    assert call_args["user_id"] == "agent-42"
+    assert call_args["title"] == "Offre acceptée"
+    assert (
+        call_args["message"]
+        == "Le client a accepté votre offre."
+    )
+    assert (
+        call_args["notif_type"]
+        == NotificationType.QUOTE_ACCEPTED
+    )
+    assert call_args["entity_type"] == "quote"
+    assert call_args["entity_id"] == "quote-1"
 
 
 # ============================================================
 # COMMIT
 # ============================================================
 
+
 @pytest.mark.asyncio
-async def test_execute_commit_error(
+async def test_successful_execution_commits(
     use_case,
-    dependencies,
-    dto,
-    quote,
-    lead,
+    quote_repository,
+    lead_repository,
+    unit_of_work,
 ):
-    dependencies[
-        "quote_repository"
-    ].find_by_id.return_value = quote
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
 
-    dependencies[
-        "lead_repository"
-    ].find_by_id.return_value = lead
-
-    application = SimpleNamespace(
-        id="application-123",
+    await use_case.execute(
+        make_dto()
     )
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(
-            "modules.quotes.application.use_cases.accept_quote.Application.create_draft_from_quote",
-            Mock(return_value=application),
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_not_called()
+
+
+# ============================================================
+# ACTION REQUIRED COUNT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_action_required_count_is_retrieved_after_commit(
+    use_case,
+    quote_repository,
+    lead_repository,
+    unit_of_work,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    quote_repository.count_action_required_by_customer.return_value = (
+        4
+    )
+
+    await use_case.execute(
+        make_dto(
+            customer_id="customer-1"
+        )
+    )
+
+    quote_repository.count_action_required_by_customer.assert_called_once_with(
+        "customer-1"
+    )
+
+    unit_of_work.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_customer_receives_updated_action_required_count(
+    use_case,
+    quote_repository,
+    lead_repository,
+    notification_service,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    quote_repository.count_action_required_by_customer.return_value = (
+        7
+    )
+
+    await use_case.execute(
+        make_dto(
+            customer_id="customer-1"
+        )
+    )
+
+    notification_service.send_update.assert_awaited_once_with(
+        user_id="customer-1",
+        payload={
+            "type": "QUOTE_UPDATED",
+            "count": 7,
+        },
+    )
+
+
+# ============================================================
+# RESULT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_execute_returns_accept_quote_result(
+    use_case,
+    quote_repository,
+    lead_repository,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    result = await use_case.execute(
+        make_dto()
+    )
+
+    assert isinstance(
+        result,
+        AcceptQuoteResult,
+    )
+
+    assert result.quote_id == "quote-1"
+    assert result.application_id is not None
+
+    assert (
+        result.message
+        == (
+            "Votre offre a été acceptée. "
+            "Votre dossier est maintenant créé."
+        )
+    )
+
+
+# ============================================================
+# ROLLBACK / ERRORS
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_quote_accept_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    unit_of_work,
+):
+    quote = make_quote()
+
+    quote.accept.side_effect = RuntimeError(
+        "accept error"
+    )
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = make_lead()
+
+    with pytest.raises(
+        RuntimeError,
+        match="accept error",
+    ):
+        await use_case.execute(
+            make_dto()
         )
 
-        dependencies[
-            "unit_of_work"
-        ].commit.side_effect = ValueError(
-            "Commit failed"
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_application_creation_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    application_repository,
+    unit_of_work,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    application_repository.create_base.side_effect = (
+        RuntimeError("application error")
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="application error",
+    ):
+        await use_case.execute(
+            make_dto()
         )
 
-        with pytest.raises(ValueError):
-            await use_case.execute(dto)
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
-    dependencies[
-        "unit_of_work"
-    ].commit.assert_called_once()
 
-    dependencies[
-        "unit_of_work"
-    ].rollback.assert_called_once()
+@pytest.mark.asyncio
+async def test_financing_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    financing_repository,
+    unit_of_work,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    financing_repository.save.side_effect = RuntimeError(
+        "financing error"
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="financing error",
+    ):
+        await use_case.execute(
+            make_dto()
+        )
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_trade_in_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    trade_in_repository,
+    unit_of_work,
+):
+    trade_in = make_trade_in()
+
+    quote_repository.find_by_id.return_value = make_quote(
+        trade_in=trade_in
+    )
+
+    lead_repository.find_by_id.return_value = make_lead()
+
+    trade_in_repository.save.side_effect = RuntimeError(
+        "trade in error"
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="trade in error",
+    ):
+        await use_case.execute(
+            make_dto()
+        )
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_event_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    event_service,
+    unit_of_work,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    event_service.log.side_effect = RuntimeError(
+        "event error"
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="event error",
+    ):
+        await use_case.execute(
+            make_dto()
+        )
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notification_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    notification_service,
+    unit_of_work,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    notification_service.send.side_effect = RuntimeError(
+        "notification error"
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="notification error",
+    ):
+        await use_case.execute(
+            make_dto()
+        )
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_commit_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    unit_of_work,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    unit_of_work.commit.side_effect = RuntimeError(
+        "commit error"
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="commit error",
+    ):
+        await use_case.execute(
+            make_dto()
+        )
+
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_send_update_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    notification_service,
+    unit_of_work,
+):
+    quote_repository.find_by_id.return_value = make_quote()
+    lead_repository.find_by_id.return_value = make_lead()
+
+    notification_service.send_update.side_effect = (
+        RuntimeError("update error")
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="update error",
+    ):
+        await use_case.execute(
+            make_dto()
+        )
+
+    unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_called_once()

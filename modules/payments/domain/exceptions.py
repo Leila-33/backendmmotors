@@ -11,11 +11,13 @@ class PaymentNotFound(DomainException):
 
 class PaymentNotAllowed(DomainException):
 
-    def __init__(self):
-
+    def __init__(
+        self,
+        message: str = "Le dossier doit être approuvé avant paiement",
+    ):
         super().__init__(
-            "Le dossier doit être approuvé avant paiement",
-            400
+            message,
+            400,
         )
 
 

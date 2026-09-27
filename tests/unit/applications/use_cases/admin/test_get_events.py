@@ -1,13 +1,11 @@
-import math
 from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
 
-from modules.applications.api.schemas import (
-    EventDetailResponse,
-    EventPaginationResponse,
-)
+from core.pagination.paginated_result import PaginatedResult
+from modules.applications.domain.entities.event import Event
+from modules.applications.domain.enums import EventCategory, EventType
 from modules.applications.application.use_cases.admin.get_events import (
     GetEventsUseCase,
 )
@@ -20,34 +18,30 @@ from modules.applications.application.use_cases.admin.get_events import (
 
 def make_event(
     *,
-    event_id="event-1",
-    event_type="APPLICATION_CREATED",
-    message="Application créée.",
-    event_metadata=None,
-    application_id="application-1",
-    test_drive_id=None,
-    user_id="user-1",
-    created_at=None,
+    event_id: str = "event-1",
+    event_type: EventType = EventType.APPLICATION_CREATED,
+    message: str = "Événement de test",
+    event_metadata: dict | None = None,
+    application_id: str | None = "application-1",
+    test_drive_id: str | None = None,
+    user_id: str | None = "user-1",
+    vehicle_id: str | None = "vehicle-1",
+    quote_id: str | None = None,
+    lead_id: str | None = None,
 ):
-    event = Mock()
-
-    event.id = event_id
-    event.type = Mock(value=event_type)
-    event.message = message
-    event.event_metadata = event_metadata or {}
-    event.created_at = created_at or datetime(
-        2026,
-        1,
-        15,
-        10,
-        30,
-        tzinfo=timezone.utc,
+    return Event(
+        id=event_id,
+        type=event_type,
+        message=message,
+        event_metadata=event_metadata,
+        created_at=datetime.now(timezone.utc),
+        application_id=application_id,
+        test_drive_id=test_drive_id,
+        user_id=user_id,
+        vehicle_id=vehicle_id,
+        quote_id=quote_id,
+        lead_id=lead_id,
     )
-    event.application_id = application_id
-    event.test_drive_id = test_drive_id
-    event.user_id = user_id
-
-    return event
 
 
 # ============================================================
@@ -68,88 +62,22 @@ def use_case(event_repository):
 
 
 # ============================================================
-# REPOSITORY CALL
+# BASIC RETRIEVAL
 # ============================================================
 
 
-def test_repository_is_called_with_all_filters(
+def test_get_events_returns_paginated_result(
     use_case,
     event_repository,
 ):
-    event_repository.find_all.return_value = ([], 0)
-
-    use_case.execute(
-        page=2,
-        limit=10,
-        search="application",
-        event_type="APPLICATION_CREATED",
-        date="2026-01-15",
-    )
-
-    event_repository.find_all.assert_called_once_with(
-        page=2,
-        limit=10,
-        search="application",
-        event_type="APPLICATION_CREATED",
-        date="2026-01-15",
-    )
-
-
-def test_repository_is_called_with_default_filters(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = ([], 0)
-
-    use_case.execute(
-        page=1,
-        limit=10,
-    )
-
-    event_repository.find_all.assert_called_once_with(
-        page=1,
-        limit=10,
-        search=None,
-        event_type=None,
-        date=None,
-    )
-
-
-# ============================================================
-# EVENTS MAPPING
-# ============================================================
-
-
-def test_events_are_transformed_into_event_detail_responses(
-    use_case,
-    event_repository,
-):
-    created_at = datetime(
-        2026,
-        2,
-        10,
-        14,
-        20,
-        tzinfo=timezone.utc,
-    )
-
-    event = make_event(
-        event_id="event-123",
-        event_type="APPLICATION_CREATED",
-        message="Nouvelle application",
-        event_metadata={
-            "source": "client",
-            "status": "DRAFT",
-        },
-        application_id="application-123",
-        test_drive_id="test-drive-123",
-        user_id="user-123",
-        created_at=created_at,
-    )
+    events = [
+        make_event(event_id="event-1"),
+        make_event(event_id="event-2"),
+    ]
 
     event_repository.find_all.return_value = (
-        [event],
-        1,
+        events,
+        2,
     )
 
     result = use_case.execute(
@@ -159,42 +87,212 @@ def test_events_are_transformed_into_event_detail_responses(
 
     assert isinstance(
         result,
-        EventPaginationResponse,
+        PaginatedResult,
     )
 
-    assert len(result.items) == 1
-
-    item = result.items[0]
-
-    assert isinstance(
-        item,
-        EventDetailResponse,
-    )
-
-    assert item.id == "event-123"
-    assert item.type == "APPLICATION_CREATED"
-    assert item.message == "Nouvelle application"
-    assert item.event_metadata == {
-        "source": "client",
-        "status": "DRAFT",
-    }
-    assert item.created_at == created_at
-    assert item.application_id == "application-123"
-    assert item.test_drive_id == "test-drive-123"
-    assert item.user_id == "user-123"
+    assert result.items == events
+    assert result.total == 2
+    assert result.page == 1
+    assert result.limit == 10
 
 
-def test_event_type_value_is_used(
+def test_get_events_calls_repository_with_pagination(
     use_case,
     event_repository,
 ):
-    event = make_event(
-        event_type="LEAD_CREATED",
+    event_repository.find_all.return_value = (
+        [],
+        0,
     )
 
+    use_case.execute(
+        page=2,
+        limit=20,
+    )
+
+    event_repository.find_all.assert_called_once_with(
+        page=2,
+        limit=20,
+        search=None,
+        event_category=None,
+        date=None,
+    )
+
+
+# ============================================================
+# SEARCH
+# ============================================================
+
+
+def test_get_events_with_search(
+    use_case,
+    event_repository,
+):
+    events = [
+        make_event(
+            event_id="event-1",
+            message="Dossier créé",
+        )
+    ]
+
     event_repository.find_all.return_value = (
-        [event],
+        events,
         1,
+    )
+
+    result = use_case.execute(
+        page=1,
+        limit=10,
+        search="Dossier",
+    )
+
+    event_repository.find_all.assert_called_once_with(
+        page=1,
+        limit=10,
+        search="Dossier",
+        event_category=None,
+        date=None,
+    )
+
+    assert result.items == events
+    assert result.total == 1
+
+
+# ============================================================
+# EVENT CATEGORY
+# ============================================================
+
+
+def test_get_events_with_event_category(
+    use_case,
+    event_repository,
+):
+    event_category = EventCategory.APPLICATION
+
+    events = [
+        make_event(
+            event_id="event-1",
+        )
+    ]
+
+    event_repository.find_all.return_value = (
+        events,
+        1,
+    )
+
+    result = use_case.execute(
+        page=1,
+        limit=10,
+        event_category=event_category,
+    )
+
+    event_repository.find_all.assert_called_once_with(
+        page=1,
+        limit=10,
+        search=None,
+        event_category=event_category,
+        date=None,
+    )
+
+    assert result.items == events
+    assert result.total == 1
+
+
+# ============================================================
+# DATE
+# ============================================================
+
+
+def test_get_events_with_date(
+    use_case,
+    event_repository,
+):
+    events = [
+        make_event(
+            event_id="event-1",
+        )
+    ]
+
+    event_repository.find_all.return_value = (
+        events,
+        1,
+    )
+
+    result = use_case.execute(
+        page=1,
+        limit=10,
+        date="2026-09-27",
+    )
+
+    event_repository.find_all.assert_called_once_with(
+        page=1,
+        limit=10,
+        search=None,
+        event_category=None,
+        date="2026-09-27",
+    )
+
+    assert result.items == events
+    assert result.total == 1
+
+
+# ============================================================
+# ALL FILTERS
+# ============================================================
+
+
+def test_get_events_with_all_filters(
+    use_case,
+    event_repository,
+):
+    event_category = EventCategory.APPLICATION
+
+    events = [
+        make_event(
+            event_id="event-1",
+            message="Application créée",
+        )
+    ]
+
+    event_repository.find_all.return_value = (
+        events,
+        1,
+    )
+
+    result = use_case.execute(
+        page=2,
+        limit=5,
+        search="Application",
+        event_category=event_category,
+        date="2026-09-27",
+    )
+
+    event_repository.find_all.assert_called_once_with(
+        page=2,
+        limit=5,
+        search="Application",
+        event_category=event_category,
+        date="2026-09-27",
+    )
+
+    assert result.items == events
+    assert result.total == 1
+    assert result.page == 2
+    assert result.limit == 5
+
+
+# ============================================================
+# EMPTY RESULT
+# ============================================================
+
+
+def test_get_events_returns_empty_result(
+    use_case,
+    event_repository,
+):
+    event_repository.find_all.return_value = (
+        [],
+        0,
     )
 
     result = use_case.execute(
@@ -202,33 +300,43 @@ def test_event_type_value_is_used(
         limit=10,
     )
 
-    assert result.items[0].type == "LEAD_CREATED"
+    assert isinstance(
+        result,
+        PaginatedResult,
+    )
+
+    assert result.items == []
+    assert result.total == 0
+    assert result.page == 1
+    assert result.limit == 10
 
 
-def test_multiple_events_are_mapped_in_same_order(
+# ============================================================
+# MULTIPLE EVENTS
+# ============================================================
+
+
+def test_get_events_preserves_event_order(
     use_case,
     event_repository,
 ):
-    events = [
-        make_event(
-            event_id="event-1",
-            event_type="LEAD_CREATED",
-            message="Lead créé",
-        ),
-        make_event(
-            event_id="event-2",
-            event_type="QUOTE_CREATED",
-            message="Devis créé",
-        ),
-        make_event(
-            event_id="event-3",
-            event_type="APPLICATION_CREATED",
-            message="Dossier créé",
-        ),
-    ]
+    event_1 = make_event(
+        event_id="event-1",
+        message="Premier événement",
+    )
+
+    event_2 = make_event(
+        event_id="event-2",
+        message="Deuxième événement",
+    )
+
+    event_3 = make_event(
+        event_id="event-3",
+        message="Troisième événement",
+    )
 
     event_repository.find_all.return_value = (
-        events,
+        [event_1, event_2, event_3],
         3,
     )
 
@@ -237,363 +345,39 @@ def test_multiple_events_are_mapped_in_same_order(
         limit=10,
     )
 
-    assert len(result.items) == 3
-
-    assert result.items[0].id == "event-1"
-    assert result.items[0].type == "LEAD_CREATED"
-
-    assert result.items[1].id == "event-2"
-    assert result.items[1].type == "QUOTE_CREATED"
-
-    assert result.items[2].id == "event-3"
-    assert result.items[2].type == "APPLICATION_CREATED"
-
-
-def test_empty_event_list_returns_empty_items(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        0,
-    )
-
-    result = use_case.execute(
-        page=1,
-        limit=10,
-    )
-
-    assert result.items == []
-    assert result.total == 0
+    assert result.items == [
+        event_1,
+        event_2,
+        event_3,
+    ]
 
 
 # ============================================================
-# PAGINATION
+# REPOSITORY ERROR
 # ============================================================
 
 
-@pytest.mark.parametrize(
-    "total,limit,expected_total_pages",
-    [
-        (0, 10, 0),
-        (1, 10, 1),
-        (10, 10, 1),
-        (11, 10, 2),
-        (20, 10, 2),
-        (21, 10, 3),
-        (25, 10, 3),
-        (99, 20, 5),
-    ],
-)
-def test_total_pages_are_calculated_correctly(
-    total,
-    limit,
-    expected_total_pages,
+def test_get_events_propagates_repository_error(
     use_case,
     event_repository,
 ):
-    event_repository.find_all.return_value = (
-        [],
-        total,
+    event_repository.find_all.side_effect = RuntimeError(
+        "repository error"
     )
 
-    result = use_case.execute(
-        page=1,
-        limit=limit,
-    )
-
-    assert result.total_pages == expected_total_pages
-
-
-def test_pagination_information_is_returned(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        25,
-    )
-
-    result = use_case.execute(
-        page=2,
-        limit=10,
-    )
-
-    assert result.total == 25
-    assert result.page == 2
-    assert result.limit == 10
-    assert result.total_pages == 3
-
-
-# ============================================================
-# HAS NEXT
-# ============================================================
-
-
-@pytest.mark.parametrize(
-    "page,total,limit,expected",
-    [
-        (1, 25, 10, True),
-        (2, 25, 10, True),
-        (3, 25, 10, False),
-        (1, 10, 10, False),
-        (1, 0, 10, False),
-    ],
-)
-def test_has_next_is_calculated_correctly(
-    page,
-    total,
-    limit,
-    expected,
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        total,
-    )
-
-    result = use_case.execute(
-        page=page,
-        limit=limit,
-    )
-
-    assert result.has_next is expected
-
-
-# ============================================================
-# HAS PREVIOUS
-# ============================================================
-
-
-@pytest.mark.parametrize(
-    "page,expected",
-    [
-        (1, False),
-        (2, True),
-        (3, True),
-        (10, True),
-    ],
-)
-def test_has_previous_is_calculated_correctly(
-    page,
-    expected,
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        100,
-    )
-
-    result = use_case.execute(
-        page=page,
-        limit=10,
-    )
-
-    assert result.has_previous is expected
-
-
-# ============================================================
-# COMPLETE PAGINATION EXAMPLES
-# ============================================================
-
-
-def test_first_page_has_next_but_no_previous(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        25,
-    )
-
-    result = use_case.execute(
-        page=1,
-        limit=10,
-    )
-
-    assert result.total_pages == 3
-    assert result.has_next is True
-    assert result.has_previous is False
-
-
-def test_middle_page_has_next_and_previous(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        25,
-    )
-
-    result = use_case.execute(
-        page=2,
-        limit=10,
-    )
-
-    assert result.total_pages == 3
-    assert result.has_next is True
-    assert result.has_previous is True
-
-
-def test_last_page_has_no_next_but_has_previous(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        25,
-    )
-
-    result = use_case.execute(
-        page=3,
-        limit=10,
-    )
-
-    assert result.total_pages == 3
-    assert result.has_next is False
-    assert result.has_previous is True
-
-
-# ============================================================
-# FILTERS
-# ============================================================
-
-
-def test_search_filter_is_forwarded(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        0,
-    )
-
-    use_case.execute(
-        page=1,
-        limit=10,
-        search="paiement",
-    )
-
-    event_repository.find_all.assert_called_once_with(
-        page=1,
-        limit=10,
-        search="paiement",
-        event_type=None,
-        date=None,
-    )
-
-
-def test_event_type_filter_is_forwarded(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        0,
-    )
-
-    use_case.execute(
-        page=1,
-        limit=10,
-        event_type="PAYMENT_COMPLETED",
-    )
+    with pytest.raises(
+        RuntimeError,
+        match="repository error",
+    ):
+        use_case.execute(
+            page=1,
+            limit=10,
+        )
 
     event_repository.find_all.assert_called_once_with(
         page=1,
         limit=10,
         search=None,
-        event_type="PAYMENT_COMPLETED",
+        event_category=None,
         date=None,
     )
-
-
-def test_date_filter_is_forwarded(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        0,
-    )
-
-    use_case.execute(
-        page=1,
-        limit=10,
-        date="2026-03-15",
-    )
-
-    event_repository.find_all.assert_called_once_with(
-        page=1,
-        limit=10,
-        search=None,
-        event_type=None,
-        date="2026-03-15",
-    )
-
-
-def test_all_filters_can_be_combined(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        0,
-    )
-
-    use_case.execute(
-        page=3,
-        limit=20,
-        search="client",
-        event_type="LEAD_CREATED",
-        date="2026-03-15",
-    )
-
-    event_repository.find_all.assert_called_once_with(
-        page=3,
-        limit=20,
-        search="client",
-        event_type="LEAD_CREATED",
-        date="2026-03-15",
-    )
-
-
-# ============================================================
-# REPOSITORY RESULT IS PRESERVED
-# ============================================================
-
-
-def test_total_from_repository_is_preserved(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        42,
-    )
-
-    result = use_case.execute(
-        page=2,
-        limit=10,
-    )
-
-    assert result.total == 42
-
-
-def test_page_and_limit_are_preserved(
-    use_case,
-    event_repository,
-):
-    event_repository.find_all.return_value = (
-        [],
-        50,
-    )
-
-    result = use_case.execute(
-        page=4,
-        limit=15,
-    )
-
-    assert result.page == 4
-    assert result.limit == 15

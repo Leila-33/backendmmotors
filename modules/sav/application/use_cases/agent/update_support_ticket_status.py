@@ -66,7 +66,6 @@ class UpdateSupportTicketStatusUseCase:
 
                 return UpdateSupportTicketStatusResult(
                     ticket=ticket,
-                    old_status=ticket.status,
                 )
 
 

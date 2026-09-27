@@ -1,80 +1,103 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from modules.applications.domain.enums import EventType
-from modules.leads.domain.enums import LeadStatus
-from modules.leads.domain.exceptions import LeadNotFound
-from modules.notifications.domain.enums import (
-    NotificationEntityType,
-    NotificationType,
+from modules.quotes.application.dtos.agent.quote_agent_dto import (
+    QuoteAgentDTO,
 )
+from modules.quotes.application.results.quote_action_result import (
+    QuoteActionResult,
+)
+from modules.quotes.application.use_cases.agent.send_quote import (
+    SendQuoteUseCase,
+)
+from modules.quotes.domain.entities.quote import Quote
 from modules.quotes.domain.enums import QuoteStatus
 from modules.quotes.domain.exceptions import (
     QuoteAlreadySent,
     QuoteNotFound,
 )
-from modules.quotes.application.use_cases.agent.send_quote import (
-    SendQuoteUseCase,
-)
+from modules.leads.domain.enums import LeadStatus
+from modules.leads.domain.exceptions import LeadNotFound
+from modules.applications.domain.enums import EventType
+
+
+# ============================================================
+# HELPERS
+# ============================================================
 
 
 def make_dto(
-    quote_id="quote-123",
-    agent_id="agent-123",
+    *,
+    quote_id="quote-1",
+    agent_id="agent-1",
 ):
-    dto = Mock()
-    dto.quote_id = quote_id
-    dto.agent_id = agent_id
-    return dto
+    return SimpleNamespace(
+        quote_id=quote_id,
+        agent_id=agent_id,
+    )
 
 
-def make_quote(
-    quote_id="quote-123",
-    lead_id="lead-123",
-    status=QuoteStatus.DRAFT,
+def make_vehicle(
+    *,
+    vehicle_id="vehicle-1",
 ):
-    quote = Mock()
-
-    quote.id = quote_id
-    quote.lead_id = lead_id
-    quote.status = status
-
-    return quote
+    return SimpleNamespace(
+        id=vehicle_id,
+    )
 
 
 def make_customer(
-    customer_id="customer-123",
-    email="client@test.com",
+    *,
+    customer_id="customer-1",
+    email="customer@example.com",
 ):
-    customer = Mock()
-
-    customer.id = customer_id
-    customer.email = email
-
-    return customer
+    return SimpleNamespace(
+        id=customer_id,
+        email=email,
+    )
 
 
 def make_lead(
-    lead_id="lead-123",
-    vehicle_id="vehicle-123",
-    email="client@test.com",
+    *,
+    lead_id="lead-1",
+    user_id="customer-1",
+    vehicle=None,
+    status=None,
 ):
-    lead = Mock()
+    if vehicle is None:
+        vehicle = make_vehicle()
 
-    lead.id = lead_id
-    lead.vehicle_id = vehicle_id
-    lead.email = email
+    lead = SimpleNamespace(
+        id=lead_id,
+        user_id=user_id,
+        vehicle=vehicle,
+        status=status,
+    )
 
-    vehicle = Mock()
-    vehicle.id = vehicle_id
-
-    lead.vehicle = vehicle
+    # Le use case appelle cette méthode lors de l'envoi du devis.
+    lead.change_status = Mock()
 
     return lead
 
 
+def make_quote(
+    *,
+    quote_id="quote-1",
+    lead_id="lead-1",
+    status=QuoteStatus.DRAFT,
+):
+    return Quote(
+        id=quote_id,
+        lead_id=lead_id,
+        base_price=20000,
+        status=status,
+    )
+
+
 def make_account(
+    *,
     customer=None,
     token="activation-token",
 ):
@@ -85,6 +108,11 @@ def make_account(
         "user": customer,
         "token": token,
     }
+
+
+# ============================================================
+# FIXTURES
+# ============================================================
 
 
 @pytest.fixture
@@ -116,6 +144,7 @@ def email_service():
 def notification_service():
     service = Mock()
     service.send = AsyncMock()
+    service.send_update = AsyncMock()
     return service
 
 
@@ -152,46 +181,282 @@ def use_case(
     )
 
 
+@pytest.fixture
+def dto():
+    return make_dto(
+        quote_id="quote-42",
+        agent_id="agent-1",
+    )
+
+
+@pytest.fixture
+def quote():
+    return make_quote(
+        quote_id="quote-42",
+    )
+
+
+@pytest.fixture
+def lead():
+    return make_lead()
+
+
+@pytest.fixture
+def customer():
+    return make_customer()
+
+
+@pytest.fixture
+def account(customer):
+    return make_account(
+        customer=customer,
+        token="activation-token",
+    )
+
+
 # ============================================================
-# SUCCESS
+# QUOTE NOT FOUND
 # ============================================================
 
 
 @pytest.mark.asyncio
-async def test_execute_success(
+async def test_quote_not_found(
+    use_case,
+    quote_repository,
+    unit_of_work,
+    dto,
+):
+    quote_repository.find_by_id.return_value = None
+
+    with pytest.raises(QuoteNotFound):
+        await use_case.execute(dto)
+
+    quote_repository.find_by_id.assert_called_once_with(
+        "quote-42"
+    )
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+# ============================================================
+# LEAD NOT FOUND
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_lead_not_found(
+    use_case,
+    quote_repository,
+    lead_repository,
+    unit_of_work,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+        lead_id="lead-42",
+    )
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = None
+
+    with pytest.raises(LeadNotFound):
+        await use_case.execute(dto)
+
+    quote_repository.find_by_id.assert_called_once_with(
+        "quote-42"
+    )
+
+    lead_repository.find_by_id.assert_called_once_with(
+        "lead-42"
+    )
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+# ============================================================
+# AUTHORIZATION
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_agent_authorization_is_checked(
     use_case,
     quote_repository,
     lead_repository,
     lead_authorization,
     customer_account_service,
-    email_service,
-    notification_service,
-    event_service,
-    unit_of_work,
+    dto,
 ):
-    quote = make_quote()
+    quote = make_quote(
+        quote_id="quote-42",
+    )
+
     lead = make_lead()
+
     customer = make_customer()
 
     quote_repository.find_by_id.return_value = quote
     lead_repository.find_by_id.return_value = lead
 
-    customer_account_service.ensure_account.return_value = (
-        make_account(customer, "activation-token")
+    customer_account_service.ensure_account.return_value = {
+        "user": customer,
+        "token": "activation-token",
+    }
+
+    await use_case.execute(dto)
+
+    lead_authorization.check_owner.assert_called_once_with(
+        lead,
+        "agent-1",
     )
 
-    dto = make_dto()
 
-    result = await use_case.execute(dto)
+@pytest.mark.asyncio
+async def test_authorization_error_rolls_back(
+    use_case,
+    quote_repository,
+    lead_repository,
+    lead_authorization,
+    unit_of_work,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+    )
+    lead = make_lead()
 
-    assert result.quote_id == "quote-123"
-    assert result.message == "Devis envoyé avec succès"
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
 
-    quote.send.assert_called_once()
+    lead_authorization.check_owner.side_effect = PermissionError(
+        "forbidden"
+    )
+
+    with pytest.raises(
+        PermissionError,
+        match="forbidden",
+    ):
+        await use_case.execute(dto)
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
+
+
+# ============================================================
+# QUOTE STATUS
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_already_sent_quote_cannot_be_sent(
+    use_case,
+    quote_repository,
+    lead_repository,
+    unit_of_work,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+        status=QuoteStatus.SENT,
+    )
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = make_lead()
+
+    with pytest.raises(QuoteAlreadySent):
+        await use_case.execute(dto)
+
+    quote_repository.update.assert_not_called()
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once()
+
+
+# ============================================================
+# CUSTOMER ACCOUNT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_customer_account_is_ensured(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    account,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+    )
+    lead = make_lead()
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
+    customer_account_service.ensure_account.return_value = account
+
+    await use_case.execute(dto)
+
+    customer_account_service.ensure_account.assert_called_once_with(
+        lead,
+        "quote-42",
+    )
+
+
+# ============================================================
+# QUOTE UPDATE
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_quote_is_sent(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    account,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+    )
+    lead = make_lead()
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
+    customer_account_service.ensure_account.return_value = account
+
+    await use_case.execute(dto)
+
+    assert quote.status == QuoteStatus.SENT
+    assert quote.sent_at is not None
+    assert quote.expires_at is not None
 
     quote_repository.update.assert_called_once_with(
         quote
     )
+
+
+@pytest.mark.asyncio
+async def test_lead_status_is_changed_to_quote_sent(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    account,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+    )
+    lead = make_lead()
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
+    customer_account_service.ensure_account.return_value = account
+
+    await use_case.execute(dto)
 
     lead.change_status.assert_called_once_with(
         LeadStatus.QUOTE_SENT
@@ -201,34 +466,202 @@ async def test_execute_success(
         lead
     )
 
+
+# ============================================================
+# EVENT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_quote_sent_event_is_logged(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    event_service,
+    account,
+    customer,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+    )
+    lead = make_lead()
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
+    customer_account_service.ensure_account.return_value = account
+
+    await use_case.execute(dto)
+
     event_service.log.assert_called_once_with(
         type=EventType.QUOTE_SENT,
         message="Devis envoyé au client",
-        quote_id="quote-123",
-        lead_id="lead-123",
-        user_id="agent-123",
-        vehicle_id="vehicle-123",
+        quote_id="quote-42",
+        lead_id=lead.id,
+        user_id="agent-1",
+        vehicle_id=lead.vehicle.id,
         event_metadata={
-            "customer_id": "customer-123",
-            "customer_email": "client@test.com",
+            "customer_id": customer.id,
+            "customer_email": customer.email,
         },
     )
 
-    notification_service.send.assert_awaited_once_with(
-        user_id="customer-123",
-        email="client@test.com",
-        title="Nouvelle offre commerciale",
-        message=(
-            "Votre conseiller vous a envoyé "
-            "une nouvelle offre."
-        ),
-        notif_type=NotificationType.QUOTE_SENT,
-        entity_type=NotificationEntityType.QUOTE,
-        entity_id="quote-123",
+
+# ============================================================
+# NOTIFICATION
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_customer_notification_is_sent(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    notification_service,
+    account,
+    customer,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
     )
+    lead = make_lead()
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
+    customer_account_service.ensure_account.return_value = account
+
+    await use_case.execute(dto)
+
+    notification_service.send.assert_awaited_once()
+
+    kwargs = notification_service.send.await_args.kwargs
+
+    assert kwargs["user_id"] == customer.id
+    assert kwargs["email"] == customer.email
+    assert kwargs["entity_id"] == "quote-42"
+
+
+# ============================================================
+# COMMIT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_commit_is_called(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    unit_of_work,
+    account,
+    dto,
+):
+    quote_repository.find_by_id.return_value = make_quote(
+        quote_id="quote-42",
+    )
+    lead_repository.find_by_id.return_value = make_lead()
+    customer_account_service.ensure_account.return_value = account
+
+    await use_case.execute(dto)
 
     unit_of_work.commit.assert_called_once()
     unit_of_work.rollback.assert_not_called()
+
+
+# ============================================================
+# ACTION REQUIRED COUNT
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_action_required_count_is_loaded(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    account,
+    customer,
+    dto,
+):
+    quote_repository.find_by_id.return_value = make_quote(
+        quote_id="quote-42",
+    )
+    lead_repository.find_by_id.return_value = make_lead()
+    customer_account_service.ensure_account.return_value = account
+
+    quote_repository.count_action_required_by_customer.return_value = 3
+
+    await use_case.execute(dto)
+
+    quote_repository.count_action_required_by_customer.assert_called_once_with(
+        customer.id
+    )
+
+
+# ============================================================
+# REALTIME NOTIFICATION UPDATE
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_notification_update_is_sent(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    notification_service,
+    account,
+    customer,
+    dto,
+):
+    quote_repository.find_by_id.return_value = make_quote(
+        quote_id="quote-42",
+    )
+    lead_repository.find_by_id.return_value = make_lead()
+    customer_account_service.ensure_account.return_value = account
+
+    quote_repository.count_action_required_by_customer.return_value = 2
+
+    await use_case.execute(dto)
+
+    notification_service.send_update.assert_awaited_once_with(
+        user_id=customer.id,
+        payload={
+            "type": "QUOTE_UPDATED",
+            "count": 2,
+        },
+    )
+
+
+# ============================================================
+# EMAIL
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_quote_email_is_sent(
+    use_case,
+    quote_repository,
+    lead_repository,
+    customer_account_service,
+    email_service,
+    account,
+    customer,
+    dto,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+    )
+    lead = make_lead()
+
+    quote_repository.find_by_id.return_value = quote
+    lead_repository.find_by_id.return_value = lead
+    customer_account_service.ensure_account.return_value = account
+
+    await use_case.execute(dto)
 
     email_service.send_quote_email.assert_called_once_with(
         quote=quote,
@@ -239,451 +672,350 @@ async def test_execute_success(
 
 
 # ============================================================
-# QUOTE NOT FOUND
+# RESULT
 # ============================================================
 
 
 @pytest.mark.asyncio
-async def test_execute_quote_not_found(
+async def test_quote_action_result_is_returned(
     use_case,
     quote_repository,
     lead_repository,
     customer_account_service,
-    unit_of_work,
-):
-    quote_repository.find_by_id.return_value = None
-
-    dto = make_dto()
-
-    with pytest.raises(QuoteNotFound):
-        await use_case.execute(dto)
-
-    lead_repository.find_by_id.assert_not_called()
-    customer_account_service.ensure_account.assert_not_called()
-
-    unit_of_work.commit.assert_not_called()
-    unit_of_work.rollback.assert_called_once()
-
-
-# ============================================================
-# LEAD NOT FOUND
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_execute_lead_not_found(
-    use_case,
-    quote_repository,
-    lead_repository,
-    lead_authorization,
-    unit_of_work,
-):
-    quote = make_quote()
-
-    quote_repository.find_by_id.return_value = quote
-    lead_repository.find_by_id.return_value = None
-
-    dto = make_dto()
-
-    with pytest.raises(LeadNotFound):
-        await use_case.execute(dto)
-
-    lead_authorization.check_owner.assert_not_called()
-
-    quote.send.assert_not_called()
-    quote_repository.update.assert_not_called()
-
-    unit_of_work.commit.assert_not_called()
-    unit_of_work.rollback.assert_called_once()
-
-
-# ============================================================
-# AUTHORIZATION ERROR
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_execute_authorization_error(
-    use_case,
-    quote_repository,
-    lead_repository,
-    lead_authorization,
-    customer_account_service,
-    unit_of_work,
-):
-    quote = make_quote()
-    lead = make_lead()
-
-    quote_repository.find_by_id.return_value = quote
-    lead_repository.find_by_id.return_value = lead
-
-    lead_authorization.check_owner.side_effect = (
-        PermissionError("Unauthorized")
-    )
-
-    dto = make_dto()
-
-    with pytest.raises(
-        PermissionError,
-        match="Unauthorized",
-    ):
-        await use_case.execute(dto)
-
-    customer_account_service.ensure_account.assert_not_called()
-
-    quote.send.assert_not_called()
-    quote_repository.update.assert_not_called()
-
-    unit_of_work.commit.assert_not_called()
-    unit_of_work.rollback.assert_called_once()
-
-
-# ============================================================
-# QUOTE ALREADY SENT
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_execute_quote_already_sent(
-    use_case,
-    quote_repository,
-    lead_repository,
-    lead_authorization,
-    customer_account_service,
-    unit_of_work,
+    account,
+    dto,
 ):
     quote = make_quote(
-        status=QuoteStatus.SENT,
+        quote_id="quote-42",
     )
     lead = make_lead()
 
     quote_repository.find_by_id.return_value = quote
     lead_repository.find_by_id.return_value = lead
+    customer_account_service.ensure_account.return_value = account
 
-    dto = make_dto()
+    result = await use_case.execute(dto)
 
-    with pytest.raises(QuoteAlreadySent):
-        await use_case.execute(dto)
-
-    lead_authorization.check_owner.assert_called_once_with(
-        lead,
-        "agent-123",
+    assert isinstance(
+        result,
+        QuoteActionResult,
     )
 
-    customer_account_service.ensure_account.assert_not_called()
-
-    quote.send.assert_not_called()
-    quote_repository.update.assert_not_called()
-
-    unit_of_work.commit.assert_not_called()
-    unit_of_work.rollback.assert_called_once()
+    assert result.quote_id == "quote-42"
+    assert result.message == "Devis envoyé avec succès"
 
 
 # ============================================================
-# CUSTOMER ACCOUNT ERROR
+# ROLLBACK — QUOTE UPDATE
 # ============================================================
 
 
 @pytest.mark.asyncio
-async def test_execute_customer_account_error_rolls_back(
+async def test_quote_update_error_rolls_back(
     use_case,
     quote_repository,
     lead_repository,
     customer_account_service,
     unit_of_work,
+    account,
+    dto,
 ):
-    quote = make_quote()
-    lead = make_lead()
-
-    quote_repository.find_by_id.return_value = quote
-    lead_repository.find_by_id.return_value = lead
-
-    customer_account_service.ensure_account.side_effect = (
-        RuntimeError("Account error")
+    quote = make_quote(
+        quote_id="quote-42",
     )
 
-    dto = make_dto()
-
-    with pytest.raises(
-        RuntimeError,
-        match="Account error",
-    ):
-        await use_case.execute(dto)
-
-    quote.send.assert_not_called()
-    quote_repository.update.assert_not_called()
-
-    unit_of_work.commit.assert_not_called()
-    unit_of_work.rollback.assert_called_once()
-
-
-# ============================================================
-# QUOTE UPDATE ERROR
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_execute_quote_update_error_rolls_back(
-    use_case,
-    quote_repository,
-    lead_repository,
-    customer_account_service,
-    unit_of_work,
-):
-    quote = make_quote()
-    lead = make_lead()
-
     quote_repository.find_by_id.return_value = quote
-    lead_repository.find_by_id.return_value = lead
-
-    customer_account_service.ensure_account.return_value = (
-        make_account()
-    )
+    lead_repository.find_by_id.return_value = make_lead()
+    customer_account_service.ensure_account.return_value = account
 
     quote_repository.update.side_effect = RuntimeError(
-        "Quote update error"
+        "quote update error"
     )
-
-    dto = make_dto()
 
     with pytest.raises(
         RuntimeError,
-        match="Quote update error",
+        match="quote update error",
     ):
         await use_case.execute(dto)
 
-    quote.send.assert_called_once()
-
-    lead_repository.update.assert_not_called()
-
-    unit_of_work.commit.assert_not_called()
     unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
 # ============================================================
-# LEAD UPDATE ERROR
+# ROLLBACK — LEAD UPDATE
 # ============================================================
 
 
 @pytest.mark.asyncio
-async def test_execute_lead_update_error_rolls_back(
+async def test_lead_update_error_rolls_back(
     use_case,
     quote_repository,
     lead_repository,
     customer_account_service,
     unit_of_work,
+    account,
+    dto,
 ):
-    quote = make_quote()
-    lead = make_lead()
-
-    quote_repository.find_by_id.return_value = quote
-    lead_repository.find_by_id.return_value = lead
-
-    customer_account_service.ensure_account.return_value = (
-        make_account()
+    quote_repository.find_by_id.return_value = make_quote(
+        quote_id="quote-42",
     )
+    lead_repository.find_by_id.return_value = make_lead()
+    customer_account_service.ensure_account.return_value = account
 
     lead_repository.update.side_effect = RuntimeError(
-        "Lead update error"
+        "lead update error"
     )
-
-    dto = make_dto()
 
     with pytest.raises(
         RuntimeError,
-        match="Lead update error",
+        match="lead update error",
     ):
         await use_case.execute(dto)
 
-    quote.send.assert_called_once()
-    quote_repository.update.assert_called_once_with(
-        quote
-    )
-
-    unit_of_work.commit.assert_not_called()
     unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
 # ============================================================
-# EVENT ERROR
+# ROLLBACK — EVENT
 # ============================================================
 
 
 @pytest.mark.asyncio
-async def test_execute_event_error_rolls_back(
+async def test_event_error_rolls_back(
     use_case,
     quote_repository,
     lead_repository,
     customer_account_service,
     event_service,
-    notification_service,
     unit_of_work,
+    account,
+    dto,
 ):
-    quote = make_quote()
-    lead = make_lead()
-
-    quote_repository.find_by_id.return_value = quote
-    lead_repository.find_by_id.return_value = lead
-
-    customer_account_service.ensure_account.return_value = (
-        make_account()
+    quote_repository.find_by_id.return_value = make_quote(
+        quote_id="quote-42",
     )
+    lead_repository.find_by_id.return_value = make_lead()
+    customer_account_service.ensure_account.return_value = account
 
     event_service.log.side_effect = RuntimeError(
-        "Event error"
+        "event error"
     )
-
-    dto = make_dto()
 
     with pytest.raises(
         RuntimeError,
-        match="Event error",
+        match="event error",
     ):
         await use_case.execute(dto)
 
-    quote_repository.update.assert_called_once_with(
-        quote
-    )
-
-    lead_repository.update.assert_called_once_with(
-        lead
-    )
-
-    notification_service.send.assert_not_awaited()
-
-    unit_of_work.commit.assert_not_called()
     unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_not_called()
 
 
 # ============================================================
-# NOTIFICATION ERROR
+# ROLLBACK — NOTIFICATION
 # ============================================================
 
 
 @pytest.mark.asyncio
-async def test_execute_notification_error_rolls_back(
+async def test_notification_error_rolls_back(
     use_case,
     quote_repository,
     lead_repository,
     customer_account_service,
     notification_service,
-    event_service,
     unit_of_work,
+    account,
+    dto,
 ):
-    quote = make_quote()
-    lead = make_lead()
-
-    quote_repository.find_by_id.return_value = quote
-    lead_repository.find_by_id.return_value = lead
-
-    customer_account_service.ensure_account.return_value = (
-        make_account()
+    quote_repository.find_by_id.return_value = make_quote(
+        quote_id="quote-42",
     )
+    lead_repository.find_by_id.return_value = make_lead()
+    customer_account_service.ensure_account.return_value = account
 
     notification_service.send.side_effect = RuntimeError(
-        "Notification error"
+        "notification error"
     )
-
-    dto = make_dto()
 
     with pytest.raises(
         RuntimeError,
-        match="Notification error",
+        match="notification error",
     ):
         await use_case.execute(dto)
 
-    event_service.log.assert_called_once()
-
+    unit_of_work.rollback.assert_called_once()
     unit_of_work.commit.assert_not_called()
-    unit_of_work.rollback.assert_called_once()
 
 
 # ============================================================
-# COMMIT ERROR
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_execute_commit_error_rolls_back(
-    use_case,
-    quote_repository,
-    lead_repository,
-    customer_account_service,
-    notification_service,
-    event_service,
-    unit_of_work,
-):
-    quote = make_quote()
-    lead = make_lead()
-
-    quote_repository.find_by_id.return_value = quote
-    lead_repository.find_by_id.return_value = lead
-
-    customer_account_service.ensure_account.return_value = (
-        make_account()
-    )
-
-    unit_of_work.commit.side_effect = RuntimeError(
-        "Commit error"
-    )
-
-    dto = make_dto()
-
-    with pytest.raises(
-        RuntimeError,
-        match="Commit error",
-    ):
-        await use_case.execute(dto)
-
-    notification_service.send.assert_awaited_once()
-    event_service.log.assert_called_once()
-
-    unit_of_work.commit.assert_called_once()
-    unit_of_work.rollback.assert_called_once()
-
-    email_service = use_case.email_service
-    email_service.send_quote_email.assert_not_called()
-
-
-# ============================================================
-# EMAIL ERROR
+# ROLLBACK — EMAIL
 # ============================================================
 
 
 @pytest.mark.asyncio
-async def test_execute_email_error_rolls_back_after_commit(
+async def test_email_error_rolls_back(
     use_case,
     quote_repository,
     lead_repository,
     customer_account_service,
     email_service,
     unit_of_work,
+    account,
+    dto,
 ):
-    quote = make_quote()
-    lead = make_lead()
+    quote_repository.find_by_id.return_value = make_quote(
+        quote_id="quote-42",
+    )
+    lead_repository.find_by_id.return_value = make_lead()
+    customer_account_service.ensure_account.return_value = account
+
+    email_service.send_quote_email.side_effect = RuntimeError(
+        "email error"
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="email error",
+    ):
+        await use_case.execute(dto)
+
+    unit_of_work.rollback.assert_called_once()
+    unit_of_work.commit.assert_called_once()
+
+
+# ============================================================
+# COMPLETE FLOW
+# ============================================================
+
+
+@pytest.mark.asyncio
+async def test_send_quote_complete_flow(
+    use_case,
+    quote_repository,
+    lead_repository,
+    lead_authorization,
+    customer_account_service,
+    notification_service,
+    event_service,
+    email_service,
+    unit_of_work,
+):
+    quote = make_quote(
+        quote_id="quote-42",
+        lead_id="lead-42",
+    )
+
+    vehicle = make_vehicle(
+        vehicle_id="vehicle-42",
+    )
+
+    lead = make_lead(
+        lead_id="lead-42",
+        user_id="customer-42",
+        vehicle=vehicle,
+    )
+
+    customer = make_customer(
+        customer_id="customer-42",
+        email="customer42@example.com",
+    )
+
+    account = make_account(
+        customer=customer,
+        token="token-42",
+    )
+
+    dto = make_dto(
+        quote_id="quote-42",
+        agent_id="agent-42",
+    )
 
     quote_repository.find_by_id.return_value = quote
     lead_repository.find_by_id.return_value = lead
 
-    customer_account_service.ensure_account.return_value = (
-        make_account()
+    customer_account_service.ensure_account.return_value = account
+
+    quote_repository.count_action_required_by_customer.return_value = 4
+
+    result = await use_case.execute(dto)
+
+    # Autorisation
+    lead_authorization.check_owner.assert_called_once_with(
+        lead,
+        "agent-42",
     )
 
-    email_service.send_quote_email.side_effect = RuntimeError(
-        "Email error"
+    # Quote
+    assert quote.status == QuoteStatus.SENT
+
+    quote_repository.update.assert_called_once_with(
+        quote
     )
 
-    dto = make_dto()
+    # Lead
+    lead.change_status.assert_called_once_with(
+        LeadStatus.QUOTE_SENT
+    )
 
-    with pytest.raises(
-        RuntimeError,
-        match="Email error",
-    ):
-        await use_case.execute(dto)
+    lead_repository.update.assert_called_once_with(
+        lead
+    )
 
+    # Event
+    event_service.log.assert_called_once()
+
+    event_kwargs = event_service.log.call_args.kwargs
+
+    assert event_kwargs["type"] == EventType.QUOTE_SENT
+    assert event_kwargs["quote_id"] == "quote-42"
+    assert event_kwargs["lead_id"] == "lead-42"
+    assert event_kwargs["user_id"] == "agent-42"
+    assert event_kwargs["vehicle_id"] == "vehicle-42"
+
+    # Notification
+    notification_service.send.assert_awaited_once()
+
+    notification_kwargs = (
+        notification_service.send.await_args.kwargs
+    )
+
+    assert notification_kwargs["user_id"] == "customer-42"
+    assert notification_kwargs["email"] == "customer42@example.com"
+    assert notification_kwargs["entity_id"] == "quote-42"
+
+    # Count
+    quote_repository.count_action_required_by_customer.assert_called_once_with(
+        "customer-42"
+    )
+
+    # Realtime update
+    notification_service.send_update.assert_awaited_once_with(
+        user_id="customer-42",
+        payload={
+            "type": "QUOTE_UPDATED",
+            "count": 4,
+        },
+    )
+
+    # Email
+    email_service.send_quote_email.assert_called_once_with(
+        quote=quote,
+        customer=customer,
+        vehicle=vehicle,
+        activation_token="token-42",
+    )
+
+    # Transaction
     unit_of_work.commit.assert_called_once()
+    unit_of_work.rollback.assert_not_called()
 
-    email_service.send_quote_email.assert_called_once()
+    # Result
+    assert isinstance(
+        result,
+        QuoteActionResult,
+    )
 
-    # Le rollback est appelé même si le commit a déjà eu lieu.
-    unit_of_work.rollback.assert_called_once()
+    assert result.quote_id == "quote-42"
+    assert result.message == "Devis envoyé avec succès"
