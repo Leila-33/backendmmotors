@@ -29,7 +29,14 @@ logger = logging.getLogger(__name__)
 
 
 class AcceptQuoteUseCase:
+    """
+    Accepte un devis par le client après vérification de son accès,
+    crée le brouillon de dossier associé et initialise ses informations
+    de financement et de reprise.
 
+    L'acceptation et la création du dossier sont enregistrées dans
+    l'historique des événements, puis l'agent concerné est notifié.
+    """
     def __init__(
         self,
         quote_repository,

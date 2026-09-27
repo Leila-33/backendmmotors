@@ -36,7 +36,15 @@ REPAIR_RULES = {
 def perform_reconditioning_analysis(
     inspection: Inspection,
 ) -> ReconditioningAnalysisResult:
+    """
+    Analyse les réparations recommandées lors d'une inspection
+    afin de déterminer les tâches de reconditionnement, leur coût
+    et leur durée estimée.
 
+    Lorsqu'aucune réparation n'est nécessaire, le véhicule est considéré
+    comme ne nécessitant aucune intervention avec une durée minimale
+    d'un jour.
+    """
     tasks = inspection.recommended_repairs or []
 
     cost = 0

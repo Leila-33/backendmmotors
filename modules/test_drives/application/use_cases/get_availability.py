@@ -19,7 +19,11 @@ from modules.test_drives.application.results.get_availability_result import (
 
 
 class GetAvailabilityUseCase:
-
+    """
+    Récupère les créneaux disponibles pour un essai routier
+    après vérification de l'existence, de la disponibilité du véhicule
+    et de la validité de la date demandée.
+    """
     def __init__(
         self,
         repository,

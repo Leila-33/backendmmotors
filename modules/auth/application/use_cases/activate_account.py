@@ -23,7 +23,13 @@ logger = logging.getLogger(__name__)
 
 
 class ActivateAccountUseCase:
+    """
+    Active le compte d'un utilisateur à partir d'un jeton d'activation
+    valide, définit son mot de passe et enregistre l'activation.
 
+    Le compte activé reçoit également les jetons d'authentification
+    nécessaires à sa connexion.
+    """
     def __init__(
         self,
         validator,

@@ -27,7 +27,16 @@ logger = logging.getLogger(__name__)
 
 
 class HandlePaymentSuccessUseCase:
+    """
+    Traite la confirmation d'un paiement Stripe et déclenche
+    la finalisation correspondante selon le type de véhicule.
 
+    Pour une vente, le dossier et le véhicule sont finalisés ;
+    pour une location, la location est activée.
+
+    Le traitement est idempotent afin d'éviter de traiter plusieurs fois
+    un même paiement confirmé par Stripe.
+    """
     def __init__(
         self,
         payment_repository,

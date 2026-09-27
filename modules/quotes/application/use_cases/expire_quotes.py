@@ -4,7 +4,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ExpireQuotesUseCase:
-
+    """
+    Expire automatiquement les devis dont la date de validité est dépassée
+    et enregistre chaque expiration dans l'historique des événements.
+    """
     def __init__(
         self,
         quote_repository,

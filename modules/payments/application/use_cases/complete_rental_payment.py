@@ -22,7 +22,13 @@ logger = logging.getLogger(__name__)
 
 
 class CompleteRentalPaymentUseCase:
+    """
+    Finalise le paiement d'une location en passant le dossier
+    à l'état terminé et en enregistrant l'événement de paiement.
 
+    Le traitement est idempotent afin d'éviter de finaliser
+    plusieurs fois une même location.
+    """
     def __init__(
         self,
         application_repository,

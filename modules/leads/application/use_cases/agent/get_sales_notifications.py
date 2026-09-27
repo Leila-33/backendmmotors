@@ -10,7 +10,10 @@ from modules.leads.domain.repositories.sales_dashboard_repository import (
 
 
 class GetSalesNotificationsUseCase:
-
+    """
+    Récupère les compteurs de notifications nécessaires
+    au tableau de bord commercial de l'agent.
+    """
     def __init__(
         self,
         sales_dashboard_repository: SalesDashboardRepository,

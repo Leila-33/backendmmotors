@@ -80,7 +80,16 @@ from modules.vehicles.domain.exceptions import (
 
 
 class ApplicationFormService:
-
+    """
+    Gère l'enregistrement des données du formulaire de dossier.
+    
+    Le service crée ou récupère le dossier, puis coordonne la mise
+    à jour du véhicule, des options, de la reprise, du financement,
+    des documents, des informations client et de la réservation.
+    
+    Il s'appuie sur les repositories et services métier nécessaires
+    pour effectuer les calculs et assurer la cohérence des données.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,
@@ -121,7 +130,15 @@ class ApplicationFormService:
         dto,
         current_user_id: str,
     ) -> ApplicationFormResult:
+        """
+        Enregistre les données du formulaire dans le dossier
+        de l'utilisateur connecté.
 
+        Le dossier existant est mis à jour ou un nouveau brouillon
+        est créé. Les informations tarifaires, la reprise, le
+        financement, les options, les documents et la réservation
+        sont ensuite synchronisés avec les données du formulaire.
+        """
         self._validate_financial_information(dto)
 
         result = self._get_or_create_application(
@@ -259,7 +276,13 @@ class ApplicationFormService:
         dto,
         current_user_id: str,
     ) -> ApplicationFormResult:
-
+        """
+        Récupère le dossier demandé, un brouillon existant pour le
+        véhicule concerné, ou crée un nouveau dossier brouillon.
+        
+        Lorsqu'un dossier existant est fourni, vérifie également
+        qu'il appartient à l'utilisateur connecté.
+        """
         # =========================
         # EXISTING APPLICATION
         # =========================
@@ -350,7 +373,9 @@ class ApplicationFormService:
         dto,
         application_id: str,
     ) -> int:
-
+        """
+        Évalue et enregistre les informations du véhicule repris.
+        """
         if not dto.trade_in:
             return 0
 
@@ -395,6 +420,11 @@ class ApplicationFormService:
         application: Application,
         trade_in_value: float = 0,
     ):
+        """
+        Calcule et enregistre les informations du financement
+        à partir du prix du dossier, de l'apport, de la durée
+        et de la valeur de reprise.
+        """
         # =========================
         # VÉRIFICATION
         # =========================
@@ -475,7 +505,10 @@ class ApplicationFormService:
         dto,
         application
     ):
-
+        """
+        Met à jour les informations personnelles et financières
+        enregistrées dans le dossier.
+        """
         application.first_name = dto.first_name
         application.last_name = dto.last_name
         application.email = dto.email
@@ -506,7 +539,9 @@ class ApplicationFormService:
         dto,
         application_id: str
     ):
-
+        """
+        Synchronise les options sélectionnées avec le dossier.
+        """
         if dto.selected_option_ids is None:
             return
 
@@ -527,7 +562,9 @@ class ApplicationFormService:
         dto,
         application_id: str
     ):
-
+        """
+        Synchronise les documents associés au dossier.
+        """
         if dto.documents is None:
             return
 
@@ -548,7 +585,10 @@ class ApplicationFormService:
         dto,
         application
     ):
-
+        """
+        Crée ou met à jour la réservation brouillon pour une
+        location et vérifie qu'aucune réservation ne se chevauche.
+        """
 
         if (
             dto.application_type != ApplicationType.RENT
@@ -582,7 +622,10 @@ class ApplicationFormService:
         )
 
     def _validate_financial_information(self, dto):
-
+        """
+        Vérifie la cohérence des informations financières
+        saisies par l'utilisateur.
+        """
         if (
             dto.monthly_income is not None
             and dto.monthly_expenses is not None

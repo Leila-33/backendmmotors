@@ -1,5 +1,11 @@
 class CustomerAccountService:
+    """
+    Assure la création ou la récupération du compte client associé
+    à un lead et rattache le lead à cet utilisateur.
 
+    Lorsqu'un nouveau compte est créé, un jeton d'activation est également
+    généré afin de permettre au client d'activer son compte.
+    """
     def __init__(
         self,
         user_creation_service,

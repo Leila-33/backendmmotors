@@ -4,7 +4,10 @@ from modules.vehicles.application.results.admin.get_vehicle_lifecycle_result imp
 
 
 class GetVehicleLifecycleUseCase:
-
+    """
+    Récupère les différentes étapes du cycle de vie d'un véhicule,
+    notamment son inspection et son reconditionnement.
+    """
     def __init__(
         self,
         inspection_repository,

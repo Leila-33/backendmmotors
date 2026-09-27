@@ -4,7 +4,10 @@ from modules.reservations.application.dtos.check_availability_dto import (
 from modules.reservations.domain.repositories.reservation_repository import ReservationRepository
 
 class CheckReservationAvailabilityUseCase:
-
+    """
+    Vérifie la disponibilité d'un véhicule pour une période donnée
+    en recherchant l'existence d'une réservation qui se chevauche.
+    """
     def __init__(
         self,
         reservation_repository: ReservationRepository,

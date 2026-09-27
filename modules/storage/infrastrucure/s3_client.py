@@ -3,7 +3,10 @@ from core.config.settings import settings
 
 
 def get_s3_client():
-
+    """
+    Crée et configure un client S3 à partir des paramètres
+    de stockage définis dans la configuration de l'application.
+    """
     return boto3.client(
         "s3",
         endpoint_url=settings.S3_ENDPOINT,

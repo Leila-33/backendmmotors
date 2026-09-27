@@ -7,7 +7,12 @@ from modules.sav.application.dtos.create_ticket_message_dto import CreateTicketM
 
 
 class TicketChatUseCase:
+    """
+    Centralise les opérations métier du chat associé aux tickets SAV.
 
+    Il vérifie l'accès au ticket, permet l'envoi de messages
+    et détermine le destinataire d'un message selon son expéditeur.
+    """
     def __init__(
         self,
         ticket_repository,

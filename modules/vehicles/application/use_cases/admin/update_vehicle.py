@@ -44,7 +44,15 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateVehicleUseCase:
+    """
+    Met à jour les informations d'un véhicule après vérification
+    de l'unicité de sa plaque et des règles métier liées à son type
+    et à sa garantie.
 
+    Les options et la garantie sont synchronisées, les anciennes images
+    supprimées du stockage S3 et la modification enregistrée
+    dans l'historique des événements.
+    """
     def __init__(
         self,
         repo: VehicleRepository,

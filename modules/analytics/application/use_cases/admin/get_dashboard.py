@@ -7,7 +7,11 @@ from modules.analytics.application.results.admin.admin_dashboard_result import (
 
 
 class GetAdminDashboardUseCase:
-
+    """
+    Récupère les données nécessaires au tableau de bord
+    administrateur : statistiques des dossiers, dossiers récents
+    et événements récents.
+    """
     def __init__(self, dashboard_repository):
         self.dashboard_repository = dashboard_repository
 

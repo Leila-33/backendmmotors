@@ -3,7 +3,10 @@ from fastapi import WebSocket
 
 
 class ConnectionManager:
-
+    """
+    Gère les connexions WebSocket actives des utilisateurs
+    et permet d'envoyer des messages à leurs différentes connexions.
+    """
     def __init__(self):
         # user_id -> list of sockets
         self.active_connections: dict[str, list[WebSocket]] = defaultdict(list)
@@ -37,13 +40,13 @@ class ConnectionManager:
         print(" ACTIVE CONNECTIONS 2:", self.active_connections)
 
         if not sockets:
-            print("❌ NO WS FOUND")
+            print("NO WS FOUND")
             return
 
         for ws in sockets:
             await ws.send_json(message)
 
-        print("🔥 MESSAGE SENT")
+        print("MESSAGE SENT")
 
     # =====================
     # BROADCAST TO ALL USERS

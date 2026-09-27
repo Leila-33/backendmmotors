@@ -36,7 +36,13 @@ logger = logging.getLogger(__name__)
 
 
 class FinalCheckUseCase:
+    """
+    Effectue le contrôle final d'un véhicule après vérification
+    de la fin de son reconditionnement et de son état.
 
+    Le contrôle valide le reconditionnement, rend le véhicule prêt
+    et enregistre la date du contrôle ainsi que l'événement associé.
+    """
     def __init__(
         self,
         vehicle_repository,

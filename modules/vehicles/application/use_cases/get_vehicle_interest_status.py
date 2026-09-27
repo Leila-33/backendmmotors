@@ -4,7 +4,10 @@ from modules.vehicles.application.results.get_vehicle_interest_status_result imp
 
 
 class GetVehicleInterestStatusUseCase:
-
+    """
+    Détermine si un utilisateur est déjà intéressé par un véhicule
+    et récupère, lorsqu'ils existent, le devis et le dossier associés.
+    """
     def __init__(
         self,
         lead_repository,

@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class ToggleOptionStatusUseCase:
-
+    """
+    Active ou désactive une option, puis enregistre la modification
+    dans l'historique des événements.
+    """
     def __init__(
         self,
         option_repository,

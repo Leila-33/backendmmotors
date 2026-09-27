@@ -40,7 +40,14 @@ logger = logging.getLogger(__name__)
 
 
 class StartReconditioningUseCase:
+    """
+    Lance le reconditionnement d'un véhicule après vérification
+    de son état, de la réalisation de l'inspection et de l'absence
+    d'un reconditionnement déjà en cours.
 
+    Le reconditionnement est créé, le véhicule passe dans l'état
+    correspondant, puis le traitement est placé dans la file d'attente.
+    """
     def __init__(
         self,
         reconditioning_repository,

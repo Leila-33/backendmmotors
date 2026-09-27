@@ -11,7 +11,11 @@ from core.pagination.paginated_result import PaginatedResult
 
 
 class FindSupportTicketsUseCase:
-
+    """
+    Récupère les tickets SAV selon les critères de recherche,
+    de filtrage, de tri et de pagination, en tenant compte
+    du rôle et du périmètre d'accès de l'utilisateur.
+    """
     def __init__(self, repo):
         self.repo = repo
 

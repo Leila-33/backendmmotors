@@ -7,7 +7,11 @@ from modules.auth.application.dtos.admin.find_users_dto import (
 from core.pagination.paginated_result import PaginatedResult
 
 class FindUsersUseCase:
-
+    """
+    Récupère les utilisateurs selon les critères de recherche,
+    de filtrage, de tri et de pagination, puis transforme les
+    résultats en données adaptées à la liste d'administration.
+    """
     def __init__(
         self,
         user_repo,

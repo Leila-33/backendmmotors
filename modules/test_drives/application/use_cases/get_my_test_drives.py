@@ -4,7 +4,9 @@ from modules.test_drives.application.results.get_my_test_drives_result import (
 
 
 class GetMyTestDrivesUseCase:
-
+    """
+    Récupère les demandes d'essai routier associées à l'utilisateur connecté.
+    """
     def __init__(self, repository):
         self.repository = repository
 

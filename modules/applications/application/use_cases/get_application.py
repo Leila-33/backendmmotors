@@ -4,7 +4,10 @@ from modules.applications.application.dtos.application_id_dto import Application
 from modules.applications.application.results.get_application_result import GetApplicationResult
 
 class GetApplicationUseCase:
-
+    """
+    Récupère le détail complet d'un dossier après vérification
+    des droits d'accès et ajoute le statut du dernier paiement.
+    """
     def __init__(
         self,
         application_repository,

@@ -8,7 +8,10 @@ from modules.vehicles.domain.exceptions import VehicleNotFound
 
 
 class GetVehicleAvailabilityUseCase:
-
+    """
+    Récupère les périodes de réservation actives d'un véhicule
+    afin de déterminer les périodes pendant lesquelles il n'est pas disponible.
+    """
     def __init__(
         self,
         reservation_repository: ReservationRepository,

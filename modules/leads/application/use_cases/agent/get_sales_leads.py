@@ -8,7 +8,10 @@ from modules.leads.application.results.agent.get_sales_leads_result import (
 from modules.leads.domain.repositories.lead_repository import LeadRepository
 
 class GetSalesLeadsUseCase:
-
+    """
+    Récupère les leads accessibles à l'agent selon le périmètre
+    demandé, notamment ses propres leads ou les leads non attribués.
+    """
     def __init__(
         self,
         lead_repository: LeadRepository,

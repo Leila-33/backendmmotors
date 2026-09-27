@@ -35,7 +35,13 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateQuoteUseCase:
+    """
+    Met à jour un devis après vérification des droits de l'agent.
 
+    Les nouvelles informations de financement et de reprise sont recalculées,
+    puis les données de reprise associées au devis sont créées, modifiées
+    ou supprimées selon les informations fournies.
+    """
     def __init__(
         self,
         quote_repository,

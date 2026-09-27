@@ -16,7 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class CreateLeadUseCase:
-
+    """
+    Crée un nouveau lead après vérification de l'absence
+    d'un lead actif pour le même utilisateur ou la même adresse e-mail
+    sur le véhicule concerné, puis enregistre sa création
+    dans l'historique des événements.
+    """
     def __init__(
         self,
         lead_repository,

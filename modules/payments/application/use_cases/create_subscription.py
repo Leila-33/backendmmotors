@@ -27,7 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 class CreateSubscriptionUseCase:
+    """
+    Crée l'abonnement Stripe associé à un contrat de financement
+    et enregistre ses informations dans le contrat.
 
+    Le traitement est idempotent afin d'éviter la création
+    de plusieurs abonnements pour un même contrat.
+    """
     def __init__(
         self,
         stripe_service,

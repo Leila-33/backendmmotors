@@ -11,7 +11,12 @@ from modules.notifications.domain.exceptions import (
 
 
 class NotificationService:
+    """
+    Crée et envoie des notifications aux utilisateurs.
 
+    Une notification peut être enregistrée en base, envoyée par e-mail
+    et transmise en temps réel via WebSocket.
+    """
     def __init__(
         self,
         notification_repo,

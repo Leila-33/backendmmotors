@@ -20,7 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class SetAvailabilityUseCase:
+    """
+    Modifie la disponibilité d'un véhicule après vérification
+    de son existence et de l'absence de changement inutile.
 
+    La modification est enregistrée dans l'historique des événements.
+    """
     def __init__(
         self,
         vehicle_repository: VehicleRepository,

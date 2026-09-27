@@ -36,7 +36,11 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateDocumentUseCase:
-
+    """
+    Met à jour le statut et le commentaire d'un document d'un dossier,
+    puis enregistre l'action dans l'historique et notifie le client
+    lorsque le document est rejeté.
+    """
     def __init__(
         self,
         document_repository,

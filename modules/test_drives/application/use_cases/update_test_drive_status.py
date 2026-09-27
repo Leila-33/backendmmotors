@@ -28,7 +28,14 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateTestDriveStatusUseCase:
+    """
+    Modifie le statut d'un essai routier après vérification
+    des droits de l'acteur et des transitions autorisées.
 
+    La modification est enregistrée dans l'historique des événements,
+    le client est notifié lorsque nécessaire et le nombre d'essais
+    en attente est diffusé aux administrateurs en temps réel.
+    """
     def __init__(
         self,
         repository,

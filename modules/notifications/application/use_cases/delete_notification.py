@@ -12,7 +12,11 @@ from modules.notifications.application.results.delete_notification_result import
 
 
 class DeleteNotificationUseCase:
-
+    """
+    Supprime une notification après vérification de son existence
+    et de son appartenance à l'utilisateur connecté, puis met à jour
+    le compteur de notifications non lues en temps réel.
+    """
     def __init__(
         self,
         repository,

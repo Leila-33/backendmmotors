@@ -17,7 +17,17 @@ logger = logging.getLogger(__name__)
 
 
 class ActivateVehicleWarrantyUseCase:
+    """
+    Active la garantie associée à un véhicule après vérification
+    de son existence, de l'existence de sa garantie et de son plan.
 
+    La garantie est initialisée avec ses dates de validité et ses limites
+    de kilométrage à partir du plan choisi et du kilométrage actuel
+    du véhicule.
+
+    L'activation est idempotente afin d'éviter de réactiver une garantie
+    déjà active et est enregistrée dans l'historique des événements.
+    """
     def __init__(
         self,
         vehicle_repository,

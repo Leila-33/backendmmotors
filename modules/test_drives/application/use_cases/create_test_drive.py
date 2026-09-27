@@ -28,7 +28,15 @@ logger = logging.getLogger(__name__)
 
 
 class CreateTestDriveUseCase:
+    """
+    Crée une demande d'essai routier après vérification de l'existence
+    et de la disponibilité du véhicule, de l'absence d'une demande
+    bloquante et de la disponibilité du créneau choisi.
 
+    La création est enregistrée dans l'historique des événements,
+    les administrateurs sont notifiés et le nombre d'essais en attente
+    est diffusé en temps réel.
+    """
     def __init__(
         self,
         user_repository,

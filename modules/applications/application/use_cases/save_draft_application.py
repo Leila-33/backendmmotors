@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class SaveDraftApplicationUseCase:
-
+    """
+    Enregistre ou met à jour le brouillon d'un dossier pour l'utilisateur
+    connecté et crée un événement lors de la création d'un nouveau dossier.
+    """
     def __init__(
         self,
         application_form_service,

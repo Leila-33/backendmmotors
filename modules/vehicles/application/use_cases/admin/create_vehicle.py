@@ -32,7 +32,13 @@ logger = logging.getLogger(__name__)
 
 
 class CreateVehicleUseCase:
+    """
+    Crée un véhicule après vérification de l'unicité de sa plaque
+    et des règles métier liées à son type et à sa garantie.
 
+    Le véhicule est associé à ses options et, si nécessaire, à une garantie,
+    puis sa création est enregistrée dans l'historique des événements.
+    """
     def __init__(
         self,
         vehicle_repository,
@@ -120,7 +126,7 @@ class CreateVehicleUseCase:
                 #   → publié immédiatement
                 #
                 # Vente :
-                #   → disponible immédiatement
+                #   → en attente de validation finale
                 #
                 status=(
                     VehicleStatus.PUBLISHED
@@ -211,7 +217,13 @@ class CreateVehicleUseCase:
 
 
 class AssignOptionsToVehicleUseCase:
+    """
+    Associe les options incluses et optionnelles à un véhicule
+    après vérification de leur existence.
 
+    Les associations existantes sont remplacées afin de synchroniser
+    les options du véhicule avec celles fournies.
+    """
     def __init__(
         self,
         vehicle_repository,

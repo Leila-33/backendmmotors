@@ -11,7 +11,11 @@ from modules.leads.application.results.agent.get_lead_detail_result import (
 
 
 class GetLeadDetailUseCase:
-
+    """
+    Récupère le détail d'un lead avec ses devis et détermine
+    les actions disponibles pour l'agent, notamment la création
+    d'un devis et la suppression du lead.
+    """
     def __init__(
         self,
         lead_repository,

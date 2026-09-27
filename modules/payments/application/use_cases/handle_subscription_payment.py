@@ -34,7 +34,16 @@ logger = logging.getLogger(__name__)
 
 
 class HandleSubscriptionPaymentUseCase:
+    """
+    Traite les événements de paiement d'un abonnement Stripe
+    et met à jour l'échéance et le contrat de financement associés.
 
+    Un paiement réussi marque l'échéance comme payée et met à jour
+    le solde du contrat. Un paiement échoué marque l'échéance comme échouée.
+
+    Lorsque le solde est intégralement remboursé, le financement
+    et le dossier sont marqués comme terminés.
+    """
     def __init__(
         self,
         installment_repository,

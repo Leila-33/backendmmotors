@@ -22,7 +22,13 @@ logger = logging.getLogger(__name__)
 
 
 class CreateWarrantyPlanUseCase:
+    """
+    Crée un plan de garantie après vérification de l'unicité
+    de son nom et de son type.
 
+    Le plan est activé par défaut et sa création est enregistrée
+    dans l'historique des événements.
+    """
     def __init__(
         self,
         repository,

@@ -11,7 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class CreateUserUseCase:
-
+    """
+    Crée un utilisateur à partir des informations fournies par un
+    administrateur, puis enregistre l'action dans l'historique
+    des événements.
+    """
     def __init__(
         self,
         user_creation_service,

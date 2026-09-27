@@ -26,7 +26,13 @@ logger = logging.getLogger(__name__)
 
 
 class DeleteQuoteUseCase:
+    """
+    Supprime un devis après vérification des droits de l'agent
+    et des règles métier autorisant sa suppression.
 
+    Les informations de reprise associées sont également supprimées,
+    puis la suppression est enregistrée dans l'historique des événements.
+    """
     def __init__(
         self,
         quote_repository,

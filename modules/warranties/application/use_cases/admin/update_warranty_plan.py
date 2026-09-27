@@ -13,7 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateWarrantyPlanUseCase:
+    """
+    Modifie un plan de garantie après vérification de son existence
+    et de l'unicité de son nom et de son type.
 
+    Les champs modifiés sont détectés et enregistrés dans l'historique
+    des événements.
+    """
     def __init__(
         self,
         repository,

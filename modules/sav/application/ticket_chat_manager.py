@@ -3,7 +3,11 @@ from fastapi import WebSocket
 
 
 class TicketChatManager:
-
+    """
+    Gère les connexions WebSocket associées aux tickets SAV
+    et permet de diffuser des messages à tous les utilisateurs
+    connectés à un même ticket.
+    """
     def __init__(self):
         self.rooms: dict[str, list[WebSocket]] = defaultdict(list)
 

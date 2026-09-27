@@ -30,7 +30,16 @@ def run_reconditioning(
     reconditioning_id: str,
     admin_id: str,
 ):
+    """
+    Exécute le traitement d'un reconditionnement depuis la file d'attente.
 
+    Le traitement démarre le reconditionnement, analyse les réparations
+    issues de l'inspection, applique le coût, la durée et les tâches,
+    puis termine le reconditionnement et met à jour l'état du véhicule.
+
+    Les changements sont enregistrés dans l'historique des événements
+    et publiés en temps réel après chaque étape importante.
+    """
     db = SessionLocal()
 
     unit_of_work = UnitOfWork(db)

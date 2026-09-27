@@ -12,7 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class StartInspectionUseCase:
-
+    """
+    Crée une inspection pour un véhicule après vérification
+    de son éligibilité, met à jour son état et place l'inspection
+    dans la file d'attente pour son traitement.
+    """
     def __init__(
         self,
         vehicle_repository,

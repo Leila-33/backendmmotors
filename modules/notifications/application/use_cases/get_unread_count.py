@@ -8,7 +8,9 @@ from modules.notifications.application.results.get_unread_count_result import (
 
 
 class GetUnreadCountUseCase:
-
+    """
+    Récupère le nombre de notifications non lues d'un utilisateur.
+    """
     def __init__(
         self,
         repository,

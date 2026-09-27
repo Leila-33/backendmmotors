@@ -31,7 +31,13 @@ logger = logging.getLogger(__name__)
 
 
 class CreateTicketMessageUseCase:
+    """
+    Ajoute un message à un ticket SAV après vérification des droits
+    de l'utilisateur, de l'état du ticket et du contenu du message.
 
+    Le dernier état de lecture de l'utilisateur et la date de mise
+    à jour du ticket sont également actualisés.
+    """
     def __init__(
         self,
         ticket_repository,

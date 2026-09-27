@@ -4,7 +4,11 @@ from modules.analytics.application.results.dashboard_result import (
 
 
 class GetDashboardUseCase:
-
+    """
+    Récupère les données du tableau de bord de l'utilisateur
+    connecté : dossiers, prochain essai routier, notifications
+    et statistiques associées.
+    """
     def __init__(
         self,
         dashboard_repository,

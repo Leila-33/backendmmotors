@@ -5,7 +5,11 @@ from modules.sav.application.results.agent.get_sav_statistics_result import (
 
 
 class GetSavStatisticsUseCase:
-
+    """
+    Récupère les statistiques du service après-vente, notamment
+    le volume de tickets, les tickets clôturés, leur répartition
+    par catégorie et le taux de résolution.
+    """
     def __init__(self, repo):
         self.repo = repo
 

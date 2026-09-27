@@ -15,7 +15,13 @@ from modules.auth.domain.exceptions import (
 logger = logging.getLogger(__name__)
 
 class RefreshTokenUseCase:
+    """
+    Renouvelle les jetons d'authentification à partir d'un refresh token
+    valide.
 
+    Le refresh token utilisé est révoqué et remplacé par un nouveau
+    afin de maintenir une rotation des tokens.
+    """
     def __init__(
         self,
         refresh_repo,

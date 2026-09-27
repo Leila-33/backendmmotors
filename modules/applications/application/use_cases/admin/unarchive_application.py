@@ -27,7 +27,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 class UnarchiveApplicationUseCase:
-
+    """
+    Désarchive un dossier précédemment archivé après vérification
+    de son état, puis enregistre l'action dans l'historique
+    des événements.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,

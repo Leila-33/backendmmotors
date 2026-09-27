@@ -7,7 +7,10 @@ from modules.test_drives.application.results.admin.get_test_drives_admin_result 
 
 
 class GetTestDrivesAdminUseCase:
-
+    """
+    Récupère les essais routiers accessibles à l'administration
+    selon les critères de recherche, de filtrage, de tri et de pagination.
+    """
     def __init__(self, repository):
         self.repository = repository
 

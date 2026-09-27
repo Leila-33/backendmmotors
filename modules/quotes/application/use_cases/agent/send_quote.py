@@ -37,7 +37,14 @@ logger = logging.getLogger(__name__)
 
 
 class SendQuoteUseCase:
+    """
+    Envoie un devis au client après vérification des droits de l'agent
+    et de l'état du devis.
 
+    L'envoi met à jour le statut du devis et du lead, crée ou récupère
+    le compte client, enregistre l'événement, envoie une notification
+    et transmet le devis par e-mail.
+    """
     def __init__(
         self,
         quote_repository,

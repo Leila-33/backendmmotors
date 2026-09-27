@@ -6,7 +6,10 @@ from modules.quotes.application.dtos.customer_id_dto import (
 )
 
 class GetClientQuoteActionRequiredCountUseCase:
-
+    """
+    Récupère le nombre de devis nécessitant une action
+    de la part du client connecté.
+    """
     def __init__(
         self,
         quote_repository,

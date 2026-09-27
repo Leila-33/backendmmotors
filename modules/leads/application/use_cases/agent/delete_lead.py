@@ -22,7 +22,13 @@ logger = logging.getLogger(__name__)
 
 
 class DeleteLeadUseCase:
+    """
+    Supprime un lead après vérification des droits de l'agent,
+    de son statut et de l'absence de devis associé.
 
+    La suppression est ensuite enregistrée dans l'historique
+    des événements.
+    """
     def __init__(
         self,
         lead_repository,

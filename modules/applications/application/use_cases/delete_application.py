@@ -27,7 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 class DeleteApplicationUseCase:
+    """
+    Supprime définitivement un dossier uniquement lorsqu'il est encore
+    à l'état brouillon et qu'il appartient à l'utilisateur connecté.
 
+    Avant la suppression du dossier, les données associées ainsi que
+    les documents stockés sur S3 sont également supprimés.
+    """
     def __init__(
         self,
         application_repo,

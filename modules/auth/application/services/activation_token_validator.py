@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 
 class ActivationTokenValidator:
 
-
+    """
+    Récupère et valide un jeton d'activation en vérifiant son existence,
+    son utilisation et sa date d'expiration.
+    """
     def __init__(
         self,
         activation_token_repository,

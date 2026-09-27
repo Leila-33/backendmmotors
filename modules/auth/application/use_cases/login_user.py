@@ -23,7 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 class LoginUserUseCase:
-
+    """
+    Authentifie un utilisateur après vérification de ses identifiants
+    et de l'état de son compte, puis génère les jetons d'accès
+    et de rafraîchissement nécessaires à sa session.
+    """
     def __init__(
         self,
         user_repo,

@@ -7,7 +7,9 @@ from modules.quotes.application.results.get_customer_quotes_result import (
 
 
 class GetCustomerQuotesUseCase:
-
+    """
+    Récupère les devis associés au client connecté.
+    """
     def __init__(
         self,
         quote_repository,

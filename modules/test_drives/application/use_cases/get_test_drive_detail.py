@@ -7,7 +7,11 @@ from modules.auth.domain.enums import UserRole
 
 
 class GetTestDriveDetailUseCase:
-
+    """
+    Récupère le détail d'un essai routier après vérification
+    des droits d'accès de l'utilisateur et retourne également
+    son historique d'événements.
+    """
     def __init__(self, repository, event_repository):
         self.repository = repository
         self.event_repository = event_repository

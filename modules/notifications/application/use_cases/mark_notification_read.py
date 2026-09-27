@@ -13,7 +13,11 @@ from modules.notifications.application.results.mark_notification_read_result imp
 
 
 class MarkNotificationReadUseCase:
-
+    """
+    Marque une notification comme lue après vérification
+    de son appartenance à l'utilisateur connecté, puis met à jour
+    le compteur de notifications non lues en temps réel.
+    """
     def __init__(
         self,
         repository,

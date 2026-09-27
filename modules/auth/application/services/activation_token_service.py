@@ -12,7 +12,11 @@ from modules.auth.infrastructure.db.user_activation_token_model import UserActiv
 
 
 class ActivationTokenService:
-
+    """
+    Crée des jetons d'activation sécurisés associés à un utilisateur
+    et éventuellement à un devis, puis les enregistre avec une durée
+    de validité limitée.
+    """
 
     def __init__(
         self,

@@ -1,5 +1,7 @@
 class GetWarrantyPlansUseCase:
-
+    """
+    Récupère l'ensemble des plans de garantie disponibles.
+    """
     def __init__(
         self,
         repository,

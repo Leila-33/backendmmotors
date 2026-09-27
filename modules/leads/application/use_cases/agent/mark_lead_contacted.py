@@ -16,7 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 class MarkLeadContactedUseCase:
-
+    """
+    Marque un lead comme contacté après vérification des droits
+    de l'agent, puis enregistre la modification dans l'historique
+    des événements.
+    """
     def __init__(
         self,
         lead_repository,

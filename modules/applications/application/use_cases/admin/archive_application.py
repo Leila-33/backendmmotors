@@ -30,7 +30,11 @@ from modules.applications.application.services.event_service import (
 logger = logging.getLogger(__name__)
 
 class ArchiveApplicationUseCase:
-
+    """
+    Archive un dossier en vérifiant au préalable que son archivage
+    est autorisé, puis enregistre l'action dans l'historique
+    des événements.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,

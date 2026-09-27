@@ -20,7 +20,13 @@ logger = logging.getLogger(__name__)
 
 
 class PublishVehicleUseCase:
+    """
+    Publie un véhicule après vérification qu'il est prêt
+    à être mis en ligne.
 
+    La publication met à jour son état et enregistre l'action
+    dans l'historique des événements.
+    """
     def __init__(
         self,
         vehicle_repository,

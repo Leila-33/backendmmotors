@@ -3,7 +3,10 @@ from core.pagination.paginated_result import PaginatedResult
 
 
 class GetEventsUseCase:
-
+    """
+    Récupère les événements de l'application avec pagination
+    et permet de les filtrer par recherche, catégorie et période.
+    """
     def __init__(
         self,
         event_repository,

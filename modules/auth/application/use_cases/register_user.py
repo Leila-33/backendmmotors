@@ -6,7 +6,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class RegisterUserUseCase:
+    """
+    Inscrit un nouvel utilisateur client, enregistre son inscription
+    et génère un jeton permettant de vérifier son adresse e-mail.
 
+    Un e-mail de vérification est envoyé après la validation
+    de la transaction.
+    """
     def __init__(
         self,
         user_creation_service,

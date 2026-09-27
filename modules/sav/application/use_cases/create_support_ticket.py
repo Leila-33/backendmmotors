@@ -21,7 +21,14 @@ logger = logging.getLogger(__name__)
 
 
 class CreateSupportTicketUseCase:
+    """
+    Crée un ticket SAV à partir d'une demande utilisateur,
+    vérifie éventuellement le dossier associé et attribue
+    automatiquement le ticket à un agent disponible.
 
+    Le premier message est créé avec le ticket et la création
+    est enregistrée dans l'historique des événements.
+    """
     def __init__(
         self,
         ticket_repository,

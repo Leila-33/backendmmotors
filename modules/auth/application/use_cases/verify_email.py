@@ -9,7 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 class VerifyEmailUseCase:
+    """
+    Vérifie l'adresse e-mail d'un utilisateur à partir d'un jeton
+    de vérification valide et enregistre cette vérification.
 
+    L'opération est idempotente lorsqu'une adresse e-mail
+    a déjà été vérifiée.
+    """
     def __init__(
         self,
         user_repo,

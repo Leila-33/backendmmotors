@@ -29,7 +29,13 @@ logger = logging.getLogger(__name__)
 
 
 class CompleteExpiredRentalsUseCase:
+    """
+    Termine automatiquement les réservations de location arrivées
+    à leur échéance et met à jour les dossiers associés.
 
+    Chaque location clôturée est enregistrée dans l'historique
+    des événements avec une origine système.
+    """
     def __init__(
         self,
         reservation_repository: ReservationRepository,

@@ -4,7 +4,9 @@ from modules.test_drives.application.results.admin.get_pending_test_drive_count_
 
 
 class GetPendingTestDriveCountUseCase:
-
+    """
+    Récupère le nombre d'essais routiers actuellement en attente.
+    """
     def __init__(self, repository):
         self.repository = repository
 

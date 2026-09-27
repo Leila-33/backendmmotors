@@ -3,7 +3,12 @@ import uuid
 
 
 class S3Service:
+    """
+    Centralise les opérations de gestion des fichiers sur le stockage S3.
 
+    Le service permet de supprimer des fichiers et de générer
+    des URLs temporaires pour leur dépôt ou leur téléchargement.
+    """
     def __init__(self, client):
 
         self.client = client

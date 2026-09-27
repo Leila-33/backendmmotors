@@ -15,7 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class HandleInvoiceCreatedUseCase:
+    """
+    Traite la création d'une facture Stripe en l'associant
+    à la prochaine échéance impayée du contrat de financement.
 
+    Le traitement tient compte de l'ordre variable de réception
+    des événements Stripe afin d'éviter les associations en double.
+    """
     def __init__(
         self,
         financing_contract_repository,

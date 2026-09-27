@@ -32,7 +32,13 @@ from modules.auth.domain.entities.user import (
 logger = logging.getLogger(__name__)
 
 class SoftDeleteApplicationUseCase:
+    """
+    Supprime logiquement un dossier en enregistrant sa date
+    de suppression, sans supprimer définitivement ses données.
 
+    L'action est validée par la politique métier puis enregistrée
+    dans l'historique des événements.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,

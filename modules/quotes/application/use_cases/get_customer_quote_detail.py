@@ -13,7 +13,10 @@ from modules.quotes.application.results.get_customer_quote_detail_result import 
 
 
 class GetCustomerQuoteDetailUseCase:
-
+    """
+    Récupère le détail d'un devis accessible au client connecté
+    et indique si un dossier a déjà été créé à partir de celui-ci.
+    """
     def __init__(
         self,
         quote_repository,

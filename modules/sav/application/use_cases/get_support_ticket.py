@@ -17,7 +17,11 @@ from modules.sav.application.results.get_support_ticket_result import (
 
 
 class GetSupportTicketUseCase:
-
+    """
+    Récupère le détail d'un ticket SAV après vérification
+    des droits d'accès de l'utilisateur et marque le ticket
+    comme lu pour celui-ci.
+    """
     def __init__(
         self,
         ticket_repository,

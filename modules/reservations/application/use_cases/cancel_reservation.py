@@ -29,7 +29,13 @@ logger = logging.getLogger(__name__)
 
 
 class CancelReservationUseCase:
+    """
+    Annule une réservation après vérification des droits de l'utilisateur,
+    de l'état de la réservation et de sa date de début.
 
+    L'annulation est enregistrée dans l'historique des événements
+    avant la validation de la transaction.
+    """
     def __init__(
         self,
         reservation_repository: ReservationRepository,

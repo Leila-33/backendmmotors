@@ -30,7 +30,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 class UpdateApplicationStatusUseCase:
-
+    """
+    Modifie le statut d'un dossier après vérification de son existence,
+    puis notifie le client et enregistre la modification dans
+    l'historique des événements.
+    """
     def __init__(
         self,
         application_repository,

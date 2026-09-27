@@ -17,7 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 class CreateOptionUseCase:
-
+    """
+    Crée une option personnalisée après vérification de l'absence
+    d'une option portant le même nom, puis enregistre sa création
+    dans l'historique des événements.
+    """
     def __init__(
         self,
         option_repository,

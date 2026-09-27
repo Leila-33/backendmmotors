@@ -8,6 +8,17 @@ from modules.applications.domain.entities.document import Document
 from modules.storage.infrastrucure.s3_service import S3Service
 
 class DocumentSyncService:
+    """
+    Synchronise les documents d'un dossier avec les documents
+    fournis par le formulaire.
+
+    Le service crée les nouveaux documents, met à jour ceux dont
+    le fichier a changé et supprime les documents qui ne sont
+    plus présents dans les données reçues.
+    
+    Les fichiers associés sont également synchronisés avec
+    le stockage S3.
+    """
 
     def __init__(
         self,
@@ -17,7 +28,9 @@ class DocumentSyncService:
         self.document_repository = document_repository
         self.s3_service = s3_service
 
-
+    """
+    Synchronise les documents du dossier avec les données reçues.
+    """
 
     def sync(
         self,

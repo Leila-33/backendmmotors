@@ -20,7 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 class DeleteVehicleUseCase:
+    """
+    Supprime un véhicule après vérification de son existence.
 
+    Lorsqu'un historique métier existe, le véhicule est archivé
+    au lieu d'être supprimé définitivement. Dans le cas contraire,
+    ses fichiers associés sont supprimés du stockage S3 avant
+    sa suppression définitive.
+    """
     def __init__(
         self,
         repository: VehicleRepository,

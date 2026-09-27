@@ -42,7 +42,14 @@ logger = logging.getLogger(__name__)
 
 
 class CreateQuoteUseCase:
+    """
+    Crée un devis pour un lead après vérification des droits de l'agent
+    et de l'absence d'un devis actif.
 
+    Le devis intègre l'estimation éventuelle du véhicule repris
+    et les informations de financement calculées à partir du prix,
+    de la remise, de l'apport et de la durée choisie.
+    """
     def __init__(
         self,
         quote_repository,

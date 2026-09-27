@@ -12,7 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class ToggleWarrantyPlanUseCase:
+    """
+    Active ou désactive un plan de garantie après vérification
+    de son existence.
 
+    La modification du statut est enregistrée dans l'historique
+    des événements.
+    """
     def __init__(
         self,
         repository,

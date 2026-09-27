@@ -11,7 +11,10 @@ from modules.favorites.domain.exceptions import FavoriteNotFound
 logger = logging.getLogger(__name__)
 
 class RemoveFavoriteUseCase:
-
+    """
+    Retire un véhicule des favoris d'un utilisateur après vérification
+    de l'existence du favori.
+    """
     def __init__(
         self,
         repository,

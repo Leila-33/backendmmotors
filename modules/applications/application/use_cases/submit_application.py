@@ -34,7 +34,11 @@ from modules.reservations.domain.repositories.reservation_repository import (
 logger = logging.getLogger(__name__)
 
 class SubmitApplicationUseCase:
-
+    """
+    Soumet un dossier après validation des règles métier, met à jour
+    son statut et sa date de soumission, puis active la réservation
+    associée et enregistre l'événement de soumission.
+    """
     def __init__(
         self,
         application_form_service: ApplicationFormService,

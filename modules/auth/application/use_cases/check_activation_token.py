@@ -10,7 +10,11 @@ from modules.auth.domain.exceptions import (
 
 
 class CheckActivationTokenUseCase:
-
+    """
+    Vérifie un jeton d'activation et récupère les informations nécessaires
+    à l'affichage de la page d'activation, notamment l'identité du client
+    et l'état d'expiration du jeton.
+    """
     def __init__(
         self,
         validator,

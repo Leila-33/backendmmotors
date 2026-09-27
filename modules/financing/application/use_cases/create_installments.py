@@ -27,7 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 class CreateInstallmentsUseCase:
+    """
+    Crée les échéances de paiement d'un contrat de financement
+    à partir de sa durée et de son montant mensuel.
 
+    La création est idempotente afin d'éviter de générer
+    plusieurs fois les mêmes échéances.
+    """
     def __init__(
         self,
         financing_contract_repository,

@@ -10,7 +10,11 @@ from modules.analytics.application.results.admin.analytics_result import (
 
 
 class GetAnalyticsUseCase:
-
+    """
+    Récupère les données analytiques de l'application
+    sur les 30 derniers jours afin de fournir les statistiques
+    nécessaires au tableau de bord d'analyse administrateur.
+    """
     def __init__(
         self,
         analytics_repository,

@@ -1,7 +1,9 @@
 from modules.vehicles.domain.exceptions import VehicleNotFound
 
 class GetVehicleDetailUseCase:
-
+    """
+    Récupère le détail d'un véhicule après vérification de son existence.
+    """
     def __init__(self, vehicle_repository):
         self.vehicle_repository = vehicle_repository
 

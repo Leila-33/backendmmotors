@@ -16,7 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class ToggleUserActiveUseCase:
+    """
+    Active ou désactive le compte d'un utilisateur après vérification
+    de son existence et de son rôle.
 
+    Les comptes administrateurs ne peuvent pas être désactivés.
+    """
     def __init__(
         self,
         user_repo,

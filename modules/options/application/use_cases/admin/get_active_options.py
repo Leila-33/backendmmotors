@@ -4,7 +4,9 @@ from modules.options.application.results.admin.get_active_options_result import 
 
 
 class GetActiveOptionsUseCase:
-
+    """
+    Récupère les options actuellement actives.
+    """
     def __init__(
         self,
         option_repository,

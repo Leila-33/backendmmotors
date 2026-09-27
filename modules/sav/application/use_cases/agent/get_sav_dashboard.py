@@ -5,7 +5,10 @@ from modules.sav.application.results.agent.get_sav_dashboard_result import (
 
 
 class GetSavDashboardUseCase:
-
+    """
+    Récupère les données nécessaires au tableau de bord SAV,
+    notamment les statistiques des tickets et les tickets récents.
+    """
     def __init__(self, repo):
         self.repo = repo
 

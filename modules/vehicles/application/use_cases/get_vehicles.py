@@ -4,7 +4,10 @@ from core.pagination.paginated_result import PaginatedResult
 
 
 class BaseGetVehiclesUseCase:
-
+    """
+    Fournit le traitement commun de recherche et de pagination
+    des véhicules pour les différents périmètres d'accès.
+    """
     def __init__(self, repo):
         self.repo = repo
 
@@ -23,7 +26,10 @@ class BaseGetVehiclesUseCase:
 class GetVehiclesForClientUseCase(
     BaseGetVehiclesUseCase
 ):
-
+    """
+    Récupère les véhicules accessibles au client en limitant
+    les résultats aux véhicules actuellement disponibles.
+    """
     def execute(self, filters) -> PaginatedResult:
 
         client_filters = replace(
@@ -39,7 +45,10 @@ class GetVehiclesForClientUseCase(
 class GetVehiclesForAdminUseCase(
     BaseGetVehiclesUseCase
 ):
-
+    """
+    Récupère les véhicules accessibles à l'administration
+    selon les critères de recherche, de filtrage et de pagination.
+    """
     def execute(self, filters) -> PaginatedResult:
 
         return self._execute(

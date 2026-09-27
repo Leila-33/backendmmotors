@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 class AddFavoriteUseCase:
-
+    """
+    Ajoute un véhicule aux favoris d'un utilisateur après vérification
+    de l'existence du véhicule et de son absence dans les favoris.
+    """
     def __init__(
         self,
         repository,

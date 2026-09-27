@@ -8,7 +8,13 @@ from modules.applications.domain.repositories.event_repository import (
 
 
 class EventService:
+    """
+    Crée et enregistre les événements liés aux actions effectuées
+    dans l'application.
 
+    Un événement peut être associé à un utilisateur, un dossier,
+    un essai routier, un véhicule, un devis ou un lead.
+    """
     def __init__(
         self,
         event_repository: EventRepository,
@@ -27,7 +33,10 @@ class EventService:
         lead_id: str | None = None,
         event_metadata: dict | None = None,
     ) -> Event:
-
+        """
+        Crée et enregistre un événement avec les ressources
+        auxquelles il est associé.
+        """
         event = Event(
             id=str(uuid.uuid4()),
             type=type,

@@ -40,7 +40,12 @@ from modules.applications.domain.repositories.application_repository import (
 from core.pagination.paginated_result import PaginatedResult
 
 class GetApplicationsUseCase:
-
+    """
+    Récupère les dossiers selon les critères de recherche, de filtrage,
+    de tri et de pagination, puis détermine les actions disponibles
+    pour chaque dossier en fonction du rôle de l'utilisateur et
+    des règles métier.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,

@@ -10,7 +10,10 @@ from modules.leads.domain.repositories.sales_dashboard_repository import (
 
 
 class GetSalesDashboardStatisticsUseCase:
-
+    """
+    Récupère les statistiques nécessaires au tableau de bord
+    commercial pour l'agent connecté.
+    """
     def __init__(
         self,
         sales_dashboard_repository: SalesDashboardRepository,

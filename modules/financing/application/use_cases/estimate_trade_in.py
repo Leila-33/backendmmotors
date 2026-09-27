@@ -11,7 +11,10 @@ from modules.financing.domain.inputs.trade_in_input import (
 
 
 class EstimateTradeInUseCase:
-
+    """
+    Estime la valeur de reprise d'un véhicule à partir de ses
+    caractéristiques et de son état.
+    """
     def __init__(
         self,
         trade_in_estimation_service,

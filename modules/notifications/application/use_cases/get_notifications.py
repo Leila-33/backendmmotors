@@ -12,7 +12,10 @@ from modules.notifications.application.results.notification_result import (
 
 
 class GetNotificationsUseCase:
-
+    """
+    Récupère les notifications d'un utilisateur et les transforme
+    en données adaptées à leur affichage.
+    """
     def __init__(
         self,
         notification_repository,

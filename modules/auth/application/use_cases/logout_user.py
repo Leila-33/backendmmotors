@@ -10,7 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class LogoutUserUseCase:
-
+    """
+    Déconnecte l'utilisateur en invalidant son refresh token
+    afin de mettre fin à sa session d'authentification.
+    """
     def __init__(
         self,
         refresh_repository,

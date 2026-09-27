@@ -41,7 +41,13 @@ from modules.reservations.domain.repositories.reservation_repository import (
 logger = logging.getLogger(__name__)
 
 class RestoreCancelledApplicationUseCase:
+    """
+    Restaure un dossier précédemment annulé après vérification
+    des règles métier et de la disponibilité du véhicule.
 
+    Pour une location, la réservation associée est également
+    réactivée avant de restaurer le dossier dans son statut précédent.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,

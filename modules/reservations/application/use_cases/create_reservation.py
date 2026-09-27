@@ -44,7 +44,13 @@ logger = logging.getLogger(__name__)
 
 
 class CreateReservationUseCase:
+    """
+    Crée une réservation pour un dossier de location après vérification
+    de l'existence du dossier et de la disponibilité du véhicule.
 
+    La réservation créée est validée, enregistrée dans l'historique
+    des événements, puis persistée dans le cadre de la transaction.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,

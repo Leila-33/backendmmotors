@@ -42,7 +42,13 @@ logger = logging.getLogger(__name__)
 
 
 class CompleteSalePaymentUseCase:
+    """
+    Finalise le paiement d'une vente en marquant le véhicule comme vendu,
+    en mettant à jour le dossier et en activant sa garantie.
 
+    Lorsque la vente est financée, le contrat de financement,
+    l'abonnement Stripe et les échéances de paiement sont également créés.
+    """
     def __init__(
         self,
         vehicle_repository,

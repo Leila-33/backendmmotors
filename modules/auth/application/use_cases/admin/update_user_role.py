@@ -16,7 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateUserRoleUseCase:
+    """
+    Modifie le rôle d'un utilisateur après vérification de son existence
+    et de son éligibilité à la modification.
 
+    Le rôle d'un administrateur ne peut pas être modifié.
+    """
     def __init__(
         self,
         user_repo,

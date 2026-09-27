@@ -23,7 +23,14 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateSupportTicketStatusUseCase:
+    """
+    Modifie le statut d'un ticket SAV après vérification
+    de son existence et enregistre la modification dans
+    l'historique des événements.
 
+    Le nouveau statut est ensuite diffusé en temps réel
+    aux participants du chat associé au ticket.
+    """
     def __init__(
         self,
         repo,

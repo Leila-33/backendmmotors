@@ -47,7 +47,13 @@ from modules.reservations.application.use_cases.cancel_reservation import (
 logger = logging.getLogger(__name__)
 
 class CancelApplicationUseCase:
+    """
+    Annule un dossier après vérification des droits et des règles métier.
 
+    L'annulation entraîne également l'annulation du contrat de financement
+    et de la réservation associée lorsqu'ils existent, puis enregistre
+    l'action dans l'historique des événements.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,

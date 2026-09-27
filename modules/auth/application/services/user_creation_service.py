@@ -6,7 +6,13 @@ from modules.auth.domain.exceptions import EmailAlreadyExists
 import secrets
 
 class UserCreationService:
+    """
+    Centralise la création des utilisateurs selon leur contexte.
 
+    Il permet de créer un client avec mot de passe, de créer un compte
+    client temporaire depuis un lead ou de créer un utilisateur
+    directement pour un administrateur.
+    """
     def __init__(
         self,
         user_repository,

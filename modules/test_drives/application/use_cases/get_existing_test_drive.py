@@ -1,7 +1,10 @@
 from modules.test_drives.application.dtos.get_existing_test_drive_dto import GetExistingTestDriveDTO
 
 class GetExistingTestDriveUseCase:
-
+    """
+    Récupère la demande d'essai routier existante d'un utilisateur
+    pour un véhicule donné.
+    """
     def __init__(
         self,
         repository,

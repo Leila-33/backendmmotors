@@ -18,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 class ArchiveUsersUseCase:
+    """
+    Archive plusieurs utilisateurs en une seule opération après
+    vérification de leur existence et de leur éligibilité.
 
+    Les comptes administrateurs ne peuvent pas être archivés.
+    """
     def __init__(
         self,
         user_repo,

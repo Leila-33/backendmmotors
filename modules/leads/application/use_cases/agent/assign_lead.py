@@ -12,7 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class AssignLeadUseCase:
-
+    """
+    Attribue un lead à un agent après vérification de son existence
+    et de son éligibilité à l'attribution, puis enregistre
+    l'action dans l'historique des événements.
+    """
     def __init__(
         self,
         lead_repository,

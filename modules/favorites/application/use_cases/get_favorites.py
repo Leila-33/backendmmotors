@@ -9,7 +9,10 @@ from modules.favorites.application.results.get_favorites_result import (
 
 
 class GetFavoritesUseCase:
-
+    """
+    Récupère les véhicules ajoutés aux favoris par un utilisateur
+    et retourne les informations nécessaires à leur affichage.
+    """
     def __init__(self, repository):
         self.repository = repository
 

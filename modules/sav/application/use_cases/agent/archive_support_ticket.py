@@ -20,7 +20,13 @@ logger = logging.getLogger(__name__)
 
 
 class ArchiveSupportTicketUseCase:
+    """
+    Archive un ticket SAV après vérification de son état.
 
+    Seuls les tickets résolus ou clôturés peuvent être archivés.
+    L'opération est idempotente et l'archivage est enregistré
+    dans l'historique des événements.
+    """
     def __init__(
         self,
         support_ticket_repository,

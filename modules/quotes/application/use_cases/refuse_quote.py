@@ -20,7 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 class RefuseQuoteUseCase:
+    """
+    Refuse un devis à la demande du client après vérification
+    de son accès au devis.
 
+    Le devis est marqué comme refusé, le lead passe à l'état perdu,
+    puis l'action est enregistrée dans l'historique des événements
+    et l'agent concerné est notifié.
+    """
     def __init__(
         self,
         quote_repository,

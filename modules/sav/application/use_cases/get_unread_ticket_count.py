@@ -4,7 +4,10 @@ from modules.sav.application.results.unread_ticket_count_result import (
 
 
 class GetUnreadTicketCountUseCase:
-
+    """
+    Récupère le nombre de tickets contenant des messages non lus
+    pour l'utilisateur connecté selon son rôle.
+    """
     def __init__(
         self,
         support_ticket_repository,

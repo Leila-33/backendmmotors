@@ -31,7 +31,10 @@ logger = logging.getLogger(__name__)
 
 
 class CreateFinancingContractUseCase:
-
+    """
+    Crée un contrat de financement à partir des données de financement
+    d'un dossier et évite sa création en double pour une même demande.
+    """
     def __init__(
         self,
         application_repository,

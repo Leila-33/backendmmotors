@@ -20,7 +20,11 @@ def run_inspection(
     vehicle_id: str,
     admin_id: str,
 ):
-
+    """
+    Exécute l'inspection d'un véhicule depuis la file d'attente,
+    met à jour les résultats de l'inspection et l'état du véhicule,
+    puis publie les mises à jour en temps réel.
+    """
     db = SessionLocal()
 
     unit_of_work = UnitOfWork(db)

@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class GetQuoteDetailUseCase:
-
+    """
+    Récupère le détail d'un devis après vérification
+    des droits d'accès de l'agent.
+    """
     def __init__(
         self,
         quote_repository,

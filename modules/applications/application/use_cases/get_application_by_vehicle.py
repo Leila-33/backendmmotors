@@ -3,7 +3,9 @@ from modules.applications.domain.entities.application import Application
 from modules.applications.application.dtos.vehicle_id_dto import VehicleIdDTO
 
 class GetApplicationByVehicleUseCase:
-
+    """
+    Récupère le dossier actif d'un utilisateur pour un véhicule donné.
+    """
     def __init__(
         self,
         application_repository: ApplicationRepository,

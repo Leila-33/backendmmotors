@@ -29,7 +29,14 @@ logger = logging.getLogger(__name__)
 
 
 class CreateCheckoutSessionUseCase:
+    """
+    Crée une session de paiement Stripe pour un dossier approuvé
+    après vérification de son propriétaire, de son type et du montant
+    à payer.
 
+    Le paiement est créé ou réutilisé en base avant de retourner
+    l'URL de paiement Stripe.
+    """
     def __init__(
         self,
         payment_repository,

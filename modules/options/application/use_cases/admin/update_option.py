@@ -19,7 +19,12 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateOptionUseCase:
+    """
+    Modifie une option personnalisée après vérification de son existence
+    et de l'absence de doublon.
 
+    Les options système ne peuvent pas être modifiées.
+    """
     def __init__(
         self,
         option_repository,
