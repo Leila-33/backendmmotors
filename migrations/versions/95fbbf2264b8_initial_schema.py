@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: eb4dc159ff96
+Revision ID: 95fbbf2264b8
 Revises: 
-Create Date: 2026-08-21 19:43:17.932232
+Create Date: 2026-09-30 16:02:15.105043
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'eb4dc159ff96'
+revision: str = '95fbbf2264b8'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -72,7 +72,7 @@ def upgrade() -> None:
     sa.Column('is_available', sa.Boolean(), nullable=False),
     sa.Column('published_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('images', postgresql.ARRAY(sa.String()), nullable=False),
-    sa.Column('status', sa.Enum('DRAFT', 'AVAILABLE', 'INSPECTION_PENDING', 'INSPECTED', 'RECONDITIONING', 'RECONDITIONED', 'READY', 'PUBLISHED', 'RESERVED', 'SOLD', name='vehiclestatus'), nullable=False),
+    sa.Column('status', sa.Enum('DRAFT', 'AVAILABLE', 'INSPECTION_PENDING', 'INSPECTED', 'RECONDITIONING', 'RECONDITIONED', 'READY', 'PUBLISHED', 'RESERVED', 'SOLD', 'ARCHIVED', name='vehiclestatus'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_vehicles_id'), 'vehicles', ['id'], unique=False)
@@ -142,9 +142,9 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_leads_assigned_to', 'leads', ['assigned_to'], unique=False)
-    op.create_index('ix_leads_email', 'leads', ['email'], unique=False)
+    op.create_index(op.f('ix_leads_email'), 'leads', ['email'], unique=False)
     op.create_index(op.f('ix_leads_id'), 'leads', ['id'], unique=False)
-    op.create_index(op.f('ix_leads_status'), 'leads', ['status'], unique=False)
+    op.create_index('ix_leads_status', 'leads', ['status'], unique=False)
     op.create_index('ix_leads_user_id', 'leads', ['user_id'], unique=False)
     op.create_index('ix_leads_vehicle_id', 'leads', ['vehicle_id'], unique=False)
     op.create_table('notifications',
@@ -154,7 +154,7 @@ def upgrade() -> None:
     sa.Column('entity_id', sa.String(), nullable=True),
     sa.Column('title', sa.String(), nullable=False),
     sa.Column('message', sa.String(), nullable=False),
-    sa.Column('type', sa.Enum('APPLICATION_APPROVED', 'APPLICATION_REJECTED', 'APPLICATION_SUBMITTED', 'DOCUMENT_REJECTED', 'TEST_DRIVE_CONFIRMED', 'TEST_DRIVE_CANCELLED', 'TEST_DRIVE_REJECTED', 'TEST_DRIVE_COMPLETED', 'QUOTE_SENT', 'QUOTE_ACCEPTED', 'QUOTE_REFUSED', name='notification_type'), nullable=False),
+    sa.Column('type', sa.Enum('APPLICATION_PROCESSING', 'APPLICATION_APPROVED', 'APPLICATION_REJECTED', 'APPLICATION_SUBMITTED', 'DOCUMENT_REJECTED', 'TEST_DRIVE_CREATED', 'TEST_DRIVE_CONFIRMED', 'TEST_DRIVE_CANCELLED', 'TEST_DRIVE_REJECTED', 'TEST_DRIVE_COMPLETED', 'QUOTE_SENT', 'QUOTE_ACCEPTED', 'QUOTE_REFUSED', name='notification_type'), nullable=False),
     sa.Column('status', sa.Enum('UNREAD', 'READ', name='notification_status'), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
@@ -237,7 +237,7 @@ def upgrade() -> None:
     sa.Column('base_price', sa.Float(), nullable=False),
     sa.Column('discount', sa.Float(), nullable=True),
     sa.Column('down_payment', sa.Float(), nullable=True),
-    sa.Column('trade_in_value', sa.Float(), nullable=True),
+    sa.Column('trade_in_value', sa.Integer(), nullable=True),
     sa.Column('financed_amount', sa.Float(), nullable=False),
     sa.Column('duration_months', sa.Integer(), nullable=False),
     sa.Column('monthly_payment', sa.Float(), nullable=False),
@@ -272,7 +272,10 @@ def upgrade() -> None:
     sa.Column('previous_status', sa.Enum('DRAFT', 'SUBMITTED', 'PROCESSING', 'APPROVED', 'REJECTED', 'PAID', 'COMPLETED', 'CANCELLED', name='applicationstatus'), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('submitted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('base_price', sa.Float(), nullable=True),
+    sa.Column('optional_price', sa.Float(), nullable=True),
     sa.Column('discount', sa.Float(), nullable=True),
+    sa.Column('total_price', sa.Float(), nullable=True),
     sa.Column('is_archived', sa.Boolean(), nullable=False),
     sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['quote_id'], ['quotes.id'], ondelete='SET NULL'),
@@ -350,16 +353,18 @@ def upgrade() -> None:
     op.create_index(op.f('ix_documents_application_id'), 'documents', ['application_id'], unique=False)
     op.create_table('events',
     sa.Column('id', sa.String(), nullable=False),
+    sa.Column('type', sa.String(length=100), nullable=False),
+    sa.Column('message', sa.String(), nullable=False),
+    sa.Column('event_metadata', sa.JSON(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('user_id', sa.String(), nullable=True),
     sa.Column('vehicle_id', sa.String(), nullable=True),
     sa.Column('quote_id', sa.String(), nullable=True),
     sa.Column('application_id', sa.String(), nullable=True),
     sa.Column('test_drive_id', sa.String(), nullable=True),
-    sa.Column('type', sa.String(length=100), nullable=False),
-    sa.Column('message', sa.String(), nullable=False),
-    sa.Column('event_metadata', sa.JSON(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('lead_id', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], ),
+    sa.ForeignKeyConstraint(['lead_id'], ['leads.id'], ),
     sa.ForeignKeyConstraint(['quote_id'], ['quotes.id'], ),
     sa.ForeignKeyConstraint(['test_drive_id'], ['test_drives.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
@@ -369,6 +374,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_events_application_id'), 'events', ['application_id'], unique=False)
     op.create_index(op.f('ix_events_created_at'), 'events', ['created_at'], unique=False)
     op.create_index(op.f('ix_events_id'), 'events', ['id'], unique=False)
+    op.create_index(op.f('ix_events_lead_id'), 'events', ['lead_id'], unique=False)
     op.create_index(op.f('ix_events_quote_id'), 'events', ['quote_id'], unique=False)
     op.create_index(op.f('ix_events_test_drive_id'), 'events', ['test_drive_id'], unique=False)
     op.create_index(op.f('ix_events_type'), 'events', ['type'], unique=False)
@@ -395,6 +401,7 @@ def upgrade() -> None:
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('application_id', sa.String(), nullable=False),
     sa.Column('user_id', sa.String(), nullable=False),
+    sa.Column('stripe_customer_id', sa.String(), nullable=True),
     sa.Column('stripe_session_id', sa.String(), nullable=True),
     sa.Column('stripe_payment_intent_id', sa.String(), nullable=True),
     sa.Column('amount', sa.Float(), nullable=False),
@@ -403,6 +410,7 @@ def upgrade() -> None:
     sa.Column('description', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('paid_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['application_id'], ['applications.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
@@ -453,7 +461,7 @@ def upgrade() -> None:
     sa.Column('amount', sa.Float(), nullable=False),
     sa.Column('due_date', sa.DateTime(), nullable=False),
     sa.Column('paid_at', sa.DateTime(), nullable=True),
-    sa.Column('status', sa.Enum('PENDING', 'PAID', 'FAILED', 'LATE', name='installmentstatus'), nullable=False),
+    sa.Column('status', sa.Enum('PENDING', 'PAID', 'FAILED', 'CANCELLED', name='installmentstatus'), nullable=False),
     sa.Column('stripe_invoice_id', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['financing_contract_id'], ['financing_contracts.id'], ),
@@ -501,6 +509,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_events_type'), table_name='events')
     op.drop_index(op.f('ix_events_test_drive_id'), table_name='events')
     op.drop_index(op.f('ix_events_quote_id'), table_name='events')
+    op.drop_index(op.f('ix_events_lead_id'), table_name='events')
     op.drop_index(op.f('ix_events_id'), table_name='events')
     op.drop_index(op.f('ix_events_created_at'), table_name='events')
     op.drop_index(op.f('ix_events_application_id'), table_name='events')
@@ -542,9 +551,9 @@ def downgrade() -> None:
     op.drop_table('notifications')
     op.drop_index('ix_leads_vehicle_id', table_name='leads')
     op.drop_index('ix_leads_user_id', table_name='leads')
-    op.drop_index(op.f('ix_leads_status'), table_name='leads')
+    op.drop_index('ix_leads_status', table_name='leads')
     op.drop_index(op.f('ix_leads_id'), table_name='leads')
-    op.drop_index('ix_leads_email', table_name='leads')
+    op.drop_index(op.f('ix_leads_email'), table_name='leads')
     op.drop_index('ix_leads_assigned_to', table_name='leads')
     op.drop_table('leads')
     op.drop_index(op.f('ix_inspections_vehicle_id'), table_name='inspections')
