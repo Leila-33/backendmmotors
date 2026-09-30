@@ -92,8 +92,7 @@ services:
   # ============================================================
 
   minio:
-    image: minio/minio:latest
-
+    image: mmotors-minio:2025-09-07
     container_name: minio
 
     restart: always
