@@ -10,5 +10,6 @@ def get_email_service():
         port=settings.SMTP_PORT,
         username=settings.SMTP_USER,
         password=settings.SMTP_PASSWORD,
-        frontend_url=settings.FRONTEND_URL
+        frontend_url=settings.FRONTEND_URL,
+        from_email=settings.SMTP_FROM_EMAIL,
     )

@@ -12,12 +12,21 @@ from core.email.templates.quote_email_template import QuoteEmailTemplate
 
 class SMTPEmailService(EmailService):
 
-    def __init__(self, host, port, username, password, frontend_url):
+    def __init__(
+        self,
+        host,
+        port,
+        username,
+        password,
+        frontend_url,
+        from_email,
+    ):
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.frontend_url = frontend_url
+        self.from_email = from_email
 
     # =====================
     # CORE METHOD
@@ -25,7 +34,7 @@ class SMTPEmailService(EmailService):
     def send(self, to: str, subject: str, body: str):
 
         message = MIMEMultipart()
-        message["From"] = self.username
+        message["From"] = self.from_email
         message["To"] = to
         message["Subject"] = subject
 

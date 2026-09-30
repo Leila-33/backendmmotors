@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
 
     FRONTEND_URL: str = "http://localhost:3000"
 
@@ -70,7 +71,6 @@ class Settings(BaseSettings):
 
 
     model_config = SettingsConfigDict(
-        env_file=".env",
         extra="ignore"
     )
 
