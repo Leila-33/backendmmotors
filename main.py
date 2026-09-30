@@ -9,13 +9,11 @@ import core.database.import_models
 from sqlalchemy.orm import configure_mappers
 from core.exception_handlers import register_exception_handlers
 from api.routes import api_router
-from dotenv import load_dotenv
 import sentry_sdk
 from core.config.settings import settings
 
 configure_mappers()
 setup_logging()
-load_dotenv()
 
 
 # =========================
