@@ -10,6 +10,7 @@ from core.email.templates.verification_email_template import (
 )
 from core.email.templates.quote_email_template import QuoteEmailTemplate
 
+
 class SMTPEmailService(EmailService):
 
     def __init__(
@@ -31,64 +32,96 @@ class SMTPEmailService(EmailService):
     # =====================
     # CORE METHOD
     # =====================
-    def send(self, to: str, subject: str, body: str):
+    def send(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        html_body: str | None = None,
+    ):
+        message = MIMEMultipart("alternative")
 
-        message = MIMEMultipart()
         message["From"] = self.from_email
         message["To"] = to
         message["Subject"] = subject
 
-        message.attach(MIMEText(body, "plain"))
+        # =====================
+        # PLAIN TEXT VERSION
+        # =====================
+        message.attach(
+            MIMEText(
+                body,
+                "plain",
+                "utf-8",
+            )
+        )
 
-        with smtplib.SMTP(self.host, self.port) as server:
+        # =====================
+        # HTML VERSION
+        # =====================
+        if html_body:
+            message.attach(
+                MIMEText(
+                    html_body,
+                    "html",
+                    "utf-8",
+                )
+            )
+
+        # =====================
+        # SMTP
+        # =====================
+        with smtplib.SMTP(
+            self.host,
+            self.port,
+        ) as server:
+
             server.starttls()
-            server.login(self.username, self.password)
+
+            server.login(
+                self.username,
+                self.password,
+            )
+
             server.send_message(message)
 
-
+    # =====================
+    # VERIFICATION EMAIL
+    # =====================
     def send_verification_email(
         self,
         email: str,
         token: str,
     ):
-
-
         verification_link = (
             f"{self.frontend_url}"
             f"/verify-email"
             f"?token={token}"
         )
 
-
-        subject, body = (
+        subject, body, html_body = (
             VerificationEmailTemplate.render(
                 verification_link
             )
         )
 
-
         self.send(
             to=email,
             subject=subject,
             body=body,
+            html_body=html_body,
         )
 
-
-
-
+    # =====================
+    # QUOTE EMAIL
+    # =====================
     def send_quote_email(
-
         self,
-
         quote,
-
         customer,
         vehicle,
-
         activation_token=None,
-
     ):
-
         # =========================
         # ACTION URL
         # =========================
@@ -105,41 +138,31 @@ class SMTPEmailService(EmailService):
         else:
 
             action_url = (
-    f"{self.frontend_url}"
-    f"/sales/quotes/{quote.id}"
-)
+                f"{self.frontend_url}"
+                f"/sales/quotes/{quote.id}"
+            )
 
             is_activation = False
-
 
         # =========================
         # TEMPLATE
         # =========================
-
-        subject, body = (
+        subject, body, html_body = (
             QuoteEmailTemplate.render(
-
                 quote=quote,
-
                 customer=customer,
                 vehicle=vehicle,
-
                 action_url=action_url,
-
                 is_activation=is_activation,
             )
         )
 
-
         # =========================
         # SEND
         # =========================
-
         self.send(
-
             to=customer.email,
-
             subject=subject,
-
             body=body,
+            html_body=html_body,
         )
