@@ -1,32 +1,30 @@
 from core.config.settings import settings
 import uuid
 
-
 class S3Service:
     """
     Centralise les opérations de gestion des fichiers sur le stockage S3.
 
-    Le service permet de supprimer des fichiers et de générer
-    des URLs temporaires pour leur dépôt ou leur téléchargement.
+    Le client interne est utilisé pour les opérations serveur.
+    Le client public est utilisé pour générer les URLs présignées
+    destinées au navigateur.
     """
-    def __init__(self, client):
 
+    def __init__(self, client, public_client):
         self.client = client
-
+        self.public_client = public_client
 
     # =========================
     # DELETE FILE
     # =========================
     def delete_file(
         self,
-        key: str
+        key: str,
     ):
-
         self.client.delete_object(
             Bucket=settings.S3_BUCKET,
-            Key=key
+            Key=key,
         )
-
 
     # =========================
     # GENERATE UPLOAD URL
@@ -34,12 +32,11 @@ class S3Service:
     def generate_upload_url(
         self,
         filename: str,
-        content_type: str
+        content_type: str,
     ):
-
         key = f"{uuid.uuid4()}_{filename}"
 
-        url = self.client.generate_presigned_url(
+        url = self.public_client.generate_presigned_url(
             "put_object",
             Params={
                 "Bucket": settings.S3_BUCKET,
@@ -50,20 +47,18 @@ class S3Service:
         )
 
         return {
-            "upload_url": self._public_url(url),
-            "key": key
+            "upload_url": url,
+            "key": key,
         }
-
 
     # =========================
     # GENERATE DOWNLOAD URL
     # =========================
     def generate_download_url(
         self,
-        key: str
+        key: str,
     ):
-
-        url = self.client.generate_presigned_url(
+        return self.public_client.generate_presigned_url(
             "get_object",
             Params={
                 "Bucket": settings.S3_BUCKET,
@@ -71,22 +66,3 @@ class S3Service:
             },
             ExpiresIn=3600,
         )
-
-        return self._public_url(url)
-
-
-    # =========================
-    # MINIO URL -> BROWSER URL
-    # =========================
-    def _public_url(
-        self,
-        url: str
-    ):
-
-        if settings.S3_PUBLIC_ENDPOINT:
-            return url.replace(
-                settings.S3_ENDPOINT,
-                settings.S3_PUBLIC_ENDPOINT
-            )
-
-        return url
