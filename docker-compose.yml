@@ -1,5 +1,4 @@
 services:
-
   api:
     build: .
     container_name: fastapi_api
@@ -19,8 +18,7 @@ services:
     volumes:
       - .:/app
 
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers
 
   worker_inspection:
     build: .
@@ -40,7 +38,6 @@ services:
 
     command: rq worker inspection reconditioning
 
-
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -57,7 +54,6 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -67,7 +63,6 @@ services:
       - "6379:6379"
 
     command: redis-server --appendonly yes
-
 
   minio:
     image: minio/minio:latest
@@ -87,14 +82,12 @@ services:
     volumes:
       - minio_data:/data
 
-
   adminer:
     image: adminer
     restart: always
 
     ports:
       - "8080:8080"
-
 
 volumes:
   pgdata:
