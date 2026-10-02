@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 from core.pagination.paginated_result import PaginatedResult
-
+from modules.vehicles.domain.enums import VehicleStatus
 
 class BaseGetVehiclesUseCase:
     """
@@ -35,6 +35,7 @@ class GetVehiclesForClientUseCase(
         client_filters = replace(
             filters,
             is_available=True,
+            status=VehicleStatus.PUBLISHED,
         )
 
         return self._execute(

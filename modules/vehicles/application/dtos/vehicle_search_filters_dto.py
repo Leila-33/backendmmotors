@@ -3,7 +3,8 @@ from typing import Literal
 
 from modules.vehicles.domain.enums import (
     VehicleType,
-    EngineType
+    EngineType,
+    VehicleStatus
 )
 
 @dataclass
@@ -66,3 +67,4 @@ class VehicleSearchFiltersDTO:
     # Ce champ n'est pas exposé
     # directement par le frontend client.
     is_available: bool | None = None
+    status: VehicleStatus | None = None

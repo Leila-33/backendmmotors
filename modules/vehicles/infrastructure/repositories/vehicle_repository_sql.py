@@ -188,6 +188,15 @@ class VehicleRepositorySQL(VehicleRepository):
                 VehicleModel.is_available
                 == filters.is_available
             )
+        # =================================================
+        # STATUS
+        # =================================================
+
+        if filters.status is not None:
+
+            query = query.filter(
+                VehicleModel.status == filters.status
+            )
 
         # =================================================
         # SORT
