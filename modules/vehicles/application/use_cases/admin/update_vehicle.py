@@ -32,7 +32,7 @@ from modules.warranties.domain.entities.vehicle_warranty import (
     VehicleWarranty,
 )
 
-from modules.storage.infrastrucure.s3_service import S3Service
+from modules.storage.infrastructure.s3_service import S3Service
 from core.database.unit_of_work import UnitOfWork
 from modules.applications.domain.enums import EventType
 

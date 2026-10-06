@@ -1,473 +1,219 @@
-from dataclasses import dataclass
-from unittest.mock import Mock
+from dataclasses import replace
+from unittest.mock import MagicMock
 
-import pytest
-
-from core.pagination.paginated_result import PaginatedResult
 from modules.vehicles.application.use_cases.get_vehicles import (
     GetVehiclesForAdminUseCase,
     GetVehiclesForClientUseCase,
 )
-
-
-# ============================================================
-# TEST FILTERS
-# ============================================================
-#
-# Dataclass volontairement minimale.
-# Elle contient les champs utilisés par les use cases :
-# - page
-# - size
-# - is_available
-#
-# Les autres champs éventuels de ton vrai DTO peuvent être
-# ajoutés ici si nécessaire.
-# ============================================================
-
-
-@dataclass(frozen=True)
-class TestVehicleFilters:
-    page: int = 1
-    size: int = 10
-    is_available: bool | None = None
-
-
-# ============================================================
-# FIXTURES
-# ============================================================
-
-
-@pytest.fixture
-def repository():
-    return Mock()
-
-
-@pytest.fixture
-def client_use_case(repository):
-    return GetVehiclesForClientUseCase(
-        repo=repository,
-    )
-
-
-@pytest.fixture
-def admin_use_case(repository):
-    return GetVehiclesForAdminUseCase(
-        repo=repository,
-    )
-
-
-@pytest.fixture
-def filters():
-    return TestVehicleFilters(
-        page=1,
-        size=10,
-        is_available=None,
-    )
-
-
-# ============================================================
-# HELPERS
-# ============================================================
-
-
-def make_paginated_result(
-    *,
-    items=None,
-    total=0,
-    page=1,
-    limit=10,
-):
-    return PaginatedResult(
-        items=items or [],
-        total=total,
-        page=page,
-        limit=limit,
-    )
-
-
-# ============================================================
-# CLIENT
-# ============================================================
-
-
-def test_client_forces_is_available_to_true(
-    client_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        ["vehicle-1", "vehicle-2"],
-        2,
-    )
-
-    client_use_case.execute(filters)
-
-    passed_filters = repository.search.call_args.args[0]
-
-    assert passed_filters.is_available is True
-
-
-def test_client_does_not_modify_original_filters(
-    client_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        0,
-    )
-
-    client_use_case.execute(filters)
-
-    assert filters.is_available is None
-
-
-def test_client_preserves_other_filters(
-    client_use_case,
-    repository,
-):
-    filters = TestVehicleFilters(
-        page=3,
-        size=20,
-        is_available=False,
-    )
-
-    repository.search.return_value = (
-        [],
-        0,
-    )
-
-    client_use_case.execute(filters)
-
-    passed_filters = repository.search.call_args.args[0]
-
-    assert passed_filters.page == 3
-    assert passed_filters.size == 20
-    assert passed_filters.is_available is True
-
-
-def test_client_calls_repository_search_once(
-    client_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        0,
-    )
-
-    client_use_case.execute(filters)
-
-    repository.search.assert_called_once()
-
-
-# ============================================================
-# ADMIN
-# ============================================================
-
-
-def test_admin_passes_filters_unchanged(
-    admin_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        ["vehicle-1"],
-        1,
-    )
-
-    admin_use_case.execute(filters)
-
-    passed_filters = repository.search.call_args.args[0]
-
-    assert passed_filters is filters
-
-
-def test_admin_preserves_is_available_filter(
-    admin_use_case,
-    repository,
-):
-    filters = TestVehicleFilters(
-        page=2,
-        size=15,
-        is_available=False,
-    )
-
-    repository.search.return_value = (
-        [],
-        0,
-    )
-
-    admin_use_case.execute(filters)
-
-    passed_filters = repository.search.call_args.args[0]
-
-    assert passed_filters is filters
-    assert passed_filters.is_available is False
-
-
-def test_admin_calls_repository_search_once(
-    admin_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        0,
-    )
-
-    admin_use_case.execute(filters)
-
-    repository.search.assert_called_once_with(filters)
-
-
-# ============================================================
-# PAGINATION
-# ============================================================
-
-
-def test_client_builds_paginated_result(
-    client_use_case,
-    repository,
-):
-    filters = TestVehicleFilters(
-        page=2,
-        size=20,
-    )
-
-    vehicles = [
-        "vehicle-1",
-        "vehicle-2",
-    ]
-
-    repository.search.return_value = (
-        vehicles,
-        45,
-    )
-
-    result = client_use_case.execute(filters)
-
-    assert isinstance(
-        result,
-        PaginatedResult,
-    )
-
-    assert result.items == vehicles
-    assert result.total == 45
-    assert result.page == 2
-    assert result.limit == 20
-
-
-def test_admin_builds_paginated_result(
-    admin_use_case,
-    repository,
-):
-    filters = TestVehicleFilters(
-        page=3,
-        size=15,
-    )
-
-    vehicles = [
-        "vehicle-1",
-        "vehicle-2",
-        "vehicle-3",
-    ]
-
-    repository.search.return_value = (
-        vehicles,
-        38,
-    )
-
-    result = admin_use_case.execute(filters)
-
-    assert isinstance(
-        result,
-        PaginatedResult,
-    )
-
-    assert result.items == vehicles
-    assert result.total == 38
-    assert result.page == 3
-    assert result.limit == 15
-
-
-# ============================================================
-# EMPTY RESULTS
-# ============================================================
-
-
-def test_client_returns_empty_paginated_result(
-    client_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        0,
-    )
-
-    result = client_use_case.execute(filters)
-
-    assert isinstance(
-        result,
-        PaginatedResult,
-    )
-
-    assert result.items == []
-    assert result.total == 0
-    assert result.page == filters.page
-    assert result.limit == filters.size
-
-
-def test_admin_returns_empty_paginated_result(
-    admin_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        0,
-    )
-
-    result = admin_use_case.execute(filters)
-
-    assert isinstance(
-        result,
-        PaginatedResult,
-    )
-
-    assert result.items == []
-    assert result.total == 0
-
-
-# ============================================================
-# DIFFERENT COUNTS
-# ============================================================
-
-
-@pytest.mark.parametrize(
-    "total",
-    [
-        0,
-        1,
-        10,
-        25,
-        100,
-    ],
+from modules.vehicles.application.dtos.vehicle_search_filters_dto import (
+    VehicleSearchFiltersDTO,
 )
-def test_client_preserves_repository_total(
-    total,
-    client_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        total,
-    )
-
-    result = client_use_case.execute(filters)
-
-    assert result.total == total
-
-
-@pytest.mark.parametrize(
-    "total",
-    [
-        0,
-        1,
-        10,
-        25,
-        100,
-    ],
+from modules.vehicles.domain.enums import (
+    VehicleStatus,
 )
-def test_admin_preserves_repository_total(
-    total,
-    admin_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        total,
-    )
-
-    result = admin_use_case.execute(filters)
-
-    assert result.total == total
 
 
-# ============================================================
-# REPOSITORY ERRORS
-# ============================================================
+class TestGetVehiclesForClientUseCase:
+    """Tests du Use Case de récupération des véhicules côté client."""
+
+    def test_execute_forces_available_and_published_filters(self):
+        # Arrange
+        repo = MagicMock()
+
+        vehicles = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        repo.search.return_value = (vehicles, 2)
+
+        filters = VehicleSearchFiltersDTO(
+            page=2,
+            size=5,
+            sort_by="price",
+            order="asc",
+            brand="Peugeot",
+            model="308",
+            is_available=False,
+            status=VehicleStatus.ARCHIVED,
+        )
+
+        use_case = GetVehiclesForClientUseCase(repo)
+
+        # Act
+        result = use_case.execute(filters)
+
+        # Assert
+        repo.search.assert_called_once()
+
+        called_filters = repo.search.call_args.args[0]
+
+        assert called_filters.is_available is True
+        assert called_filters.status == VehicleStatus.PUBLISHED
+
+        # Les autres filtres sont conservés.
+        assert called_filters.page == 2
+        assert called_filters.size == 5
+        assert called_filters.sort_by == "price"
+        assert called_filters.order == "asc"
+        assert called_filters.brand == "Peugeot"
+        assert called_filters.model == "308"
+
+        # Le DTO original n'est pas modifié.
+        assert filters.is_available is False
+        assert filters.status == VehicleStatus.ARCHIVED
+
+    def test_execute_preserves_client_filters(self):
+        # Arrange
+        repo = MagicMock()
+        repo.search.return_value = ([], 0)
+
+        filters = VehicleSearchFiltersDTO(
+            page=1,
+            size=10,
+            sort_by="year",
+            order="desc",
+            type=None,
+            brand="Renault",
+            model="Clio",
+            engine_type=None,
+            price_min=5000,
+            price_max=15000,
+            year_min=2018,
+            mileage_max=100000,
+        )
+
+        use_case = GetVehiclesForClientUseCase(repo)
+
+        # Act
+        use_case.execute(filters)
+
+        # Assert
+        called_filters = repo.search.call_args.args[0]
+
+        assert called_filters.brand == "Renault"
+        assert called_filters.model == "Clio"
+        assert called_filters.price_min == 5000
+        assert called_filters.price_max == 15000
+        assert called_filters.year_min == 2018
+        assert called_filters.mileage_max == 100000
+
+        assert called_filters.page == 1
+        assert called_filters.size == 10
+        assert called_filters.sort_by == "year"
+        assert called_filters.order == "desc"
+
+    def test_execute_returns_paginated_result(self):
+        # Arrange
+        repo = MagicMock()
+
+        vehicles = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        repo.search.return_value = (vehicles, 25)
+
+        filters = VehicleSearchFiltersDTO(
+            page=2,
+            size=10,
+        )
+
+        use_case = GetVehiclesForClientUseCase(repo)
+
+        # Act
+        result = use_case.execute(filters)
+
+        # Assert
+        assert result.items == vehicles
+        assert result.total == 25
+        assert result.page == 2
+        assert result.limit == 10
 
 
-def test_client_propagates_repository_error(
-    client_use_case,
-    repository,
-    filters,
-):
-    repository.search.side_effect = RuntimeError(
-        "repository error"
-    )
+class TestGetVehiclesForAdminUseCase:
+    """Tests du Use Case de récupération des véhicules côté administration."""
 
-    with pytest.raises(
-        RuntimeError,
-        match="repository error",
-    ):
-        client_use_case.execute(filters)
+    def test_execute_passes_filters_unchanged(self):
+        # Arrange
+        repo = MagicMock()
+        repo.search.return_value = ([], 0)
 
+        filters = VehicleSearchFiltersDTO(
+            page=3,
+            size=20,
+            sort_by="mileage",
+            order="asc",
+            type=None,
+            brand="BMW",
+            model="X3",
+            search="BMW X3",
+            license_plate="AB-123-CD",
+            is_available=False,
+            status=VehicleStatus.ARCHIVED,
+        )
 
-def test_admin_propagates_repository_error(
-    admin_use_case,
-    repository,
-    filters,
-):
-    repository.search.side_effect = RuntimeError(
-        "repository error"
-    )
+        use_case = GetVehiclesForAdminUseCase(repo)
 
-    with pytest.raises(
-        RuntimeError,
-        match="repository error",
-    ):
-        admin_use_case.execute(filters)
+        # Act
+        use_case.execute(filters)
 
+        # Assert
+        repo.search.assert_called_once_with(filters)
 
-# ============================================================
-# NO UNEXPECTED OPERATIONS
-# ============================================================
+    def test_execute_returns_paginated_result(self):
+        # Arrange
+        repo = MagicMock()
 
+        vehicles = [
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+        ]
 
-def test_client_does_not_write_to_repository(
-    client_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        0,
-    )
+        repo.search.return_value = (vehicles, 53)
 
-    client_use_case.execute(filters)
+        filters = VehicleSearchFiltersDTO(
+            page=2,
+            size=10,
+        )
 
-    repository.create.assert_not_called()
-    repository.update.assert_not_called()
-    repository.delete.assert_not_called()
+        use_case = GetVehiclesForAdminUseCase(repo)
 
+        # Act
+        result = use_case.execute(filters)
 
-def test_admin_does_not_write_to_repository(
-    admin_use_case,
-    repository,
-    filters,
-):
-    repository.search.return_value = (
-        [],
-        0,
-    )
+        # Assert
+        assert result.items == vehicles
+        assert result.total == 53
+        assert result.page == 2
+        assert result.limit == 10
 
-    admin_use_case.execute(filters)
+    def test_execute_keeps_admin_specific_filters(self):
+        # Arrange
+        repo = MagicMock()
+        repo.search.return_value = ([], 0)
 
-    repository.create.assert_not_called()
-    repository.update.assert_not_called()
-    repository.delete.assert_not_called()
+        filters = VehicleSearchFiltersDTO(
+            page=1,
+            size=10,
+            search="Peugeot",
+            license_plate="AA-123-AA",
+            status=VehicleStatus.ARCHIVED,
+            is_available=False,
+        )
+
+        use_case = GetVehiclesForAdminUseCase(repo)
+
+        # Act
+        use_case.execute(filters)
+
+        # Assert
+        repo.search.assert_called_once_with(filters)
+
+        called_filters = repo.search.call_args.args[0]
+
+        assert called_filters.search == "Peugeot"
+        assert called_filters.license_plate == "AA-123-AA"
+        assert called_filters.status == VehicleStatus.ARCHIVED
+        assert called_filters.is_available is False

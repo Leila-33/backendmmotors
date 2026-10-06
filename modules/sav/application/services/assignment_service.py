@@ -1,5 +1,6 @@
 from modules.auth.domain.repositories.user_repository import UserRepository
 from modules.sav.domain.repositories.support_ticket_repository import SupportTicketRepository
+from modules.auth.domain.enums import UserRole
 
 class AssignmentService:
 
@@ -13,7 +14,7 @@ class AssignmentService:
 
     def get_next_agent(self):
 
-        agents = self.user_repo.get_active_agents()
+        agents = self.user_repo.get_by_role(UserRole.SAV_AGENT)
 
         if not agents:
             return None

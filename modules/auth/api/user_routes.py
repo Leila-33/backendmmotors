@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Cookie, Depends, Request, Response
-
+from fastapi import APIRouter, Cookie, Depends, Response, status
+from core.config.settings import settings
 from modules.auth.application.dtos.register_dto import RegisterDTO
 from modules.auth.application.dtos.login_user_dto import LoginUserDTO
 from modules.auth.application.dtos.activate_account_dto import (
@@ -92,10 +92,10 @@ def register(
 # ============================================================
 # LOGIN
 # ============================================================
-
 @router.post(
     "/login",
     response_model=AccessTokenResponse,
+    status_code=status.HTTP_200_OK,
 )
 def login(
     request: LoginUserRequest,
@@ -111,11 +111,26 @@ def login(
 
     result = usecase.execute(dto)
 
+    # =========================
+    # ACCESS TOKEN
+    # =========================
+    response.set_cookie(
+        key="access_token",
+        value=result.access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=60 * 15,
+    )
+
+    # =========================
+    # REFRESH TOKEN
+    # =========================
     response.set_cookie(
         key="refresh_token",
         value=result.refresh_token,
         httponly=True,
-        secure=False,  # True en production HTTPS
+        secure=settings.cookie_secure,
         samesite="lax",
         max_age=60 * 60 * 24 * 7,
     )
@@ -143,20 +158,37 @@ def refresh(
     if not refresh_token:
         raise RefreshTokenMissing()
 
-    result = usecase.execute(refresh_token)
+    result = usecase.execute(
+        refresh_token
+    )
 
+    # Nouveau access token utilisé par l'API
+    # et par la connexion WebSocket.
+    response.set_cookie(
+        key="access_token",
+        value=result.access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=60 * 15,
+        path="/",
+    )
+
+    # Rotation du refresh token.
     response.set_cookie(
         key="refresh_token",
         value=result.refresh_token,
         httponly=True,
-        secure=False,
+        secure=settings.cookie_secure,
         samesite="lax",
         max_age=60 * 60 * 24 * 7,
+        path="/",
     )
 
     return AccessTokenResponse(
         access_token=result.access_token,
     )
+
 
 # ============================================================
 # LOGOUT
@@ -175,21 +207,28 @@ def logout(
         get_logout_user_usecase
     ),
 ):
-
     if refresh_token:
-
         usecase.execute(
             refresh_token
         )
 
+    # Suppression du refresh token.
     response.delete_cookie(
         key="refresh_token",
+        path="/",
+    )
+
+    # Suppression de l'access token utilisé
+    # notamment pour l'authentification WebSocket.
+    response.delete_cookie(
+        key="access_token",
         path="/",
     )
 
     return MessageResponse(
         message="Déconnexion réussie",
     )
+
 
 # ============================================================
 # VERIFY EMAIL
@@ -288,13 +327,27 @@ def activate_account(
         dto
     )
 
+    # Access token stocké dans un cookie HttpOnly
+    # pour permettre notamment l'authentification WebSocket.
+    response.set_cookie(
+        key="access_token",
+        value=result.access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=60 * 15,
+        path="/",
+    )
+
+    # Refresh token stocké dans un cookie HttpOnly.
     response.set_cookie(
         key="refresh_token",
         value=result.refresh_token,
         httponly=True,
-        secure=False,  # True en production HTTPS
+        secure=settings.cookie_secure,
         samesite="lax",
         max_age=60 * 60 * 24 * 7,
+        path="/",
     )
 
     return ActivateAccountResponse(

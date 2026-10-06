@@ -1,6 +1,6 @@
 from modules.applications.domain.entities.application import Application
 from modules.payments.domain.entities.payment import Payment
-from modules.storage.infrastrucure.s3_service import S3Service
+from modules.storage.infrastructure.s3_service import S3Service
 from modules.options.api.schemas import OptionResponse
 from modules.applications.api.schemas import (
     ApplicationDetailResponse,

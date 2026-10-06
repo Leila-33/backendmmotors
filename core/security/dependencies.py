@@ -10,7 +10,7 @@ from jwt.exceptions import (
     ExpiredSignatureError,
     InvalidTokenError
 )
-from fastapi import Request, Depends
+from fastapi import Request, Depends, WebSocket
 
 def get_jwt_service():
     return JwtService(
@@ -39,10 +39,8 @@ def get_current_user(
         raise TokenInvalid()
 
 
-    token = auth.replace(
-        "Bearer ",
-        ""
-    )
+    token = auth.replace("Bearer ", "", 1)
+
 
 
     try:
@@ -90,6 +88,43 @@ def get_current_user(
     return user
 
 
+
+async def get_current_user_websocket(
+    websocket: WebSocket,
+    jwt_service=Depends(get_jwt_service),
+    user_repo=Depends(get_user_repository),
+):
+    token = websocket.cookies.get("access_token")
+
+    if not token:
+        raise TokenInvalid()
+
+    try:
+        payload = jwt_service.decode(token)
+
+    except ExpiredSignatureError:
+        raise TokenExpired()
+
+    except InvalidTokenError:
+        raise TokenInvalid()
+
+    if payload.get("type") != "access":
+        raise TokenInvalid()
+
+    user = user_repo.get_by_id(
+        payload.get("sub")
+    )
+
+    if not user:
+        raise TokenInvalid()
+
+    if user.is_deleted:
+        raise Forbidden()
+
+    if not user.is_active:
+        raise Forbidden()
+
+    return user
 
 def get_current_admin(
     current_user=Depends(get_current_user)

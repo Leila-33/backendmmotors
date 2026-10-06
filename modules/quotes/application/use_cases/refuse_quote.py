@@ -25,19 +25,25 @@ class RefuseQuoteUseCase:
     de son accès au devis.
 
     Le devis est marqué comme refusé, le lead passe à l'état perdu,
-    puis l'action est enregistrée dans l'historique des événements
-    et l'agent concerné est notifié.
+    puis l'action est enregistrée dans l'historique des événements,
+    l'agent concerné est notifié et son compteur de leads est mis
+    à jour en temps réel.
     """
+
     def __init__(
         self,
         quote_repository,
         lead_repository,
+        sales_dashboard_repository,
         notification_service,
         event_service,
         unit_of_work,
     ):
         self.quote_repository = quote_repository
         self.lead_repository = lead_repository
+        self.sales_dashboard_repository = (
+            sales_dashboard_repository
+        )
         self.notification_service = notification_service
         self.event_service = event_service
         self.unit_of_work = unit_of_work
@@ -50,7 +56,6 @@ class RefuseQuoteUseCase:
         quote = None
 
         try:
-
             # =========================
             # QUOTE
             # =========================
@@ -69,9 +74,7 @@ class RefuseQuoteUseCase:
 
             lead = (
                 self.lead_repository
-                .find_by_id(
-                    quote.lead_id
-                )
+                .find_by_id(quote.lead_id)
             )
 
             if lead is None:
@@ -93,9 +96,7 @@ class RefuseQuoteUseCase:
                 comment=dto.comment,
             )
 
-            self.quote_repository.update(
-                quote
-            )
+            self.quote_repository.update(quote)
 
             # =========================
             # LEAD LOST
@@ -105,9 +106,7 @@ class RefuseQuoteUseCase:
                 LeadStatus.LOST
             )
 
-            self.lead_repository.update(
-                lead
-            )
+            self.lead_repository.update(lead)
 
             # =========================
             # EVENT
@@ -125,41 +124,53 @@ class RefuseQuoteUseCase:
                     "comment": quote.refusal_comment,
                 },
             )
-
             # =========================
-            # NOTIFICATION
+            # NOTIFICATION AGENT
             # =========================
 
-            await self.notification_service.send(
-
-                user_id=lead.assigned_to,
-
-                title="Offre refusée",
-
-                message=(
-                    "Le client a refusé votre offre."
-                ),
-
-                notif_type=(
-                    NotificationType.QUOTE_REFUSED
-                ),
-
-                entity_type=(
-                    NotificationEntityType.QUOTE
-                ),
-
-                entity_id=quote.id,
-            )
-
+            if lead.assigned_to:
+                await self.notification_service.send(
+                    user_id=lead.assigned_to,
+                    title="Offre refusée",
+                    message=(
+                        "Le client a refusé votre offre."
+                    ),
+                    notif_type=(
+                        NotificationType.QUOTE_REFUSED
+                    ),
+                    entity_type=(
+                        NotificationEntityType.QUOTE
+                    ),
+                    entity_id=quote.id,
+                )
             # =========================
             # COMMIT
             # =========================
 
             self.unit_of_work.commit()
 
+            if lead.assigned_to:
+                # =========================
+                # UPDATE MY LEADS COUNT
+                # =========================
+
+                my_leads_count = (
+                    self.sales_dashboard_repository
+                    .count_my_leads(
+                        agent_id=lead.assigned_to,
+                    )
+                )
+
+                await self.notification_service.send_update(
+                    user_id=lead.assigned_to,
+                    payload={
+                        "type": "MY_LEADS_UPDATED",
+                        "count": my_leads_count,
+                    },
+                )
 
             # =========================
-            # COUNT ACTIONS REQUIRED
+            # UPDATE CUSTOMER QUOTE COUNT
             # =========================
 
             count = (
@@ -176,6 +187,7 @@ class RefuseQuoteUseCase:
                     "count": count,
                 },
             )
+
             # =========================
             # LOG
             # =========================
@@ -185,6 +197,7 @@ class RefuseQuoteUseCase:
                 extra={
                     "quote_id": quote.id,
                     "customer_id": dto.customer_id,
+                    "agent_id": lead.assigned_to,
                 },
             )
 

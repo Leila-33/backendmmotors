@@ -121,24 +121,18 @@ class TradeInRequest(BaseModel):
         return v
 
 
+
 class FinancingRequest(BaseModel):
     down_payment: float = Field(
-        default=0,
-        ge=0,
+        ...,
+        gt=0,
+        description="Montant de l'apport, strictement supérieur à 0.",
     )
 
     duration_months: int = Field(
         default=48,
         ge=1,
     )
-    @field_validator("down_payment")
-    @classmethod
-    def validate_down_payment(cls, v):
-
-        if v < 0:
-            raise ValueError("Apport invalide")
-
-        return v
 
     @field_validator("duration_months")
     @classmethod

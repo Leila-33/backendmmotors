@@ -1,5 +1,5 @@
-from modules.storage.infrastrucure.s3_service import S3Service
-from modules.storage.infrastrucure.s3_client import (
+from modules.storage.infrastructure.s3_service import S3Service
+from modules.storage.infrastructure.s3_client import (
     get_s3_client,
     get_s3_public_client,
 )

@@ -6,7 +6,14 @@ from modules.leads.application.dtos.agent.agent_lead_dto import AgentLeadDTO
 from modules.leads.application.results.agent.assign_lead_result import (
     AssignLeadResult,
 )
+from modules.auth.domain.enums import UserRole
 
+logger = logging.getLogger(__name__)
+
+
+import logging
+
+from modules.auth.domain.entities.user import UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -14,26 +21,36 @@ logger = logging.getLogger(__name__)
 class AssignLeadUseCase:
     """
     Attribue un lead à un agent après vérification de son existence
-    et de son éligibilité à l'attribution, puis enregistre
-    l'action dans l'historique des événements.
+    et de son éligibilité à l'attribution.
+
+    L'action est persistée avant de recalculer les compteurs CRM
+    et de notifier les agents concernés.
     """
+
     def __init__(
         self,
+        user_repository,
         lead_repository,
+        sales_dashboard_repository,
+        notification_service,
         event_service,
         unit_of_work,
     ):
+        self.user_repository = user_repository
         self.lead_repository = lead_repository
+        self.sales_dashboard_repository = (
+            sales_dashboard_repository
+        )
+        self.notification_service = notification_service
         self.event_service = event_service
         self.unit_of_work = unit_of_work
 
-    def execute(
+    async def execute(
         self,
         dto: AgentLeadDTO,
     ) -> AssignLeadResult:
 
         try:
-
             # =========================
             # GET LEAD
             # =========================
@@ -93,12 +110,53 @@ class AssignLeadUseCase:
                 },
             )
 
-        except Exception:
+            # =====================================================
+            # MISE À JOUR DES COMPTEURS CRM
+            # =====================================================
 
+            counts = (
+                self.sales_dashboard_repository
+                .get_notification_counts(
+                    agent_id=dto.agent_id,
+                )
+            )
+
+            # =====================================================
+            # COMPTEUR PERSONNEL
+            # =====================================================
+
+            await self.notification_service.send_update(
+                user_id=dto.agent_id,
+                payload={
+                    "type": "MY_LEADS_UPDATED",
+                    "count": counts.my_leads_count,
+                },
+            )
+
+            # =====================================================
+            # COMPTEUR GLOBAL
+            # =====================================================
+
+            sales_agents = (
+                self.user_repository.get_by_role(
+                    UserRole.SALES_AGENT,
+                )
+            )
+
+            for agent in sales_agents:
+                await self.notification_service.send_update(
+                    user_id=str(agent.id),
+                    payload={
+                        "type": "NEW_LEADS_UPDATED",
+                        "count": counts.new_leads_count,
+                    },
+                )
+
+        except Exception:
             self.unit_of_work.rollback()
 
             logger.exception(
-                "Erreur attribution lead",
+                "Erreur lors de l'attribution du lead",
                 extra={
                     "lead_id": dto.lead_id,
                     "agent_id": dto.agent_id,

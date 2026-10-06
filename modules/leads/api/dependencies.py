@@ -33,13 +33,16 @@ from modules.quotes.domain.repositories.quote_repository import (
 from modules.leads.domain.repositories.sales_dashboard_repository import (
     SalesDashboardRepository,
 )
-
+from modules.notifications.api.dependencies import (
+    get_notification_service,
+)
 from modules.dependencies.dependencies import (
     get_lead_repository,
     get_lead_authorization,
     get_quote_repository,
     get_event_service,
-    get_sales_dashboard_repository
+    get_sales_dashboard_repository,
+    get_user_repository,
 )
 
 from core.database.dependencies import (
@@ -91,6 +94,15 @@ def get_assign_lead_usecase(
     lead_repository: LeadRepository = Depends(
         get_lead_repository
     ),
+    user_repository=Depends(
+        get_user_repository
+    ),
+    sales_dashboard_repository=Depends(
+        get_sales_dashboard_repository
+    ),
+    notification_service=Depends(
+        get_notification_service
+    ),
     event_service=Depends(
         get_event_service
     ),
@@ -100,6 +112,9 @@ def get_assign_lead_usecase(
 ):
     return AssignLeadUseCase(
         lead_repository=lead_repository,
+        user_repository=user_repository,
+        sales_dashboard_repository=sales_dashboard_repository,
+        notification_service=notification_service,
         event_service=event_service,
         unit_of_work=unit_of_work,
     )
@@ -163,6 +178,12 @@ def get_delete_lead_usecase(
     authorization=Depends(
         get_lead_authorization
     ),
+    sales_dashboard_repository: SalesDashboardRepository = Depends(
+        get_sales_dashboard_repository
+    ),
+    notification_service=Depends(
+        get_notification_service
+    ),
     event_service=Depends(
         get_event_service
     ),
@@ -174,6 +195,8 @@ def get_delete_lead_usecase(
         lead_repository=lead_repository,
         quote_repository=quote_repository,
         lead_authorization=authorization,
+        sales_dashboard_repository=sales_dashboard_repository,
+        notification_service=notification_service,
         event_service=event_service,
         unit_of_work=unit_of_work,
     )

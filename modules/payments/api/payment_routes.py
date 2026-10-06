@@ -201,7 +201,7 @@ async def stripe_webhook(
             stripe_payment_intent_id=session.payment_intent,
         )
 
-        payment_success_uc.execute(dto)
+        await payment_success_uc.execute(dto)
 
 
     # =====================================================

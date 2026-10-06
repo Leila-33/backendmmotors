@@ -34,16 +34,20 @@ class DeleteLeadUseCase:
         lead_repository,
         quote_repository,
         lead_authorization,
+        sales_dashboard_repository,
+        notification_service,
         event_service,
         unit_of_work,
     ):
         self.lead_repository = lead_repository
         self.quote_repository = quote_repository
         self.lead_authorization = lead_authorization
+        self.sales_dashboard_repository = sales_dashboard_repository
+        self.notification_service = notification_service
         self.event_service = event_service
         self.unit_of_work = unit_of_work
 
-    def execute(
+    async def execute(
         self,
         dto: AgentLeadDTO,
     ) -> DeleteLeadResult:
@@ -119,6 +123,25 @@ class DeleteLeadUseCase:
             # =========================
 
             self.unit_of_work.commit()
+
+            # =========================
+            # UPDATE MY LEADS COUNT
+            # =========================
+
+            my_leads_count = (
+                    self.sales_dashboard_repository
+                    .count_my_leads(
+                        agent_id=dto.agent_id,
+                    )
+                )
+
+            await self.notification_service.send_update(
+                    user_id=dto.agent_id,
+                    payload={
+                        "type": "MY_LEADS_UPDATED",
+                        "count": my_leads_count,
+                    },
+                )
 
             logger.info(
                 "Lead supprimé",

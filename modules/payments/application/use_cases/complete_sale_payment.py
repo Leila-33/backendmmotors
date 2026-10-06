@@ -195,6 +195,7 @@ class CompleteSalePaymentUseCase:
             # =========================
             # LEAD WON
             # =========================
+            assigned_agent_id = None
 
             if application.quote_id:
 
@@ -206,6 +207,7 @@ class CompleteSalePaymentUseCase:
                 )
 
                 if lead:
+                    assigned_agent_id = lead.assigned_to
 
                     lead.status = LeadStatus.WON
 
@@ -321,6 +323,7 @@ class CompleteSalePaymentUseCase:
                 financing_created=(
                     financing_created
                 ),
+                assigned_agent_id=assigned_agent_id,
                 message=(
                     "Vente finalisée avec succès"
                 ),

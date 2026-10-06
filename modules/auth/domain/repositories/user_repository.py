@@ -37,9 +37,6 @@ class UserRepository(ABC):
         """
         pass
 
-    @abstractmethod
-    def get_active_agents(self):
-        pass
     
     @abstractmethod
     def find_by_ids(self, ids: list[str]):

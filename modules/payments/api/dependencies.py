@@ -9,7 +9,8 @@ from modules.dependencies.dependencies import (
     get_installment_repository,
     get_vehicle_repository,
     get_event_service,
-    get_lead_repository
+    get_lead_repository,
+    get_sales_dashboard_repository
 )
 from modules.financing.api.dependencies import (
     get_create_financing_contract_usecase,
@@ -44,7 +45,7 @@ from modules.payments.application.use_cases.handle_invoice_created import (
 from modules.payments.infrastructure.services.stripe_service import (
     StripeService,
 )
-
+from modules.notifications.api.dependencies import get_notification_service
 
 def get_stripe_service():
     return StripeService()
@@ -225,7 +226,12 @@ def get_handle_payment_success_usecase(
     complete_rental_payment_uc=Depends(
         get_complete_rental_payment_usecase
     ),
-
+    sales_dashboard_repository=Depends(
+        get_sales_dashboard_repository
+    ),
+    notification_service=Depends(
+        get_notification_service
+    ),
     event_service=Depends(
         get_event_service
     ),
@@ -251,7 +257,8 @@ def get_handle_payment_success_usecase(
         complete_rental_payment_uc=(
             complete_rental_payment_uc
         ),
-
+        sales_dashboard_repository=sales_dashboard_repository,
+        notification_service=notification_service,
         event_service=event_service,
         stripe_service=stripe_service,
         unit_of_work=uow,

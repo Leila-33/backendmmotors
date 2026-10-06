@@ -5,7 +5,7 @@ from modules.applications.domain.enums import (
     DocumentStatus
 )
 from modules.applications.domain.entities.document import Document
-from modules.storage.infrastrucure.s3_service import S3Service
+from modules.storage.infrastructure.s3_service import S3Service
 
 class DocumentSyncService:
     """

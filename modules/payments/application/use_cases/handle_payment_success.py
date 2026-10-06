@@ -43,15 +43,14 @@ class HandlePaymentSuccessUseCase:
         application_repository,
         complete_sale_payment_uc,
         complete_rental_payment_uc,
+        sales_dashboard_repository,
+        notification_service,
         event_service,
         stripe_service,
         unit_of_work,
     ):
         self.payment_repository = payment_repository
-
-        self.application_repository = (
-            application_repository
-        )
+        self.application_repository = application_repository
 
         self.complete_sale_payment_uc = (
             complete_sale_payment_uc
@@ -61,11 +60,16 @@ class HandlePaymentSuccessUseCase:
             complete_rental_payment_uc
         )
 
+        self.sales_dashboard_repository = (
+            sales_dashboard_repository
+        )
+
+        self.notification_service = notification_service
         self.event_service = event_service
         self.stripe_service = stripe_service
         self.unit_of_work = unit_of_work
 
-    def execute(
+    async def execute(
         self,
         dto: HandlePaymentSuccessDTO,
     ):
@@ -170,10 +174,11 @@ class HandlePaymentSuccessUseCase:
             # =========================
             # ROUTAGE MÉTIER
             # =========================
+            sale_result = None
 
             if vehicle.type == VehicleType.SALE:
 
-                self.complete_sale_payment_uc.execute(
+                sale_result = self.complete_sale_payment_uc.execute(
                     CompleteSalePaymentDTO(
                         application_id=application.id,
                         payment_id=payment.id,
@@ -222,6 +227,30 @@ class HandlePaymentSuccessUseCase:
             # =========================
 
             self.unit_of_work.commit()
+
+            # =========================
+            # UPDATE MY LEADS COUNT
+            # =========================
+
+            if (
+                vehicle.type == VehicleType.SALE
+                and sale_result
+                and sale_result.assigned_agent_id
+            ):
+                my_leads_count = (
+                    self.sales_dashboard_repository
+                    .count_my_leads(
+                        agent_id=sale_result.assigned_agent_id,
+                    )
+                )
+
+                await self.notification_service.send_update(
+                    user_id=sale_result.assigned_agent_id,
+                    payload={
+                        "type": "MY_LEADS_UPDATED",
+                        "count": my_leads_count,
+                    },
+                )
 
             # =========================
             # SUCCESS LOG

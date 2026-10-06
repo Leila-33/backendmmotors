@@ -60,7 +60,7 @@ from modules.storage.api.dependencies import (
     get_s3_service,
 )
 
-from modules.storage.infrastrucure.s3_service import (
+from modules.storage.infrastructure.s3_service import (
     S3Service,
 )
 

@@ -1,9 +1,8 @@
-from fastapi import Request
+from fastapi import Request, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from core.exceptions import DomainException
 import logging
-
 logger = logging.getLogger(__name__)
 
 
@@ -13,25 +12,36 @@ def register_exception_handlers(app):
     # DOMAIN EXCEPTION
     # =========================
 
+
     @app.exception_handler(DomainException)
     async def handle_domain_exception(
-        request: Request,
+        request: Request | WebSocket,
         exc: DomainException,
     ):
-
         logger.warning(
             "Erreur métier",
             extra={
                 "path": request.url.path,
-                "method": request.method,
+                "method": getattr(
+                    request,
+                    "method",
+                    "WEBSOCKET",
+                ),
                 "status_code": exc.status_code,
             },
         )
 
+        if isinstance(request, WebSocket):
+            await request.close(
+                code=1008,
+                reason=exc.message,
+            )
+            return
+
         return JSONResponse(
             status_code=exc.status_code,
             content={
-                "detail": exc.message
+                "detail": exc.message,
             },
         )
 

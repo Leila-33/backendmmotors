@@ -31,3 +31,20 @@ class SalesDashboardRepository(ABC):
         assignés à un agent donné.
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def count_my_leads(
+        self,
+        agent_id: str,
+    ) -> int:
+        """
+        Retourne le nombre de leads actifs assignés à l'agent.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def count_new_leads(self) -> int:
+        """
+        Retourne le nombre de nouveaux leads non attribués.
+        """
+        raise NotImplementedError

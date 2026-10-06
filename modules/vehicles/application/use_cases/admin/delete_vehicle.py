@@ -4,7 +4,7 @@ from modules.vehicles.domain.repositories.vehicle_repository import (
     VehicleRepository,
 )
 from modules.vehicles.domain.exceptions import VehicleNotFound
-from modules.storage.infrastrucure.s3_service import S3Service
+from modules.storage.infrastructure.s3_service import S3Service
 from core.database.unit_of_work import UnitOfWork
 from modules.applications.domain.enums import EventType
 

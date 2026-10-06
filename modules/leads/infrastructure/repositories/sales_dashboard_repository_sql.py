@@ -162,33 +162,35 @@ class SalesDashboardRepositorySQL(
         self,
         agent_id: str,
     ) -> SalesNotificationCountsResult:
+        """
+        Retourne les compteurs de notifications commerciales
+        pour un agent.
+        """
 
-        # =====================================================
-        # NOUVEAUX LEADS
-        # =====================================================
-
-        new_leads_count = (
-            self.db.query(func.count(LeadModel.id))
-            .filter(
-                LeadModel.status == LeadStatus.NEW,
-                LeadModel.assigned_to.is_(None),
-            )
-            .scalar()
-            or 0
+        return SalesNotificationCountsResult(
+            new_leads_count=self.count_new_leads(),
+            my_leads_count=self.count_my_leads(
+                agent_id=agent_id,
+            ),
         )
 
-        # =====================================================
-        # MES LEADS À TRAITER
-        # =====================================================
 
-        my_leads_count = (
+    def count_my_leads(
+        self,
+        agent_id: str,
+    ) -> int:
+        """
+        Retourne le nombre de leads actifs assignés à l'agent.
+        """
+
+        return (
             self.db.query(func.count(LeadModel.id))
             .filter(
                 LeadModel.assigned_to == agent_id,
                 LeadModel.status.notin_(
                     [
                         LeadStatus.WON,
-                        LeadStatus.LOST
+                        LeadStatus.LOST,
                     ]
                 ),
             )
@@ -196,7 +198,18 @@ class SalesDashboardRepositorySQL(
             or 0
         )
 
-        return SalesNotificationCountsResult(
-            new_leads_count=new_leads_count,
-            my_leads_count=my_leads_count,
+
+    def count_new_leads(self) -> int:
+        """
+        Retourne le nombre de nouveaux leads non attribués.
+        """
+
+        return (
+            self.db.query(func.count(LeadModel.id))
+            .filter(
+                LeadModel.status == LeadStatus.NEW,
+                LeadModel.assigned_to.is_(None),
+            )
+            .scalar()
+            or 0
         )

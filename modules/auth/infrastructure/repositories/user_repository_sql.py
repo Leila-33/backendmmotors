@@ -72,8 +72,7 @@ class UserRepositorySQL(UserRepository):
 
 
         return UserMapper.to_domain(model)
-
-
+    
 
     # =========================
     # SAVE
@@ -314,36 +313,6 @@ class UserRepositorySQL(UserRepository):
         return users, total
 
 
-
-    # =========================
-    # ACTIVE AGENTS
-    # =========================
-
-    def get_active_agents(
-        self
-    ):
-
-
-        models = (
-            self.db.query(UserModel)
-            .filter(
-                UserModel.role == UserRole.SAV_AGENT,
-                UserModel.is_active.is_(True)
-            )
-            .order_by(
-                UserModel.id.asc()
-            )
-            .all()
-        )
-
-
-        return [
-            UserMapper.to_domain(model)
-            for model in models
-        ]
-
-
-
     # =========================
     # FIND BY IDS
     # =========================
@@ -373,17 +342,25 @@ class UserRepositorySQL(UserRepository):
     # =========================
 
     def get_by_role(
-    self,
-    role: UserRole,
-) -> list[User]:
+        self,
+        role: UserRole,
+    ) -> list[User]:
+        """
+        Retourne les utilisateurs actifs correspondant au rôle demandé.
+        """
 
-        result = self.db.execute(
-            select(UserModel).where(
-                UserModel.role == role
+        models = (
+            self.db.query(UserModel)
+            .filter(
+                UserModel.role == role,
+                UserModel.is_active.is_(True),
+                UserModel.is_deleted.is_(False),
             )
+            .order_by(
+                UserModel.id.asc(),
+            )
+            .all()
         )
-
-        models = result.scalars().all()
 
         return [
             UserMapper.to_domain(model)

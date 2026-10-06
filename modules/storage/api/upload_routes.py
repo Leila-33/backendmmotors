@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from modules.storage.api.schemas import UploadRequest
-from modules.storage.infrastrucure.s3_service import S3Service
+from modules.storage.infrastructure.s3_service import S3Service
 from modules.storage.api.dependencies import get_s3_service
 router = APIRouter()
 

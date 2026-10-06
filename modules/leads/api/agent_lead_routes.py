@@ -182,7 +182,7 @@ def get_lead_detail(
     "/{lead_id}/assign-to-me",
     response_model=AssignLeadResponse,
 )
-def assign_lead(
+async def assign_lead(
     lead_id: str,
     current_user: User = Depends(
         get_current_sales_agent
@@ -196,7 +196,7 @@ def assign_lead(
         agent_id=current_user.id,
     )
 
-    result = usecase.execute(dto)
+    result = await usecase.execute(dto)
 
     return AssignLeadResponse(
         id=result.id,
@@ -242,7 +242,7 @@ def mark_lead_contacted(
     "/{lead_id}",
     response_model=DeleteLeadResponse,
 )
-def delete_lead(
+async def delete_lead(
     lead_id: str,
     current_user: User = Depends(
         get_current_sales_agent
@@ -256,7 +256,7 @@ def delete_lead(
         agent_id=current_user.id,
     )
 
-    result = usecase.execute(dto)
+    result = await usecase.execute(dto)
 
     return DeleteLeadResponse(
         id=result.lead_id,

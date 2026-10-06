@@ -65,7 +65,7 @@ from modules.storage.api.dependencies import (
     get_s3_service
 )
 from modules.notifications.api.dependencies import get_notification_service
-from modules.storage.infrastrucure.s3_service import S3Service
+from modules.storage.infrastructure.s3_service import S3Service
 from modules.applications.application.services.restore_application_service import RestoreApplicationService
 
 
