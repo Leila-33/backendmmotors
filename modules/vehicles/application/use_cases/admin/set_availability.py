@@ -1,8 +1,9 @@
 import logging
-
+from modules.vehicles.domain.enums import VehicleStatus
 from modules.vehicles.domain.exceptions import (
     VehicleAvailabilityAlreadySet,
     VehicleNotFound,
+    VehicleCannotChangeAvailability
 )
 from modules.vehicles.domain.repositories.vehicle_repository import (
     VehicleRepository,
@@ -47,6 +48,11 @@ class SetAvailabilityUseCase:
 
         if not vehicle:
             raise VehicleNotFound()
+        
+        # Un véhicule vendu ne peut plus être rendu disponible
+        # ou indisponible manuellement.
+        if vehicle.status == VehicleStatus.SOLD:
+            raise VehicleCannotChangeAvailability()
 
         if vehicle.is_available == dto.value:
             raise VehicleAvailabilityAlreadySet()

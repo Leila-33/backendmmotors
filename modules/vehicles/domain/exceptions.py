@@ -27,6 +27,13 @@ class VehicleAlreadyPublished(DomainException):
             status_code=400
         )
 
+class VehicleCannotChangeAvailability(DomainException):
+    def __init__(self):
+        super().__init__(
+            "La disponibilité d'un véhicule vendu ne peut pas être modifiée.",
+            400,
+        )
+
 class VehicleAvailabilityAlreadySet(DomainException):
     def __init__(self):
         super().__init__(
