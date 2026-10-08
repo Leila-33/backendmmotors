@@ -10,14 +10,6 @@ from modules.auth.domain.enums import UserRole
 
 logger = logging.getLogger(__name__)
 
-
-import logging
-
-from modules.auth.domain.entities.user import UserRole
-
-logger = logging.getLogger(__name__)
-
-
 class AssignLeadUseCase:
     """
     Attribue un lead à un agent après vérification de son existence

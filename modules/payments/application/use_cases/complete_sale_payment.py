@@ -139,6 +139,7 @@ class CompleteSalePaymentUseCase:
                     financing_created=(
                         application.financing is not None
                     ),
+                    assigned_agent_id=None,
                     message="Vente déjà finalisée",
                 )
 

@@ -97,31 +97,66 @@ async def get_current_user_websocket(
     token = websocket.cookies.get("access_token")
 
     if not token:
+        await websocket.close(
+            code=1008,
+            reason="AUTHENTICATION_REQUIRED",
+        )
         raise TokenInvalid()
 
     try:
         payload = jwt_service.decode(token)
 
     except ExpiredSignatureError:
+        await websocket.close(
+            code=1008,
+            reason="TOKEN_EXPIRED",
+        )
         raise TokenExpired()
 
     except InvalidTokenError:
+        await websocket.close(
+            code=1008,
+            reason="INVALID_TOKEN",
+        )
         raise TokenInvalid()
 
     if payload.get("type") != "access":
+        await websocket.close(
+            code=1008,
+            reason="INVALID_TOKEN",
+        )
         raise TokenInvalid()
 
-    user = user_repo.get_by_id(
-        payload.get("sub")
-    )
+    user_id = payload.get("sub")
+
+    if not user_id:
+        await websocket.close(
+            code=1008,
+            reason="INVALID_TOKEN",
+        )
+        raise TokenInvalid()
+
+    user = user_repo.get_by_id(user_id)
 
     if not user:
+        await websocket.close(
+            code=1008,
+            reason="INVALID_TOKEN",
+        )
         raise TokenInvalid()
 
     if user.is_deleted:
+        await websocket.close(
+            code=1008,
+            reason="FORBIDDEN",
+        )
         raise Forbidden()
 
     if not user.is_active:
+        await websocket.close(
+            code=1008,
+            reason="FORBIDDEN",
+        )
         raise Forbidden()
 
     return user

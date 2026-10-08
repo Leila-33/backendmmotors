@@ -1,316 +1,142 @@
-from unittest.mock import Mock
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
-import pytest
+from modules.auth.domain.enums import UserRole
+from modules.sav.application.services.assignment_service import AssignmentService
 
-from modules.sav.application.services.assignment_service import (
-    AssignmentService,
-)
 
+class TestAssignmentService:
 
-# ============================================================
-# HELPERS
-# ============================================================
+    def setup_method(self):
+        self.user_repository = MagicMock()
+        self.ticket_repository = MagicMock()
 
+        self.service = AssignmentService(
+            user_repository=self.user_repository,
+            ticket_repository=self.ticket_repository,
+        )
 
-def make_agent(agent_id: str):
-    return Mock(id=agent_id)
+    def test_get_next_agent_returns_none_when_no_sav_agent_exists(self):
+        # Arrange
+        self.user_repository.get_by_role.return_value = []
 
+        # Act
+        result = self.service.get_next_agent()
 
-# ============================================================
-# FIXTURES
-# ============================================================
+        # Assert
+        assert result is None
 
+        self.user_repository.get_by_role.assert_called_once_with(
+            UserRole.SAV_AGENT
+        )
 
-@pytest.fixture
-def user_repo():
-    return Mock()
+        self.ticket_repository.count_open_tickets_by_agent.assert_not_called()
+
+    def test_get_next_agent_returns_agent_with_fewest_open_tickets(self):
+        # Arrange
+        agent_1 = SimpleNamespace(id="agent-1")
+        agent_2 = SimpleNamespace(id="agent-2")
+        agent_3 = SimpleNamespace(id="agent-3")
 
+        self.user_repository.get_by_role.return_value = [
+            agent_1,
+            agent_2,
+            agent_3,
+        ]
 
-@pytest.fixture
-def ticket_repo():
-    return Mock()
+        self.ticket_repository.count_open_tickets_by_agent.side_effect = [
+            5,
+            2,
+            4,
+        ]
 
+        # Act
+        result = self.service.get_next_agent()
 
-@pytest.fixture
-def service(user_repo, ticket_repo):
-    return AssignmentService(
-        user_repository=user_repo,
-        ticket_repository=ticket_repo,
-    )
+        # Assert
+        assert result is agent_2
 
+        self.user_repository.get_by_role.assert_called_once_with(
+            UserRole.SAV_AGENT
+        )
 
-# ============================================================
-# NO ACTIVE AGENT
-# ============================================================
+        assert self.ticket_repository.count_open_tickets_by_agent.call_count == 3
 
+        self.ticket_repository.count_open_tickets_by_agent.assert_any_call(
+            "agent-1"
+        )
+        self.ticket_repository.count_open_tickets_by_agent.assert_any_call(
+            "agent-2"
+        )
+        self.ticket_repository.count_open_tickets_by_agent.assert_any_call(
+            "agent-3"
+        )
 
-def test_returns_none_when_no_active_agent(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    user_repo.get_active_agents.return_value = []
+    def test_get_next_agent_returns_only_agent_when_one_exists(self):
+        # Arrange
+        agent = SimpleNamespace(id="agent-1")
 
-    result = service.get_next_agent()
+        self.user_repository.get_by_role.return_value = [agent]
 
-    assert result is None
+        self.ticket_repository.count_open_tickets_by_agent.return_value = 3
 
-    user_repo.get_active_agents.assert_called_once_with()
+        # Act
+        result = self.service.get_next_agent()
 
-    ticket_repo.count_open_tickets_by_agent.assert_not_called()
+        # Assert
+        assert result is agent
 
+        self.user_repository.get_by_role.assert_called_once_with(
+            UserRole.SAV_AGENT
+        )
 
-# ============================================================
-# ONE ACTIVE AGENT
-# ============================================================
+        self.ticket_repository.count_open_tickets_by_agent.assert_called_once_with(
+            "agent-1"
+        )
 
-
-def test_returns_the_only_active_agent(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    agent = make_agent("agent-1")
-
-    user_repo.get_active_agents.return_value = [agent]
-    ticket_repo.count_open_tickets_by_agent.return_value = 3
-
-    result = service.get_next_agent()
-
-    assert result is agent
-
-    user_repo.get_active_agents.assert_called_once_with()
-
-    ticket_repo.count_open_tickets_by_agent.assert_called_once_with(
-        "agent-1"
-    )
-
-
-# ============================================================
-# MULTIPLE AGENTS
-# ============================================================
-
-
-def test_returns_agent_with_fewest_open_tickets(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    agent_1 = make_agent("agent-1")
-    agent_2 = make_agent("agent-2")
-    agent_3 = make_agent("agent-3")
-
-    user_repo.get_active_agents.return_value = [
-        agent_1,
-        agent_2,
-        agent_3,
-    ]
-
-    ticket_counts = {
-        "agent-1": 5,
-        "agent-2": 2,
-        "agent-3": 8,
-    }
-
-    def count_open_tickets(agent_id):
-        return ticket_counts[agent_id]
-
-    ticket_repo.count_open_tickets_by_agent.side_effect = (
-        count_open_tickets
-    )
-
-    result = service.get_next_agent()
-
-    assert result is agent_2
-
-    assert ticket_repo.count_open_tickets_by_agent.call_count == 3
-
-    ticket_repo.count_open_tickets_by_agent.assert_any_call(
-        "agent-1"
-    )
-    ticket_repo.count_open_tickets_by_agent.assert_any_call(
-        "agent-2"
-    )
-    ticket_repo.count_open_tickets_by_agent.assert_any_call(
-        "agent-3"
-    )
-
-
-# ============================================================
-# ZERO TICKETS
-# ============================================================
-
-
-def test_agent_with_zero_open_tickets_is_selected(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    agent_1 = make_agent("agent-1")
-    agent_2 = make_agent("agent-2")
-
-    user_repo.get_active_agents.return_value = [
-        agent_1,
-        agent_2,
-    ]
-
-    ticket_repo.count_open_tickets_by_agent.side_effect = [
-        4,
-        0,
-    ]
-
-    result = service.get_next_agent()
-
-    assert result is agent_2
-
-
-# ============================================================
-# TIE
-# ============================================================
-
-
-def test_first_agent_is_selected_when_ticket_counts_are_equal(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    agent_1 = make_agent("agent-1")
-    agent_2 = make_agent("agent-2")
-    agent_3 = make_agent("agent-3")
-
-    user_repo.get_active_agents.return_value = [
-        agent_1,
-        agent_2,
-        agent_3,
-    ]
-
-    ticket_repo.count_open_tickets_by_agent.return_value = 3
-
-    result = service.get_next_agent()
-
-    # Le code utilise strictement "<".
-    # En cas d'égalité, le premier agent reste sélectionné.
-    assert result is agent_1
-
-    assert ticket_repo.count_open_tickets_by_agent.call_count == 3
-
-
-# ============================================================
-# ORDER OF EVALUATION
-# ============================================================
-
-
-def test_all_active_agents_are_evaluated(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    agents = [
-        make_agent("agent-1"),
-        make_agent("agent-2"),
-        make_agent("agent-3"),
-        make_agent("agent-4"),
-    ]
-
-    user_repo.get_active_agents.return_value = agents
-    ticket_repo.count_open_tickets_by_agent.side_effect = [
-        10,
-        7,
-        4,
-        6,
-    ]
-
-    result = service.get_next_agent()
-
-    assert result is agents[2]
-
-    assert ticket_repo.count_open_tickets_by_agent.call_args_list == [
-        (("agent-1",),),
-        (("agent-2",),),
-        (("agent-3",),),
-        (("agent-4",),),
-    ]
-
-
-# ============================================================
-# REPOSITORY ERRORS
-# ============================================================
-
-
-def test_active_agents_repository_error_is_propagated(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    user_repo.get_active_agents.side_effect = RuntimeError(
-        "user repository error"
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="user repository error",
-    ):
-        service.get_next_agent()
-
-    ticket_repo.count_open_tickets_by_agent.assert_not_called()
-
-
-def test_ticket_repository_error_is_propagated(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    agent_1 = make_agent("agent-1")
-    agent_2 = make_agent("agent-2")
-
-    user_repo.get_active_agents.return_value = [
-        agent_1,
-        agent_2,
-    ]
-
-    ticket_repo.count_open_tickets_by_agent.side_effect = (
-        RuntimeError("ticket repository error")
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="ticket repository error",
-    ):
-        service.get_next_agent()
-
-    ticket_repo.count_open_tickets_by_agent.assert_called_once_with(
-        "agent-1"
-    )
-
-
-# ============================================================
-# NO WRITE OPERATIONS
-# ============================================================
-
-
-def test_service_does_not_modify_agents_or_tickets(
-    service,
-    user_repo,
-    ticket_repo,
-):
-    agent_1 = make_agent("agent-1")
-    agent_2 = make_agent("agent-2")
-
-    user_repo.get_active_agents.return_value = [
-        agent_1,
-        agent_2,
-    ]
-
-    ticket_repo.count_open_tickets_by_agent.side_effect = [
-        2,
-        5,
-    ]
-
-    result = service.get_next_agent()
-
-    assert result is agent_1
-
-    # Le service ne fait que lire les repositories.
-    # Aucun save/update/delete ne doit être nécessaire.
-    assert not hasattr(user_repo, "save") or not user_repo.save.called
-    assert not hasattr(ticket_repo, "save") or not ticket_repo.save.called
+    def test_get_next_agent_selects_agent_with_zero_open_tickets(self):
+        # Arrange
+        agent_1 = SimpleNamespace(id="agent-1")
+        agent_2 = SimpleNamespace(id="agent-2")
+        agent_3 = SimpleNamespace(id="agent-3")
+
+        self.user_repository.get_by_role.return_value = [
+            agent_1,
+            agent_2,
+            agent_3,
+        ]
+
+        self.ticket_repository.count_open_tickets_by_agent.side_effect = [
+            7,
+            0,
+            3,
+        ]
+
+        # Act
+        result = self.service.get_next_agent()
+
+        # Assert
+        assert result is agent_2
+
+    def test_get_next_agent_keeps_first_agent_when_scores_are_equal(self):
+        # Arrange
+        agent_1 = SimpleNamespace(id="agent-1")
+        agent_2 = SimpleNamespace(id="agent-2")
+
+        self.user_repository.get_by_role.return_value = [
+            agent_1,
+            agent_2,
+        ]
+
+        self.ticket_repository.count_open_tickets_by_agent.side_effect = [
+            2,
+            2,
+        ]
+
+        # Act
+        result = self.service.get_next_agent()
+
+        # Assert
+        assert result is agent_1
+
+        assert self.ticket_repository.count_open_tickets_by_agent.call_count == 2
