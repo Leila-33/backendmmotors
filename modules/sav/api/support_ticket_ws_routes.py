@@ -213,26 +213,51 @@ async def ticket_chat(
                 sender_id=user.id,
             )
 
+
             if recipient:
                 recipient_id, recipient_role = recipient
+
+                logger.info(
+                    "[SAV WS] Destinataire trouvé : id=%s, role=%s",
+                    recipient_id,
+                    recipient_role,
+                )
 
                 unread = chat_usecase.ticket_repository.count_unread(
                     user_id=recipient_id,
                     user_role=recipient_role,
                 )
 
-                redis_conn.publish(
-                    "user_notifications",
-                    json.dumps(
-                        {
-                            "user_id": str(recipient_id),
-                            "message": {
-                                "type": "UNREAD_TICKETS_UPDATED",
-                                "count": unread,
-                            },
-                        }
-                    ),
+                payload = {
+                    "user_id": str(recipient_id),
+                    "message": {
+                        "type": "UNREAD_TICKETS_UPDATED",
+                        "count": unread,
+                    },
+                }
+
+                try:
+                    subscribers = redis_conn.publish(
+                        "user_notifications",
+                        json.dumps(payload),
+                    )
+
+                    logger.info(
+                        "[SAV WS] Publication Redis terminée : "
+                        "channel=user_notifications, subscribers=%s, payload=%s",
+                        subscribers,
+                        payload,
+                    )
+
+                except Exception:
+                    logger.exception("[SAV WS] Échec publication Redis")
+
+            else:
+                logger.warning(
+                    "[SAV WS] Aucun destinataire trouvé pour ticket_id=%s",
+                    ticket_id,
                 )
+
 
     except WebSocketDisconnect:
 
