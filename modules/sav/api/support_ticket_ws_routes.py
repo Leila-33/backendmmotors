@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import json
+import logging
 
 from fastapi import (
     APIRouter,
@@ -19,7 +21,7 @@ from modules.auth.api.dependencies import (
     get_jwt_service,
     get_user_repository,
 )
-import logging
+from modules.vehicles.infrastructure.queue.redis_connection import redis_conn
 
 logger = logging.getLogger(__name__)
 
@@ -219,12 +221,17 @@ async def ticket_chat(
                     user_role=recipient_role,
                 )
 
-                await chat_usecase.connection_manager.send(
-                    recipient_id,
-                    {
-                        "type": "UNREAD_TICKETS_UPDATED",
-                        "count": unread,
-                    },
+                redis_conn.publish(
+                    "user_notifications",
+                    json.dumps(
+                        {
+                            "user_id": str(recipient_id),
+                            "message": {
+                                "type": "UNREAD_TICKETS_UPDATED",
+                                "count": unread,
+                            },
+                        }
+                    ),
                 )
 
     except WebSocketDisconnect:
