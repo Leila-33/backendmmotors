@@ -195,13 +195,17 @@ async def ticket_chat(
             # =============================================
             # BROADCAST
             # =============================================
-
-            await chat_usecase.chat_manager.broadcast(
-                ticket_id,
-                {
+            redis_payload = {
+                "ticket_id": str(ticket_id),
+                "payload": {
                     "type": "NEW_MESSAGE",
                     "data": message_data,
                 },
+            }
+
+            redis_conn.publish(
+                "ticket_chat_updates",
+                json.dumps(redis_payload),
             )
 
             # =============================================

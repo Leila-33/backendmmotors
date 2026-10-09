@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+import logging
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
@@ -11,6 +12,7 @@ from core.exception_handlers import register_exception_handlers
 from api.routes import api_router
 import sentry_sdk
 from core.config.settings import settings
+logger = logging.getLogger(__name__)
 
 configure_mappers()
 setup_logging()
@@ -57,42 +59,24 @@ from modules.vehicles.infrastructure.queue.redis_listener import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
-
-    print("🚀 API starting...")
-
-
-    # Scheduler
+    logger.info("API starting...")
 
     start_scheduler()
 
-
-
-    # Redis listener
-
-    loop = asyncio.get_event_loop()
-
+    loop = asyncio.get_running_loop()
 
     thread = threading.Thread(
         target=start_redis_listener,
         args=(loop,),
-        daemon=True
+        daemon=True,
+        name="redis-listener",
     )
-
     thread.start()
-
-
-    print("🔥 Redis listener started")
-
 
     yield
 
-
-
     stop_scheduler()
-
-
-    print("🛑 API shutting down")
+    logger.info("API shutting down")
 
 
 
