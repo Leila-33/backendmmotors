@@ -1,37 +1,47 @@
-from unittest.mock import Mock, patch
+
+# tests/modules/reservations/application/use_cases/test_create_reservation_use_case.py
+
+from datetime import date, timedelta
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
-from datetime import date
-from modules.applications.domain.enums import EventType
-from modules.applications.domain.exceptions import ApplicationNotFound
-from modules.reservations.domain.enums import ReservationStatus
-from modules.vehicles.domain.exceptions import VehicleNotAvailable
+
 from modules.reservations.application.dtos.create_reservation_dto import (
     CreateReservationDTO,
 )
 from modules.reservations.application.use_cases.create_reservation import (
     CreateReservationUseCase,
 )
+from modules.reservations.domain.enums import ReservationStatus
+from modules.applications.domain.enums import EventType
+from modules.applications.domain.exceptions import ApplicationNotFound
+from modules.vehicles.domain.exceptions import VehicleNotAvailable
+
+
+# =========================================================
+# FIXTURES
+# =========================================================
 
 
 @pytest.fixture
 def application_repository():
-    return Mock()
+    return MagicMock()
 
 
 @pytest.fixture
 def reservation_repository():
-    return Mock()
+    return MagicMock()
 
 
 @pytest.fixture
 def event_service():
-    return Mock()
+    return MagicMock()
 
 
 @pytest.fixture
 def unit_of_work():
-    return Mock()
+    return MagicMock()
 
 
 @pytest.fixture
@@ -50,63 +60,27 @@ def use_case(
 
 
 @pytest.fixture
-def dto():
-    return CreateReservationDTO(
-        application_id="application-123",
-        start_date=date(2026, 10, 10),
-        end_date=date(2026, 10, 15),
+def application():
+    return SimpleNamespace(
+        id="application-123",
+        vehicle_id="vehicle-456",
+        user_id="user-789",
     )
 
 
 @pytest.fixture
-def application():
-    application = Mock()
-    application.id = "application-123"
-    application.user_id = "user-123"
-    application.vehicle_id = "vehicle-123"
-    return application
-
-def test_execute_raises_application_not_found(
-    use_case,
-    application_repository,
-    unit_of_work,
-    dto,
-):
-    application_repository.get_by_id.return_value = None
-
-    with pytest.raises(ApplicationNotFound):
-        use_case.execute(dto)
-
-    application_repository.get_by_id.assert_called_once_with(
-        "application-123"
+def dto():
+    return CreateReservationDTO(
+        application_id="application-123",
+        start_date=date.today() + timedelta(days=1),
+        end_date=date.today() + timedelta(days=5),
     )
 
-    unit_of_work.rollback.assert_called_once()
-    unit_of_work.commit.assert_not_called()
 
-def test_execute_raises_vehicle_not_available_when_overlap_exists(
-    use_case,
-    application_repository,
-    reservation_repository,
-    unit_of_work,
-    dto,
-    application,
-):
-    application_repository.get_by_id.return_value = application
-    reservation_repository.exists_overlap.return_value = True
+# =========================================================
+# SUCCESS
+# =========================================================
 
-    with pytest.raises(VehicleNotAvailable):
-        use_case.execute(dto)
-
-    reservation_repository.exists_overlap.assert_called_once_with(
-        vehicle_id="vehicle-123",
-        start_date=dto.start_date,
-        end_date=dto.end_date,
-    )
-
-    reservation_repository.create.assert_not_called()
-    unit_of_work.rollback.assert_called_once()
-    unit_of_work.commit.assert_not_called()
 
 def test_execute_creates_reservation_successfully(
     use_case,
@@ -114,99 +88,173 @@ def test_execute_creates_reservation_successfully(
     reservation_repository,
     event_service,
     unit_of_work,
-    dto,
     application,
+    dto,
 ):
+    # Arrange
     application_repository.get_by_id.return_value = application
     reservation_repository.exists_overlap.return_value = False
 
-    created_reservation = Mock()
-    created_reservation.id = "reservation-123"
-    created_reservation.vehicle_id = "vehicle-123"
-    created_reservation.start_date = dto.start_date
-    created_reservation.end_date = dto.end_date
-    created_reservation.status = ReservationStatus.ACTIVE
+    def persist_reservation(reservation):
+        return reservation
 
-    reservation_repository.create.return_value = (
-        created_reservation
-    )
+    reservation_repository.create.side_effect = persist_reservation
 
+    # Act
     result = use_case.execute(dto)
 
-    assert result is created_reservation
+    # Assert: application lookup
+    application_repository.get_by_id.assert_called_once_with(
+        dto.application_id
+    )
 
+    # Assert: vehicle availability
+    reservation_repository.exists_overlap.assert_called_once_with(
+        vehicle_id=application.vehicle_id,
+        start_date=dto.start_date,
+        end_date=dto.end_date,
+    )
+
+    # Assert: reservation
     reservation_repository.create.assert_called_once()
 
-    reservation = reservation_repository.create.call_args.args[0]
+    created_reservation = reservation_repository.create.call_args.args[0]
 
-    assert reservation.application_id == "application-123"
-    assert reservation.vehicle_id == "vehicle-123"
-    assert reservation.start_date == dto.start_date
-    assert reservation.end_date == dto.end_date
-    assert reservation.status == ReservationStatus.ACTIVE
+    assert result is created_reservation
+    assert result.id
+    assert result.application_id == application.id
+    assert result.vehicle_id == application.vehicle_id
+    assert result.start_date == dto.start_date
+    assert result.end_date == dto.end_date
+    assert result.status == ReservationStatus.ACTIVE
 
-    unit_of_work.commit.assert_called_once()
+    # Assert: event
+    event_service.log.assert_called_once_with(
+        type=EventType.RENTAL_CREATED,
+        message="Réservation créée",
+        user_id=application.user_id,
+        vehicle_id=created_reservation.vehicle_id,
+        application_id=application.id,
+        event_metadata={
+            "reservation_id": created_reservation.id,
+            "start_date": dto.start_date.isoformat(),
+            "end_date": dto.end_date.isoformat(),
+            "status": ReservationStatus.ACTIVE.value,
+        },
+    )
+
+    # Assert: transaction
+    unit_of_work.commit.assert_called_once_with()
     unit_of_work.rollback.assert_not_called()
 
-def test_execute_logs_rental_created_event(
+
+# =========================================================
+# APPLICATION NOT FOUND
+# =========================================================
+
+
+def test_execute_raises_application_not_found(
     use_case,
     application_repository,
     reservation_repository,
     event_service,
     unit_of_work,
     dto,
-    application,
 ):
+    # Arrange
+    application_repository.get_by_id.return_value = None
+
+    # Act / Assert
+    with pytest.raises(ApplicationNotFound):
+        use_case.execute(dto)
+
+    # Assert
+    application_repository.get_by_id.assert_called_once_with(
+        dto.application_id
+    )
+
+    reservation_repository.exists_overlap.assert_not_called()
+    reservation_repository.create.assert_not_called()
+    event_service.log.assert_not_called()
+
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once_with()
+
+
+# =========================================================
+# VEHICLE NOT AVAILABLE
+# =========================================================
+
+
+def test_execute_raises_vehicle_not_available_when_overlap_exists(
+    use_case,
+    application_repository,
+    reservation_repository,
+    event_service,
+    unit_of_work,
+    application,
+    dto,
+):
+    # Arrange
     application_repository.get_by_id.return_value = application
-    reservation_repository.exists_overlap.return_value = False
+    reservation_repository.exists_overlap.return_value = True
 
-    created_reservation = Mock()
-    created_reservation.id = "reservation-123"
-    created_reservation.vehicle_id = "vehicle-123"
-    created_reservation.start_date = dto.start_date
-    created_reservation.end_date = dto.end_date
-    created_reservation.status = ReservationStatus.ACTIVE
+    # Act / Assert
+    with pytest.raises(VehicleNotAvailable):
+        use_case.execute(dto)
 
-    reservation_repository.create.return_value = (
-        created_reservation
+    # Assert
+    reservation_repository.exists_overlap.assert_called_once_with(
+        vehicle_id=application.vehicle_id,
+        start_date=dto.start_date,
+        end_date=dto.end_date,
     )
 
-    use_case.execute(dto)
+    reservation_repository.create.assert_not_called()
+    event_service.log.assert_not_called()
 
-    event_service.log.assert_called_once_with(
-        type=EventType.RENTAL_CREATED,
-        message="Réservation créée",
-        user_id="user-123",
-        vehicle_id="vehicle-123",
-        application_id="application-123",
-        event_metadata={
-            "reservation_id": "reservation-123",
-            "start_date": created_reservation.start_date.isoformat(),
-            "end_date": created_reservation.end_date.isoformat(),
-            "status": ReservationStatus.ACTIVE.value,
-        },
-    )
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once_with()
+
+
+# =========================================================
+# REPOSITORY CREATION ERROR
+# =========================================================
+
 
 def test_execute_rolls_back_when_reservation_creation_fails(
     use_case,
     application_repository,
     reservation_repository,
+    event_service,
     unit_of_work,
-    dto,
     application,
+    dto,
 ):
+    # Arrange
     application_repository.get_by_id.return_value = application
     reservation_repository.exists_overlap.return_value = False
 
     reservation_repository.create.side_effect = RuntimeError(
-        "Database error"
+        "Erreur de persistance"
     )
 
-    with pytest.raises(RuntimeError, match="Database error"):
+    # Act / Assert
+    with pytest.raises(RuntimeError, match="Erreur de persistance"):
         use_case.execute(dto)
 
-    unit_of_work.rollback.assert_called_once()
+    # Assert
+    reservation_repository.create.assert_called_once()
+    event_service.log.assert_not_called()
+
     unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once_with()
+
+
+# =========================================================
+# EVENT ERROR
+# =========================================================
+
 
 def test_execute_rolls_back_when_event_logging_fails(
     use_case,
@@ -214,92 +262,107 @@ def test_execute_rolls_back_when_event_logging_fails(
     reservation_repository,
     event_service,
     unit_of_work,
-    dto,
     application,
+    dto,
 ):
+    # Arrange
     application_repository.get_by_id.return_value = application
     reservation_repository.exists_overlap.return_value = False
 
-    created_reservation = Mock()
-    created_reservation.id = "reservation-123"
-    created_reservation.vehicle_id = "vehicle-123"
-    created_reservation.start_date = dto.start_date
-    created_reservation.end_date = dto.end_date
-    created_reservation.status = ReservationStatus.ACTIVE
-
-    reservation_repository.create.return_value = (
-        created_reservation
-    )
-
     event_service.log.side_effect = RuntimeError(
-        "Event error"
+        "Erreur de journalisation"
     )
 
-    with pytest.raises(RuntimeError, match="Event error"):
+    # Act / Assert
+    with pytest.raises(RuntimeError, match="Erreur de journalisation"):
         use_case.execute(dto)
 
-    unit_of_work.rollback.assert_called_once()
+    # Assert
+    reservation_repository.create.assert_called_once()
+    event_service.log.assert_called_once()
+
     unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once_with()
+
+
+# =========================================================
+# COMMIT ERROR
+# =========================================================
+
 
 def test_execute_rolls_back_when_commit_fails(
     use_case,
     application_repository,
     reservation_repository,
+    event_service,
     unit_of_work,
-    dto,
     application,
+    dto,
 ):
+    # Arrange
     application_repository.get_by_id.return_value = application
     reservation_repository.exists_overlap.return_value = False
 
-    created_reservation = Mock()
-    created_reservation.id = "reservation-123"
-    created_reservation.vehicle_id = "vehicle-123"
-    created_reservation.start_date = dto.start_date
-    created_reservation.end_date = dto.end_date
-    created_reservation.status = ReservationStatus.ACTIVE
-
-    reservation_repository.create.return_value = (
-        created_reservation
-    )
-
     unit_of_work.commit.side_effect = RuntimeError(
-        "Commit error"
+        "Erreur de transaction"
     )
 
-    with pytest.raises(RuntimeError, match="Commit error"):
+    # Act / Assert
+    with pytest.raises(RuntimeError, match="Erreur de transaction"):
         use_case.execute(dto)
 
-    unit_of_work.commit.assert_called_once()
-    unit_of_work.rollback.assert_called_once()
+    # Assert
+    reservation_repository.create.assert_called_once()
+    event_service.log.assert_called_once()
 
-def test_execute_generates_reservation_id(
+    unit_of_work.commit.assert_called_once_with()
+    unit_of_work.rollback.assert_called_once_with()
+
+
+# =========================================================
+# VALIDATION DOMAIN ERROR
+# =========================================================
+
+
+def test_execute_rolls_back_when_reservation_validation_fails(
     use_case,
     application_repository,
     reservation_repository,
-    dto,
+    event_service,
+    unit_of_work,
     application,
+    dto,
+    monkeypatch,
 ):
+    # Arrange
     application_repository.get_by_id.return_value = application
     reservation_repository.exists_overlap.return_value = False
 
-    created_reservation = Mock()
-    created_reservation.id = "reservation-123"
-    created_reservation.vehicle_id = "vehicle-123"
-    created_reservation.start_date = dto.start_date
-    created_reservation.end_date = dto.end_date
-    created_reservation.status = ReservationStatus.ACTIVE
-
-    reservation_repository.create.return_value = (
-        created_reservation
+    # Empêche la validation de dépendre des règles internes
+    # exactes de l'entité Reservation.
+    from modules.reservations.domain.entities.reservation import (
+        Reservation,
     )
 
-    with patch(
-        "modules.reservations.application.use_cases.create_reservation.uuid4",
-        return_value="generated-uuid",
+    def invalid_validation(self):
+        raise ValueError("Dates de réservation invalides")
+
+    monkeypatch.setattr(
+        Reservation,
+        "validate_for_creation",
+        invalid_validation,
+    )
+
+    # Act / Assert
+    with pytest.raises(
+        ValueError,
+        match="Dates de réservation invalides",
     ):
         use_case.execute(dto)
 
-    reservation = reservation_repository.create.call_args.args[0]
+    # Assert
+    reservation_repository.create.assert_not_called()
+    event_service.log.assert_not_called()
 
-    assert reservation.id == "generated-uuid"
+    unit_of_work.commit.assert_not_called()
+    unit_of_work.rollback.assert_called_once_with()

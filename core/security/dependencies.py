@@ -1,4 +1,4 @@
-from fastapi import Request, Depends
+from fastapi import Request, Depends, WebSocket
 from modules.auth.domain.exceptions import TokenInvalid, Forbidden, TokenExpired
 from modules.auth.domain.enums import UserRole
 from modules.dependencies.dependencies import (
@@ -10,7 +10,6 @@ from jwt.exceptions import (
     ExpiredSignatureError,
     InvalidTokenError
 )
-from fastapi import Request, Depends, WebSocket
 
 def get_jwt_service():
     return JwtService(
@@ -89,6 +88,9 @@ def get_current_user(
 
 
 
+
+
+
 async def get_current_user_websocket(
     websocket: WebSocket,
     jwt_service=Depends(get_jwt_service),
@@ -97,66 +99,28 @@ async def get_current_user_websocket(
     token = websocket.cookies.get("access_token")
 
     if not token:
-        await websocket.close(
-            code=1008,
-            reason="AUTHENTICATION_REQUIRED",
-        )
         raise TokenInvalid()
 
     try:
         payload = jwt_service.decode(token)
 
-    except ExpiredSignatureError:
-        await websocket.close(
-            code=1008,
-            reason="TOKEN_EXPIRED",
-        )
-        raise TokenExpired()
+    except ExpiredSignatureError as exc:
+        raise TokenExpired() from exc
 
-    except InvalidTokenError:
-        await websocket.close(
-            code=1008,
-            reason="INVALID_TOKEN",
-        )
-        raise TokenInvalid()
+    except InvalidTokenError as exc:
+        raise TokenInvalid() from exc
 
     if payload.get("type") != "access":
-        await websocket.close(
-            code=1008,
-            reason="INVALID_TOKEN",
-        )
         raise TokenInvalid()
 
     user_id = payload.get("sub")
 
     if not user_id:
-        await websocket.close(
-            code=1008,
-            reason="INVALID_TOKEN",
-        )
         raise TokenInvalid()
 
     user = user_repo.get_by_id(user_id)
 
-    if not user:
-        await websocket.close(
-            code=1008,
-            reason="INVALID_TOKEN",
-        )
-        raise TokenInvalid()
-
-    if user.is_deleted:
-        await websocket.close(
-            code=1008,
-            reason="FORBIDDEN",
-        )
-        raise Forbidden()
-
-    if not user.is_active:
-        await websocket.close(
-            code=1008,
-            reason="FORBIDDEN",
-        )
+    if not user or user.is_deleted or not user.is_active:
         raise Forbidden()
 
     return user
