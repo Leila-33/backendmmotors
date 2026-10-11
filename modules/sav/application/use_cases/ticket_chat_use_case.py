@@ -4,6 +4,7 @@ from modules.sav.domain.exceptions import (
     TicketAccessDenied
 )
 from modules.sav.application.dtos.create_ticket_message_dto import CreateTicketMessageDTO
+from datetime import datetime, timezone
 
 
 class TicketChatUseCase:
@@ -18,12 +19,14 @@ class TicketChatUseCase:
         ticket_repository,
         create_message_uc,
         chat_manager,
-        connection_manager,
+        read_state_repository,
+        unit_of_work,
     ):
         self.ticket_repository = ticket_repository
         self.create_message_uc = create_message_uc
         self.chat_manager = chat_manager
-        self.connection_manager = connection_manager
+        self.read_state_repository = read_state_repository
+        self.unit_of_work = unit_of_work
 
     # =====================================================
     # CHECK ACCESS
@@ -93,3 +96,31 @@ class TicketChatUseCase:
 
         # Le message vient d'un agent SAV
         return ticket.user_id, UserRole.CLIENT
+
+    def mark_as_read(
+        self,
+        ticket_id: str,
+        user_id: str,
+        user_role: UserRole,
+    ) -> int:
+        # Vérifier que l'utilisateur a accès au ticket.
+        self.check_access(
+            ticket_id=ticket_id,
+            user_id=user_id,
+            user_role=user_role,
+        )
+
+        # Enregistrer la dernière lecture.
+        self.read_state_repository.mark_last_read(
+            ticket_id=ticket_id,
+            user_id=user_id,
+            last_read_at=datetime.now(timezone.utc),
+        )
+
+        self.unit_of_work.commit()
+
+        # Retourner le nombre de tickets encore non lus.
+        return self.ticket_repository.count_unread(
+            user_id=user_id,
+            user_role=user_role,
+        )

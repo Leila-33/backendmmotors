@@ -56,10 +56,12 @@ from modules.financing.domain.inputs.trade_in_input import (
     TradeInInput,
 )
 
-from modules.quotes.infrastructure.mappers.quote_mapper import (
-    QuoteMapper,
+from modules.quotes.infrastructure.mappers.quote_response_mapper import (
+    QuoteResponseMapper,
 )
-
+from modules.dependencies.dependencies import (
+    get_quote_response_mapper,
+)
 
 router = APIRouter(
     tags=["Agent Quotes"]
@@ -112,7 +114,7 @@ def create_quote(
         dto
     )
 
-    return QuoteMapper.to_create_response(
+    return QuoteResponseMapper.to_create_response(
         result
     )
 
@@ -135,6 +137,9 @@ def get_quote_detail(
     usecase: GetQuoteDetailUseCase = Depends(
         get_get_quote_detail_usecase
     ),
+            mapper: QuoteResponseMapper = Depends(
+    get_quote_response_mapper
+),
 ):
 
     dto = QuoteAgentDTO(
@@ -146,7 +151,7 @@ def get_quote_detail(
         dto
     )
 
-    return QuoteMapper.to_detail_response(
+    return mapper.to_detail_response(
         result
     )
 
@@ -198,7 +203,7 @@ def update_quote(
         dto
     )
 
-    return QuoteMapper.to_action_response(
+    return QuoteResponseMapper.to_action_response(
         result
     )
 
@@ -232,7 +237,7 @@ async def send_quote(
         dto
     )
 
-    return QuoteMapper.to_action_response(
+    return QuoteResponseMapper.to_action_response(
         result
     )
 
@@ -266,6 +271,6 @@ def delete_quote(
         dto
     )
 
-    return QuoteMapper.to_action_response(
+    return QuoteResponseMapper.to_action_response(
         result
     )

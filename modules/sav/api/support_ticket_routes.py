@@ -46,9 +46,7 @@ from modules.sav.api.dependencies import (
     get_get_support_ticket_usecase,
     get_unread_ticket_count_usecase,
 )
-from modules.dependencies.dependencies import (
-    get_websocket_manager
-)
+from modules.notifications.api.dependencies import get_notification_service
 
 from modules.sav.infrastructure.mappers.support_ticket_mapper import (
     SupportTicketMapper,
@@ -96,43 +94,7 @@ def create_ticket(
     )
 
 
-# =====================================================
-# UNREAD COUNT
-# =====================================================
 
-@router.get(
-    "/unread-count",
-    response_model=UnreadTicketCountResponse,
-)
-async def get_unread_ticket_count(
-    current_user: User = Depends(get_current_user),
-
-    use_case: GetUnreadTicketCountUseCase = Depends(
-        get_unread_ticket_count_usecase
-    ),
-
-    connection_manager=Depends(
-        get_websocket_manager
-    ),
-):
-
-    result = use_case.execute(
-        user_id=current_user.id,
-        user_role=current_user.role,
-    )
-
-    # Notification WS éventuelle
-    await connection_manager.send(
-        current_user.id,
-        {
-            "type": "UNREAD_TICKETS_UPDATED",
-            "count": result.count,
-        },
-    )
-
-    return UnreadTicketCountResponse(
-        count=result.count
-    )
 
 
 # =====================================================
@@ -191,6 +153,52 @@ def find_support_tickets(
 
 
 # =====================================================
+# GET UNREAD TICKET COUNT
+# =====================================================
+
+@router.get(
+    "/unread-count",
+    response_model=UnreadTicketCountResponse,
+)
+async def get_unread_ticket_count(
+    current_user: User = Depends(get_current_user),
+    use_case: GetUnreadTicketCountUseCase = Depends(
+        get_unread_ticket_count_usecase
+    ),
+    notification_service=Depends(get_notification_service),
+):
+    # =====================================
+    # USE CASE
+    # =====================================
+
+    result = use_case.execute(
+        user_id=current_user.id,
+        user_role=current_user.role,
+    )
+
+    # =====================================
+    # WEBSOCKET : MISE À JOUR DU COMPTEUR
+    # =====================================
+
+    await notification_service.send_update(
+        user_id=str(current_user.id),
+        payload={
+            "type": "UNREAD_TICKETS_UPDATED",
+            "count": result.count,
+        },
+    )
+
+    # =====================================
+    # API RESPONSE
+    # =====================================
+
+    return UnreadTicketCountResponse(
+        count=result.count
+    )
+
+
+
+# =====================================================
 # GET TICKET
 # =====================================================
 
@@ -200,20 +208,12 @@ def find_support_tickets(
 )
 async def get_support_ticket(
     ticket_id: str,
-
-    current_user: User = Depends(
-        get_current_user
-    ),
-
+    current_user: User = Depends(get_current_user),
     use_case: GetSupportTicketUseCase = Depends(
         get_get_support_ticket_usecase
     ),
-
-    connection_manager=Depends(
-        get_websocket_manager
-    ),
+    notification_service=Depends(get_notification_service),
 ):
-
     # =====================================
     # API → APPLICATION DTO
     # =====================================
@@ -231,12 +231,12 @@ async def get_support_ticket(
     result = use_case.execute(dto)
 
     # =====================================
-    # WEBSOCKET NOTIFICATION
+    # WEBSOCKET : MISE À JOUR DU COMPTEUR
     # =====================================
 
-    await connection_manager.send(
-        current_user.id,
-        {
+    await notification_service.send_update(
+        user_id=str(current_user.id),
+        payload={
             "type": "UNREAD_TICKETS_UPDATED",
             "count": result.unread_count,
         },
@@ -246,6 +246,6 @@ async def get_support_ticket(
     # RESULT → API RESPONSE
     # =====================================
 
-    return SupportTicketMapper.to_response(
-        result.ticket
-    )
+    return SupportTicketMapper.to_response(result.ticket)
+
+

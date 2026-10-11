@@ -12,7 +12,12 @@ from modules.quotes.api.schemas import (
     QuoteActionResponse,
     AcceptQuoteResponse,
 )
-
+from modules.dependencies.dependencies import (
+    get_quote_response_mapper,
+)
+from modules.quotes.infrastructure.mappers.quote_response_mapper import (
+    QuoteResponseMapper
+)
 from modules.quotes.api.dependencies import (
     get_get_customer_quotes_usecase,
     get_get_customer_quote_detail_usecase,
@@ -55,9 +60,6 @@ from modules.quotes.application.dtos.customer_id_dto import (
     CustomerIdDto,
 )
 
-from modules.quotes.infrastructure.mappers.quote_mapper import (
-    QuoteMapper,
-)
 
 
 router = APIRouter(
@@ -91,7 +93,7 @@ def get_customer_quotes(
         dto
     )
 
-    return QuoteMapper.to_customer_list_response(
+    return QuoteResponseMapper.to_customer_list_response(
         result
     )
 
@@ -122,7 +124,7 @@ def get_action_required_count(
         dto
     )
 
-    return QuoteMapper.to_action_required_count_response(
+    return QuoteResponseMapper.to_action_required_count_response(
         result
     )
 
@@ -145,6 +147,9 @@ def get_customer_quote_detail(
     usecase: GetCustomerQuoteDetailUseCase = Depends(
         get_get_customer_quote_detail_usecase
     ),
+        mapper: QuoteResponseMapper = Depends(
+    get_quote_response_mapper
+),
 ):
 
     dto = CustomerQuoteDTO(
@@ -156,7 +161,7 @@ def get_customer_quote_detail(
         dto
     )
 
-    return QuoteMapper.to_customer_detail_response(
+    return mapper.to_customer_detail_response(
         result
     )
 
@@ -191,7 +196,7 @@ async def accept_quote(
         dto
     )
 
-    return QuoteMapper.to_accept_response(
+    return QuoteResponseMapper.to_accept_response(
         result
     )
 
@@ -229,6 +234,6 @@ async def refuse_quote(
         dto
     )
 
-    return QuoteMapper.to_action_response(
+    return QuoteResponseMapper.to_action_response(
         result
     )

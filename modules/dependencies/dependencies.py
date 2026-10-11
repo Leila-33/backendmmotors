@@ -275,24 +275,6 @@ def get_user_activation_token_repository(
     db: Session = Depends(get_db),
 ):
     return SQLActivationTokenRepository(db)
-# =====================================================
-# QUOTE
-# =====================================================
-
-from modules.quotes.infrastructure.repositories.quote_repository_sql import QuoteRepositorySQL
-from modules.quotes.infrastructure.repositories.quote_trade_in_repository_sql import QuoteTradeInRepositorySQL
-
-def get_quote_repository(
-    db: Session = Depends(get_db),
-):
-    return QuoteRepositorySQL(db)
-
-
-def get_quote_trade_in_repository(
-    db: Session = Depends(get_db),
-):
-    return QuoteTradeInRepositorySQL(db)
-
 
 # =====================================================
 # VEHICLES
@@ -325,6 +307,35 @@ def get_vehicle_response_mapper(
     return VehicleResponseMapper(
         s3_service=s3_service
     )
+
+# =====================================================
+# QUOTE
+# =====================================================
+
+from modules.quotes.infrastructure.repositories.quote_repository_sql import QuoteRepositorySQL
+from modules.quotes.infrastructure.repositories.quote_trade_in_repository_sql import QuoteTradeInRepositorySQL
+from modules.quotes.infrastructure.mappers.quote_response_mapper import QuoteResponseMapper
+def get_quote_repository(
+    db: Session = Depends(get_db),
+):
+    return QuoteRepositorySQL(db)
+
+
+def get_quote_trade_in_repository(
+    db: Session = Depends(get_db),
+):
+    return QuoteTradeInRepositorySQL(db)
+
+def get_quote_response_mapper(
+    vehicle_response_mapper: VehicleResponseMapper = Depends(
+        get_vehicle_response_mapper
+    ),
+) -> QuoteResponseMapper:
+
+    return QuoteResponseMapper(
+        vehicle_response_mapper
+    )
+
 # =====================================================
 # WARRANTIES
 # =====================================================
@@ -381,6 +392,17 @@ from modules.notifications.application.services.websocket_manager import manager
 def get_websocket_manager():
     return manager
 
+# =====================================================
+# REDIS CONNECTION
+# =====================================================
+from modules.vehicles.infrastructure.queue.redis_connection import redis_conn
+from redis import Redis
+
+def get_redis_connection() -> Redis:
+    """
+    Retourne le client Redis partagé par l'application.
+    """
+    return redis_conn
 
 # =====================================================
 # FAVORITES

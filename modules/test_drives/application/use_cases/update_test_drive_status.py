@@ -43,14 +43,12 @@ class UpdateTestDriveStatusUseCase:
         event_service,
         unit_of_work,
         notification_service=None,
-        websocket_manager=None,
     ):
         self.repository = repository
         self.user_repository = user_repository
         self.event_service = event_service
         self.uow = unit_of_work
         self.notification_service = notification_service
-        self.websocket_manager = websocket_manager
 
 
     async def execute(
@@ -183,7 +181,7 @@ class UpdateTestDriveStatusUseCase:
 
             self.uow.commit()
 
-            if self.websocket_manager:
+            if self.notification_service:
             
                 await self._notify_admin_test_drive_count()
 
@@ -289,18 +287,27 @@ class UpdateTestDriveStatusUseCase:
                 )
             }
 
-    async def _notify_admin_test_drive_count(self):
 
+    async def _notify_admin_test_drive_count(self) -> None:
         pending_count = self.repository.count_pending()
 
         admins = self.user_repository.get_by_role(
             UserRole.ADMIN
         )
+
         for admin in admins:
-            await self.websocket_manager.send(
-                str(admin.id),
-                {
-                    "type": "TEST_DRIVE_PENDING_UPDATED",
-                    "count": pending_count,
-                },
-            )
+            try:
+                await self.notification_service.send_update(
+                    user_id=str(admin.id),
+                    payload={
+                        "type": "TEST_DRIVE_PENDING_UPDATED",
+                        "count": pending_count,
+                    },
+                )
+
+            except Exception:
+                logger.exception(
+                    "Échec de mise à jour du compteur des essais "
+                    "en attente : admin_id=%s",
+                    admin.id,
+                )

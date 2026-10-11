@@ -78,7 +78,6 @@ from modules.dependencies.dependencies import (
     get_ticket_message_repository,
     get_ticket_read_state_repository,
     get_ticket_chat_manager,
-    get_websocket_manager,
     get_event_service,
     get_application_repository
 )
@@ -231,19 +230,23 @@ def get_ticket_chat_usecase(
     ticket_chat_manager=Depends(
         get_ticket_chat_manager
     ),
-    websocket_manager=Depends(
-        get_websocket_manager
-    ),
     ticket_repository=Depends(
         get_ticket_repository
+    ),
+    read_state_repository=Depends(
+        get_ticket_read_state_repository
+    ),
+    unit_of_work=Depends(
+        get_unit_of_work
     ),
 ):
 
     return TicketChatUseCase(
         chat_manager=ticket_chat_manager,
-        connection_manager=websocket_manager,
         ticket_repository=ticket_repository,
         create_message_uc=create_message_usecase,
+        read_state_repository=read_state_repository,
+        unit_of_work=unit_of_work,
     )
 
 

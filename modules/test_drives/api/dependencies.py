@@ -10,7 +10,6 @@ from modules.dependencies.dependencies import (
     get_vehicle_repository,
     get_event_service,
     get_user_repository,
-    get_websocket_manager
 )
 
 # =========================
@@ -103,7 +102,6 @@ def get_create_test_drive_usecase(
     unit_of_work=Depends(
         get_unit_of_work
     ),
-    websocket_manager=Depends(get_websocket_manager),
 
 ):
     return CreateTestDriveUseCase(
@@ -113,7 +111,6 @@ def get_create_test_drive_usecase(
         event_service=event_service,
         notification_service=notification_service,
         unit_of_work=unit_of_work,
-        websocket_manager=websocket_manager,
     )
 
 
@@ -181,7 +178,6 @@ def get_update_test_drive_status_usecase(
     event_service=Depends(
         get_event_service
     ),
-    websocket_manager=Depends(get_websocket_manager),
     unit_of_work=Depends(
         get_unit_of_work
     ),
@@ -191,7 +187,6 @@ def get_update_test_drive_status_usecase(
         user_repository=user_repository,
         notification_service=notification_service,
         event_service=event_service,
-        websocket_manager=websocket_manager,
         unit_of_work=unit_of_work,
     )
 

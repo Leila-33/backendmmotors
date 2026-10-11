@@ -12,7 +12,7 @@ from core.database.dependencies import (
 # =========================
 from modules.dependencies.dependencies import (
     get_notification_repository,
-    get_websocket_manager
+    get_redis_connection
 )
 
 # =========================
@@ -37,19 +37,14 @@ from core.email.dependencies import get_email_service
 
 
 def get_notification_service(
-
-    notification_repo = Depends(get_notification_repository),
-
-    email_service = Depends(get_email_service),
-
-    websocket_manager = Depends(get_websocket_manager)
-
+    notification_repo=Depends(get_notification_repository),
+    email_service=Depends(get_email_service),
+    redis_conn=Depends(get_redis_connection),
 ):
-
     return NotificationService(
         notification_repo=notification_repo,
         email_service=email_service,
-        websocket_manager=websocket_manager
+        redis_conn=redis_conn,
     )
 
 

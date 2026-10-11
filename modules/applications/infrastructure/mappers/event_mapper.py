@@ -34,6 +34,12 @@ class EventMapper:
             test_drive_id=model.test_drive_id,
 
             user_id=model.user_id,
+
+            vehicle_id=model.vehicle_id,
+
+            quote_id=model.quote_id,
+
+            lead_id=model.lead_id,
         )
 
 
@@ -63,6 +69,12 @@ class EventMapper:
             test_drive_id=event.test_drive_id,
 
             user_id=event.user_id,
+
+            vehicle_id=event.vehicle_id,
+
+            quote_id=event.quote_id,
+
+            lead_id=event.lead_id,
         )
 
 
@@ -118,5 +130,14 @@ class EventMapper:
 
             user_id=(
                 event.user_id
+            ),
+            vehicle_id=(
+                event.vehicle_id
+            ),
+            quote_id=(
+                event.quote_id
+            ),
+            lead_id=(
+                event.lead_id
             ),
         )

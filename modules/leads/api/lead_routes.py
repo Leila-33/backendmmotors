@@ -6,7 +6,9 @@ from modules.leads.api.schemas import (
     CreateLeadRequest,
     CreateLeadResponse,
 )
-
+from modules.dependencies.dependencies import (
+    get_sales_dashboard_repository,
+)
 from modules.leads.api.dependencies import (
     get_create_lead_usecase,
 )
@@ -18,11 +20,17 @@ from modules.leads.application.dtos.create_lead_dto import (
 from modules.leads.application.use_cases.create_lead import (
     CreateLeadUseCase,
 )
-
+from modules.auth.domain.enums import UserRole
 from core.security.dependencies import (
     get_optional_current_user,
+    get_user_repository
 )
+from modules.notifications.api.dependencies import (
+    get_notification_service,
+)
+import logging
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Leads"])
 
@@ -32,7 +40,7 @@ router = APIRouter(tags=["Leads"])
     response_model=CreateLeadResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_lead(
+async def create_lead(
     request: CreateLeadRequest,
     current_user: User | None = Depends(
         get_optional_current_user
@@ -40,6 +48,10 @@ def create_lead(
     usecase: CreateLeadUseCase = Depends(
         get_create_lead_usecase
     ),
+    sales_dashboard_repository=Depends(get_sales_dashboard_repository),
+    user_repository=Depends(get_user_repository),
+    notification_service=Depends(get_notification_service),
+
 ):
 
     dto = CreateLeadDTO(
@@ -57,7 +69,29 @@ def create_lead(
     )
 
     result = usecase.execute(dto)
+    # Mettre à jour le compteur des nouveaux leads non attribués
+    try:
+        count = sales_dashboard_repository.count_new_leads()
 
+        sales_agents = (
+                user_repository.get_by_role(
+                    UserRole.SALES_AGENT,
+                )
+            )
+
+        for agent in sales_agents:
+                await notification_service.send_update(
+                    user_id=str(agent.id),
+                    payload={
+                        "type": "NEW_LEADS_UPDATED",
+                        "count": count,
+                    },
+                )
+
+    except Exception:
+        logger.exception(
+            "Erreur lors de la mise à jour du compteur des nouveaux leads"
+        )
     return CreateLeadResponse(
         lead_id=result.lead_id,
         status=result.status,

@@ -19,10 +19,14 @@ from modules.sav.api.dependencies import (
 
 from modules.auth.api.dependencies import (
     get_jwt_service,
+)
+from modules.dependencies.dependencies import (
     get_user_repository,
 )
 from modules.vehicles.infrastructure.queue.redis_connection import redis_conn
-
+from modules.notifications.api.dependencies import (
+    get_notification_service,
+)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
@@ -30,42 +34,32 @@ router = APIRouter(
 )
 
 
-@router.websocket(
-    "/{ticket_id}"
-)
+
+logger = logging.getLogger(__name__)
+
+
+@router.websocket("/{ticket_id}")
 async def ticket_chat(
     websocket: WebSocket,
     ticket_id: str,
-
-    chat_usecase=Depends(
-        get_ticket_chat_usecase
-    ),
-
-    jwt_service=Depends(
-        get_jwt_service
-    ),
-
-    user_repository=Depends(
-        get_user_repository
-    ),
+    chat_usecase=Depends(get_ticket_chat_usecase),
+    notification_service=Depends(get_notification_service),
+    jwt_service=Depends(get_jwt_service),
+    user_repository=Depends(get_user_repository),
 ):
-
     # =====================================================
-    # AUTHENTICATION
+    # AUTHENTIFICATION
     # =====================================================
 
-    token = websocket.query_params.get(
-        "token"
-    )
+    token = websocket.query_params.get("token")
+
     logger.info(
         "WebSocket support-ticket : token présent=%s",
         bool(token),
     )
 
     if not token:
-        await websocket.close(
-            code=1008
-        )
+        await websocket.close(code=1008)
         return
 
     try:
@@ -75,32 +69,20 @@ async def ticket_chat(
             user_repo=user_repository,
         )
 
-        logger.info(
-            "Utilisateur WebSocket : %s",
-            user.id if user else None,
-        )
+        if not user:
+            await websocket.close(code=1008)
+            return
 
     except Exception:
-        logger.exception(
-            "Erreur authentification WebSocket"
-        )
-        await websocket.close(code=1008)
-        return
-
-
-    if not user:
-        logger.warning(
-            "WebSocket refusé : utilisateur introuvable"
-        )
+        logger.exception("Erreur authentification WebSocket")
         await websocket.close(code=1008)
         return
 
     # =====================================================
-    # ACCESS
+    # VÉRIFICATION DES DROITS
     # =====================================================
 
     try:
-
         ticket = chat_usecase.check_access(
             ticket_id=ticket_id,
             user_id=user.id,
@@ -108,7 +90,6 @@ async def ticket_chat(
         )
 
     except Exception:
-
         logger.exception(
             "Accès WebSocket refusé",
             extra={
@@ -116,14 +97,11 @@ async def ticket_chat(
                 "user_id": user.id,
             },
         )
-
-        await websocket.close(
-            code=1008
-        )
+        await websocket.close(code=1008)
         return
 
     # =====================================================
-    # CONNECT
+    # CONNEXION
     # =====================================================
 
     await chat_usecase.chat_manager.connect(
@@ -132,22 +110,64 @@ async def ticket_chat(
     )
 
     try:
-
         while True:
-
-            data = (
-                await websocket.receive_json()
-            )
-
-            if data.get("type") != "NEW_MESSAGE":
-                continue
-
-            payload = TicketMessageCreate(
-                **data["data"]
-            )
+            data = await websocket.receive_json()
+            event_type = data.get("type")
 
             # =============================================
-            # CREATE MESSAGE
+            # MARQUER LE TICKET COMME LU
+            # =============================================
+
+            if data.get("type") == "MARK_AS_READ":
+                try:
+                    unread_count = chat_usecase.mark_as_read(
+                        ticket_id=ticket_id,
+                        user_id=user.id,
+                        user_role=user.role,
+                    )
+
+                    await notification_service.send_update(
+                        user_id=user.id,
+                        payload={
+                            "type": "UNREAD_TICKETS_UPDATED",
+                            "count": unread_count,
+                        },
+                    )
+
+                except Exception:
+                    logger.exception(
+                        "Impossible de marquer le ticket comme lu ou "
+                        "de mettre à jour le compteur : ticket_id=%s, user_id=%s",
+                        ticket_id,
+                        user.id,
+                    )
+
+                    continue
+
+            # =============================================
+            # IGNORER LES ÉVÉNEMENTS NON PRIS EN CHARGE
+            # =============================================
+
+            if event_type != "NEW_MESSAGE":
+                continue
+
+            # =============================================
+            # VALIDATION DU MESSAGE
+            # =============================================
+
+            try:
+                payload = TicketMessageCreate(
+                    **data["data"]
+                )
+            except (KeyError, TypeError, ValueError):
+                await websocket.send_json({
+                    "type": "ERROR",
+                    "message": "Format du message invalide.",
+                })
+                continue
+
+            # =============================================
+            # CRÉATION DU MESSAGE
             # =============================================
 
             dto = CreateTicketMessageDTO(
@@ -162,39 +182,30 @@ async def ticket_chat(
             )
 
             # =============================================
-            # SERIALIZE
+            # SÉRIALISATION
             # =============================================
 
             message_data = {
-                "id": message.id,
-
-                "ticket_id": message.ticket_id,
-
-                "sender_id": message.sender_id,
-
+                "id": str(message.id),
+                "ticket_id": str(message.ticket_id),
+                "sender_id": str(message.sender_id),
                 "sender_role": (
                     message.sender_role.value
-                    if hasattr(
-                        message.sender_role,
-                        "value"
-                    )
+                    if hasattr(message.sender_role, "value")
                     else message.sender_role
                 ),
-
                 "message": message.message,
-
                 "created_at": (
                     message.created_at.isoformat()
                     if message.created_at
-                    else datetime.now(
-                        timezone.utc
-                    ).isoformat()
+                    else datetime.now(timezone.utc).isoformat()
                 ),
             }
 
             # =============================================
-            # BROADCAST
+            # DIFFUSION DU MESSAGE À TOUTES LES INSTANCES
             # =============================================
+
             redis_payload = {
                 "ticket_id": str(ticket_id),
                 "payload": {
@@ -209,7 +220,7 @@ async def ticket_chat(
             )
 
             # =============================================
-            # RECIPIENT
+            # NOTIFICATION DU DESTINATAIRE
             # =============================================
 
             recipient = chat_usecase.get_recipient(
@@ -217,64 +228,51 @@ async def ticket_chat(
                 sender_id=user.id,
             )
 
-
-            if recipient:
-                recipient_id, recipient_role = recipient
-
-                logger.info(
-                    "[SAV WS] Destinataire trouvé : id=%s, role=%s",
-                    recipient_id,
-                    recipient_role,
-                )
-
-                unread = chat_usecase.ticket_repository.count_unread(
-                    user_id=recipient_id,
-                    user_role=recipient_role,
-                )
-
-                payload = {
-                    "user_id": str(recipient_id),
-                    "message": {
-                        "type": "UNREAD_TICKETS_UPDATED",
-                        "count": unread,
-                    },
-                }
-
-                try:
-                    subscribers = redis_conn.publish(
-                        "user_notifications",
-                        json.dumps(payload),
-                    )
-
-                    logger.info(
-                        "[SAV WS] Publication Redis terminée : "
-                        "channel=user_notifications, subscribers=%s, payload=%s",
-                        subscribers,
-                        payload,
-                    )
-
-                except Exception:
-                    logger.exception("[SAV WS] Échec publication Redis")
-
-            else:
+            if not recipient:
                 logger.warning(
-                    "[SAV WS] Aucun destinataire trouvé pour ticket_id=%s",
+                    "Aucun destinataire trouvé pour ticket_id=%s",
                     ticket_id,
                 )
+                continue
 
+            recipient_id, recipient_role = recipient
+
+            unread_count = chat_usecase.ticket_repository.count_unread(
+                user_id=recipient_id,
+                user_role=recipient_role,
+            )
+
+            try:
+                await notification_service.send_update(
+                    user_id=str(recipient_id),
+                    payload={
+                        "type": "UNREAD_TICKETS_UPDATED",
+                        "count": unread_count,
+                    },
+                )
+
+            except Exception:
+                logger.exception(
+                    "Échec de mise à jour du compteur non lu : user_id=%s",
+                    recipient_id,
+                )
 
     except WebSocketDisconnect:
-
-        chat_usecase.chat_manager.disconnect(
+        logger.info(
+            "WebSocket fermé : ticket_id=%s, user_id=%s",
             ticket_id,
-            websocket,
+            user.id,
         )
 
     except Exception:
+        logger.exception(
+            "Erreur WebSocket : ticket_id=%s, user_id=%s",
+            ticket_id,
+            user.id,
+        )
 
+    finally:
         chat_usecase.chat_manager.disconnect(
             ticket_id,
             websocket,
         )
-
-        raise

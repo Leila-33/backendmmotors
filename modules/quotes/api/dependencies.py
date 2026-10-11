@@ -127,7 +127,8 @@ from modules.dependencies.dependencies import (
     get_quote_trade_in_repository,
     get_event_service,
     get_trade_in_repository,
-    get_financing_repository
+    get_financing_repository,
+    get_sales_dashboard_repository
 )
 from modules.financing.api.dependencies import (
     get_trade_in_service,
@@ -381,6 +382,7 @@ def get_refuse_quote_usecase(
         get_quote_repository
     ),
         lead_repository : LeadRepository = Depends(get_lead_repository),
+        sales_dashboard_repository = Depends(get_sales_dashboard_repository),
         notification_service = Depends(get_notification_service),
         event_service=Depends(get_event_service),
         unit_of_work = Depends(get_unit_of_work)
@@ -390,6 +392,7 @@ def get_refuse_quote_usecase(
     return RefuseQuoteUseCase(
         quote_repository=quote_repository,
         lead_repository=lead_repository,
+        sales_dashboard_repository=sales_dashboard_repository,
         notification_service=notification_service,
         event_service=event_service,
         unit_of_work = unit_of_work

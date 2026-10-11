@@ -1,185 +1,156 @@
-import pytest
-from unittest.mock import AsyncMock, Mock
+import json
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from modules.notifications.domain.enums import (
+    NotificationStatus,
+    NotificationType,
+    NotificationEntityType,
+)
+from modules.notifications.domain.exceptions import (
+    InvalidNotificationType,
+    InvalidNotificationEntityType,
+)
 from modules.notifications.application.services.notification_service import (
     NotificationService,
 )
-from modules.notifications.domain.entities.notification import (
-    Notification,
-)
-from modules.notifications.domain.enums import (
-    NotificationEntityType,
-    NotificationStatus,
-    NotificationType,
-)
-from modules.notifications.domain.exceptions import (
-    InvalidNotificationEntityType,
-    InvalidNotificationType,
-)
-
-
-# ============================================================
-# HELPERS
-# ============================================================
-
-
-def get_notification_type():
-    """
-    Retourne un type de notification réellement défini
-    dans l'enum du projet.
-    """
-    return next(iter(NotificationType))
-
-
-def get_notification_entity_type():
-    """
-    Retourne un type d'entité réellement défini
-    dans l'enum du projet.
-    """
-    return next(iter(NotificationEntityType))
-
-
-# ============================================================
-# FIXTURES
-# ============================================================
 
 
 @pytest.fixture
 def notification_repo():
-    return Mock()
+    return MagicMock()
 
 
 @pytest.fixture
 def email_service():
-    return Mock()
+    return MagicMock()
 
 
 @pytest.fixture
-def websocket_manager():
-    manager = Mock()
-    manager.send = AsyncMock()
-    return manager
+def redis_conn():
+    redis = MagicMock()
+    redis.publish.return_value = 1
+    return redis
 
 
 @pytest.fixture
-def service(
-    notification_repo,
-    email_service,
-):
+def service(notification_repo, email_service, redis_conn):
     return NotificationService(
         notification_repo=notification_repo,
         email_service=email_service,
+        redis_conn=redis_conn,
     )
 
 
 @pytest.fixture
-def service_with_websocket(
+def valid_type():
+    return next(iter(NotificationType))
+
+
+@pytest.fixture
+def valid_entity_type():
+    return next(iter(NotificationEntityType))
+
+
+@pytest.fixture
+def notification_data(valid_type, valid_entity_type):
+    return {
+        "user_id": "user-123",
+        "title": "Nouvelle notification",
+        "message": "Votre dossier a été mis à jour.",
+        "notif_type": valid_type,
+        "email": None,
+        "entity_type": valid_entity_type,
+        "entity_id": "entity-123",
+    }
+
+
+# =========================================================
+# SEND : CRÉATION ET PERSISTANCE
+# =========================================================
+
+@pytest.mark.asyncio
+async def test_send_creates_and_persists_notification(
+    service,
     notification_repo,
-    email_service,
-    websocket_manager,
+    notification_data,
 ):
-    return NotificationService(
-        notification_repo=notification_repo,
-        email_service=email_service,
-        websocket_manager=websocket_manager,
-    )
+    result = await service.send(**notification_data)
 
+    assert result.user_id == "user-123"
+    assert result.title == "Nouvelle notification"
+    assert result.message == "Votre dossier a été mis à jour."
+    assert result.type == notification_data["notif_type"]
+    assert result.status == NotificationStatus.UNREAD
+    assert result.entity_type == notification_data["entity_type"]
+    assert result.entity_id == "entity-123"
 
-# ============================================================
-# SEND NOTIFICATION
-# ============================================================
+    assert result.id
+    assert isinstance(result.created_at, datetime)
+    assert result.created_at.tzinfo is not None
+    assert result.created_at.utcoffset().total_seconds() == 0
+
+    notification_repo.save.assert_called_once_with(result)
 
 
 @pytest.mark.asyncio
-async def test_send_notification_creates_notification(
+async def test_send_generates_unique_notification_ids(
+    service,
+    notification_data,
+):
+    first = await service.send(**notification_data)
+    second = await service.send(**notification_data)
+
+    assert first.id != second.id
+
+
+@pytest.mark.asyncio
+async def test_send_allows_optional_entity_fields_to_be_none(
     service,
     notification_repo,
 ):
-    notif_type = get_notification_type()
-
     result = await service.send(
-        user_id="user-1",
-        title="Test notification",
-        message="Test message",
-        notif_type=notif_type,
+        user_id="user-123",
+        title="Information",
+        message="Aucune entité associée.",
+        notif_type=next(iter(NotificationType)),
     )
 
-    assert isinstance(
-        result,
-        Notification,
-    )
-
-    assert result.user_id == "user-1"
-    assert result.title == "Test notification"
-    assert result.message == "Test message"
-    assert result.type == notif_type
-    assert result.status == NotificationStatus.UNREAD
     assert result.entity_type is None
     assert result.entity_id is None
-    assert result.id is not None
-    assert result.created_at is not None
-    assert result.created_at.tzinfo is not None
-
-    notification_repo.save.assert_called_once_with(
-        result
-    )
-
-
-# ============================================================
-# SEND — NOTIFICATION TYPE ENUM
-# ============================================================
+    notification_repo.save.assert_called_once_with(result)
 
 
 @pytest.mark.asyncio
-async def test_send_accepts_notification_type_enum(
+async def test_send_converts_string_notification_type(
     service,
-    notification_repo,
+    notification_data,
 ):
-    notif_type = get_notification_type()
+    notification_data["notif_type"] = notification_data["notif_type"].value
 
-    result = await service.send(
-        user_id="user-1",
-        title="Title",
-        message="Message",
-        notif_type=notif_type,
+    result = await service.send(**notification_data)
+
+    assert result.type == NotificationType(
+        notification_data["notif_type"]
     )
-
-    assert result.type == notif_type
-
-    notification_repo.save.assert_called_once_with(
-        result
-    )
-
-
-# ============================================================
-# SEND — NOTIFICATION TYPE STRING
-# ============================================================
 
 
 @pytest.mark.asyncio
-async def test_send_normalizes_notification_type_string(
+async def test_send_converts_string_entity_type(
     service,
-    notification_repo,
+    notification_data,
 ):
-    notif_type = get_notification_type()
-
-    result = await service.send(
-        user_id="user-1",
-        title="Title",
-        message="Message",
-        notif_type=notif_type.value,
+    notification_data["entity_type"] = (
+        notification_data["entity_type"].value
     )
 
-    assert result.type == notif_type
+    result = await service.send(**notification_data)
 
-    notification_repo.save.assert_called_once_with(
-        result
+    assert result.entity_type == NotificationEntityType(
+        notification_data["entity_type"]
     )
-
-
-# ============================================================
-# SEND — INVALID NOTIFICATION TYPE
-# ============================================================
 
 
 @pytest.mark.asyncio
@@ -187,12 +158,10 @@ async def test_send_rejects_invalid_notification_type(
     service,
     notification_repo,
 ):
-    with pytest.raises(
-        InvalidNotificationType
-    ):
+    with pytest.raises(InvalidNotificationType):
         await service.send(
-            user_id="user-1",
-            title="Title",
+            user_id="user-123",
+            title="Notification",
             message="Message",
             notif_type="INVALID_NOTIFICATION_TYPE",
         )
@@ -200,434 +169,311 @@ async def test_send_rejects_invalid_notification_type(
     notification_repo.save.assert_not_called()
 
 
-# ============================================================
-# SEND — ENTITY TYPE ENUM
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_send_accepts_entity_type_enum(
-    service,
-    notification_repo,
-):
-    notif_type = get_notification_type()
-    entity_type = get_notification_entity_type()
-
-    result = await service.send(
-        user_id="user-1",
-        title="Title",
-        message="Message",
-        notif_type=notif_type,
-        entity_type=entity_type,
-        entity_id="entity-1",
-    )
-
-    assert result.entity_type == entity_type
-    assert result.entity_id == "entity-1"
-
-    notification_repo.save.assert_called_once_with(
-        result
-    )
-
-
-# ============================================================
-# SEND — ENTITY TYPE STRING
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_send_normalizes_entity_type_string(
-    service,
-    notification_repo,
-):
-    notif_type = get_notification_type()
-    entity_type = get_notification_entity_type()
-
-    result = await service.send(
-        user_id="user-1",
-        title="Title",
-        message="Message",
-        notif_type=notif_type,
-        entity_type=entity_type.value,
-        entity_id="entity-1",
-    )
-
-    assert result.entity_type == entity_type
-    assert result.entity_id == "entity-1"
-
-    notification_repo.save.assert_called_once_with(
-        result
-    )
-
-
-# ============================================================
-# SEND — INVALID ENTITY TYPE
-# ============================================================
-
-
 @pytest.mark.asyncio
 async def test_send_rejects_invalid_entity_type(
     service,
     notification_repo,
+    valid_type,
 ):
-    notif_type = get_notification_type()
-
-    with pytest.raises(
-        InvalidNotificationEntityType
-    ):
+    with pytest.raises(InvalidNotificationEntityType):
         await service.send(
-            user_id="user-1",
-            title="Title",
+            user_id="user-123",
+            title="Notification",
             message="Message",
-            notif_type=notif_type,
+            notif_type=valid_type,
             entity_type="INVALID_ENTITY_TYPE",
         )
 
     notification_repo.save.assert_not_called()
 
 
-# ============================================================
-# SEND — EMAIL
-# ============================================================
-
-
 @pytest.mark.asyncio
-async def test_send_sends_email_when_email_is_provided(
+async def test_send_does_not_save_if_repository_fails(
     service,
     notification_repo,
-    email_service,
+    notification_data,
 ):
-    notif_type = get_notification_type()
-
-    result = await service.send(
-        user_id="user-1",
-        title="Nouvelle notification",
-        message="Contenu de la notification",
-        notif_type=notif_type,
-        email="customer@example.com",
+    notification_repo.save.side_effect = RuntimeError(
+        "Erreur de persistance"
     )
 
-    notification_repo.save.assert_called_once_with(
-        result
-    )
+    with pytest.raises(RuntimeError, match="Erreur de persistance"):
+        await service.send(**notification_data)
+
+
+# =========================================================
+# ENVOI D'EMAIL
+# =========================================================
+
+@pytest.mark.asyncio
+async def test_send_email_when_email_is_provided(
+    service,
+    email_service,
+    notification_data,
+):
+    notification_data["email"] = "client@example.com"
+
+    await service.send(**notification_data)
 
     email_service.send.assert_called_once_with(
-        to="customer@example.com",
+        to="client@example.com",
         subject="Nouvelle notification",
-        body="Contenu de la notification",
+        body="Votre dossier a été mis à jour.",
     )
-
-
-# ============================================================
-# SEND — NO EMAIL
-# ============================================================
 
 
 @pytest.mark.asyncio
 async def test_send_does_not_send_email_when_email_is_none(
     service,
-    notification_repo,
     email_service,
+    notification_data,
 ):
-    notif_type = get_notification_type()
+    notification_data["email"] = None
 
-    result = await service.send(
-        user_id="user-1",
-        title="Title",
-        message="Message",
-        notif_type=notif_type,
-        email=None,
-    )
-
-    notification_repo.save.assert_called_once_with(
-        result
-    )
+    await service.send(**notification_data)
 
     email_service.send.assert_not_called()
 
 
-# ============================================================
-# SEND — WEBSOCKET
-# ============================================================
-
-
 @pytest.mark.asyncio
-async def test_send_sends_websocket_notification(
-    service_with_websocket,
-    notification_repo,
-    websocket_manager,
-):
-    notif_type = get_notification_type()
-    entity_type = get_notification_entity_type()
-
-    result = await service_with_websocket.send(
-        user_id="user-1",
-        title="Title",
-        message="Message",
-        notif_type=notif_type,
-        entity_type=entity_type,
-        entity_id="entity-1",
-    )
-
-    websocket_manager.send.assert_awaited_once()
-
-    args = websocket_manager.send.await_args.args
-
-    assert args[0] == "user-1"
-
-    payload = args[1]
-
-    assert payload["id"] == result.id
-    assert payload["title"] == "Title"
-    assert payload["message"] == "Message"
-    assert payload["type"] == notif_type.value
-    assert payload["status"] == NotificationStatus.UNREAD.value
-    assert payload["entity_type"] == entity_type.value
-    assert payload["entity_id"] == "entity-1"
-    assert payload["created_at"] == (
-        result.created_at.isoformat()
-    )
-
-
-# ============================================================
-# SEND — NO WEBSOCKET
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_send_does_not_use_websocket_when_not_configured(
+async def test_send_does_not_send_email_when_email_is_empty(
     service,
-    notification_repo,
     email_service,
+    notification_data,
 ):
-    notif_type = get_notification_type()
+    notification_data["email"] = ""
 
-    result = await service.send(
-        user_id="user-1",
-        title="Title",
-        message="Message",
-        notif_type=notif_type,
-    )
-
-    assert isinstance(
-        result,
-        Notification,
-    )
-
-    notification_repo.save.assert_called_once_with(
-        result
-    )
+    await service.send(**notification_data)
 
     email_service.send.assert_not_called()
-
-
-# ============================================================
-# SEND — COMPLETE FLOW
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_send_complete_flow(
-    service_with_websocket,
-    notification_repo,
-    email_service,
-    websocket_manager,
-):
-    notif_type = get_notification_type()
-    entity_type = get_notification_entity_type()
-
-    result = await service_with_websocket.send(
-        user_id="user-42",
-        title="Nouvelle offre commerciale",
-        message="Votre devis est disponible.",
-        notif_type=notif_type,
-        email="customer@example.com",
-        entity_type=entity_type,
-        entity_id="quote-42",
-    )
-
-    # Notification
-    assert isinstance(
-        result,
-        Notification,
-    )
-
-    assert result.id is not None
-    assert result.user_id == "user-42"
-    assert result.title == "Nouvelle offre commerciale"
-    assert result.message == (
-        "Votre devis est disponible."
-    )
-    assert result.type == notif_type
-    assert result.status == NotificationStatus.UNREAD
-    assert result.entity_type == entity_type
-    assert result.entity_id == "quote-42"
-
-    # Repository
-    notification_repo.save.assert_called_once_with(
-        result
-    )
-
-    # Email
-    email_service.send.assert_called_once_with(
-        to="customer@example.com",
-        subject="Nouvelle offre commerciale",
-        body="Votre devis est disponible.",
-    )
-
-    # WebSocket
-    websocket_manager.send.assert_awaited_once()
-
-    user_id, payload = (
-        websocket_manager.send.await_args.args
-    )
-
-    assert user_id == "user-42"
-    assert payload["id"] == result.id
-    assert payload["type"] == notif_type.value
-    assert payload["status"] == (
-        NotificationStatus.UNREAD.value
-    )
-    assert payload["entity_type"] == entity_type.value
-    assert payload["entity_id"] == "quote-42"
-
-
-# ============================================================
-# SEND UPDATE
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_send_update_sends_websocket_update(
-    service_with_websocket,
-    websocket_manager,
-):
-    payload = {
-        "type": "QUOTE_UPDATED",
-        "count": 3,
-    }
-
-    await service_with_websocket.send_update(
-        user_id="user-1",
-        payload=payload,
-    )
-
-    websocket_manager.send.assert_awaited_once_with(
-        "user-1",
-        payload,
-    )
-
-
-# ============================================================
-# SEND UPDATE — NO WEBSOCKET
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_send_update_does_nothing_without_websocket(
-    service,
-):
-    payload = {
-        "type": "QUOTE_UPDATED",
-        "count": 3,
-    }
-
-    result = await service.send_update(
-        user_id="user-1",
-        payload=payload,
-    )
-
-    assert result is None
-
-
-# ============================================================
-# SEND UPDATE — WEBSOCKET ERROR
-# ============================================================
-
-
-@pytest.mark.asyncio
-async def test_send_update_propagates_websocket_error(
-    service_with_websocket,
-    websocket_manager,
-):
-    websocket_manager.send.side_effect = RuntimeError(
-        "websocket error"
-    )
-
-    payload = {
-        "type": "QUOTE_UPDATED",
-        "count": 3,
-    }
-
-    with pytest.raises(
-        RuntimeError,
-        match="websocket error",
-    ):
-        await service_with_websocket.send_update(
-            user_id="user-1",
-            payload=payload,
-        )
-
-
-# ============================================================
-# EMAIL ERROR
-# ============================================================
 
 
 @pytest.mark.asyncio
 async def test_send_propagates_email_error(
     service,
-    notification_repo,
     email_service,
+    redis_conn,
+    notification_data,
 ):
-    notif_type = get_notification_type()
+    notification_data["email"] = "client@example.com"
+    email_service.send.side_effect = RuntimeError("Erreur email")
 
-    email_service.send.side_effect = RuntimeError(
-        "email error"
-    )
+    with pytest.raises(RuntimeError, match="Erreur email"):
+        await service.send(**notification_data)
 
-    with pytest.raises(
-        RuntimeError,
-        match="email error",
-    ):
-        await service.send(
-            user_id="user-1",
-            title="Title",
-            message="Message",
-            notif_type=notif_type,
-            email="customer@example.com",
-        )
-
-    # La notification est sauvegardée avant l'envoi de l'e-mail.
-    notification_repo.save.assert_called_once()
+    redis_conn.publish.assert_not_called()
 
 
-# ============================================================
-# REPOSITORY ERROR
-# ============================================================
+# =========================================================
+# PUBLICATION REDIS DE LA NOTIFICATION
+# =========================================================
+
+@pytest.mark.asyncio
+async def test_send_publishes_notification_to_redis(
+    service,
+    redis_conn,
+    notification_data,
+):
+    result = await service.send(**notification_data)
+
+    redis_conn.publish.assert_called_once()
+
+    channel, raw_event = redis_conn.publish.call_args.args
+
+    assert channel == "user_notifications"
+
+    event = json.loads(raw_event)
+
+    assert event["user_id"] == "user-123"
+    assert event["message"]["id"] == result.id
+    assert event["message"]["title"] == result.title
+    assert event["message"]["message"] == result.message
+    assert event["message"]["type"] == result.type.value
+    assert event["message"]["status"] == result.status.value
+    assert event["message"]["entity_type"] == result.entity_type.value
+    assert event["message"]["entity_id"] == result.entity_id
+    assert event["message"]["created_at"] == result.created_at.isoformat()
 
 
 @pytest.mark.asyncio
-async def test_send_propagates_repository_error(
+async def test_send_publishes_null_entity_type_when_not_provided(
     service,
-    notification_repo,
-    email_service,
+    redis_conn,
 ):
-    notif_type = get_notification_type()
+    await service.send(
+        user_id="user-123",
+        title="Information",
+        message="Message sans entité.",
+        notif_type=next(iter(NotificationType)),
+    )
 
-    notification_repo.save.side_effect = RuntimeError(
-        "repository error"
+    event = json.loads(redis_conn.publish.call_args.args[1])
+
+    assert event["message"]["entity_type"] is None
+    assert event["message"]["entity_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_send_propagates_redis_publication_error(
+    service,
+    redis_conn,
+    notification_repo,
+    notification_data,
+):
+    redis_conn.publish.side_effect = RuntimeError("Erreur Redis")
+
+    with pytest.raises(RuntimeError, match="Erreur Redis"):
+        await service.send(**notification_data)
+
+    # La notification a été persistée avant la publication Redis.
+    notification_repo.save.assert_called_once()
+
+
+# =========================================================
+# SEND UPDATE : REDIS NON CONFIGURÉ
+# =========================================================
+
+@pytest.mark.asyncio
+async def test_send_update_does_nothing_when_redis_is_none():
+    service = NotificationService(
+        notification_repo=MagicMock(),
+        email_service=MagicMock(),
+        redis_conn=None,
+    )
+
+    # Ne doit pas lever d'exception.
+    await service.send_update(
+        user_id="user-123",
+        payload={"type": "TEST_EVENT"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_send_update_logs_warning_when_redis_is_none():
+    service = NotificationService(
+        notification_repo=MagicMock(),
+        email_service=MagicMock(),
+        redis_conn=None,
+    )
+
+    with patch(
+        "modules.notifications.application.services.notification_service.logger"
+    ) as logger_mock:
+        await service.send_update(
+            user_id="user-123",
+            payload={"type": "TEST_EVENT"},
+        )
+
+    logger_mock.warning.assert_called_once()
+
+
+# =========================================================
+# SEND UPDATE : REDIS SYNCHRONE
+# =========================================================
+
+@pytest.mark.asyncio
+async def test_send_update_publishes_json_event(
+    service,
+    redis_conn,
+):
+    payload = {
+        "type": "NEW_MESSAGE",
+        "message": "Bonjour",
+    }
+
+    await service.send_update(
+        user_id="user-123",
+        payload=payload,
+    )
+
+    redis_conn.publish.assert_called_once()
+
+    channel, raw_event = redis_conn.publish.call_args.args
+
+    assert channel == "user_notifications"
+
+    event = json.loads(raw_event)
+
+    assert event == {
+        "user_id": "user-123",
+        "message": payload,
+    }
+
+
+@pytest.mark.asyncio
+async def test_send_update_converts_user_id_to_string(
+    service,
+    redis_conn,
+):
+    await service.send_update(
+        user_id=123,
+        payload={"type": "TEST_EVENT"},
+    )
+
+    event = json.loads(redis_conn.publish.call_args.args[1])
+
+    assert event["user_id"] == "123"
+
+
+# =========================================================
+# SEND UPDATE : REDIS ASYNCHRONE
+# =========================================================
+
+@pytest.mark.asyncio
+async def test_send_update_awaits_async_redis_publish(
+    service,
+    redis_conn,
+):
+    redis_conn.publish = AsyncMock(return_value=1)
+
+    await service.send_update(
+        user_id="user-123",
+        payload={"type": "TEST_EVENT"},
+    )
+
+    redis_conn.publish.assert_awaited_once()
+
+
+# =========================================================
+# SEND UPDATE : GESTION DES ERREURS
+# =========================================================
+
+@pytest.mark.asyncio
+async def test_send_update_logs_and_reraises_redis_error(
+    service,
+    redis_conn,
+):
+    redis_conn.publish.side_effect = RuntimeError("Redis indisponible")
+
+    with patch(
+        "modules.notifications.application.services.notification_service.logger"
+    ) as logger_mock:
+        with pytest.raises(
+            RuntimeError,
+            match="Redis indisponible",
+        ):
+            await service.send_update(
+                user_id="user-123",
+                payload={"type": "TEST_EVENT"},
+            )
+
+    logger_mock.exception.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_send_update_handles_async_redis_publish_error(
+    service,
+    redis_conn,
+):
+    redis_conn.publish = AsyncMock(
+        side_effect=RuntimeError("Erreur Redis asynchrone")
     )
 
     with pytest.raises(
         RuntimeError,
-        match="repository error",
+        match="Erreur Redis asynchrone",
     ):
-        await service.send(
-            user_id="user-1",
-            title="Title",
-            message="Message",
-            notif_type=notif_type,
+        await service.send_update(
+            user_id="user-123",
+            payload={"type": "TEST_EVENT"},
         )
-
-    email_service.send.assert_not_called()

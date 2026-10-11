@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from modules.applications.domain.enums import (
     TradeInVehicleCondition,
@@ -10,7 +10,6 @@ from modules.applications.domain.enums import (
 from modules.quotes.domain.enums import (
     QuoteRefusalReason,
 )
-
 
 # =========================================================
 # COMMON
@@ -62,8 +61,9 @@ class CreateQuoteRequest(BaseModel):
     )
 
     down_payment: float = Field(
-        default=0,
-        ge=0,
+        ...,
+        gt=0,
+        description="Montant de l'apport, strictement supérieur à 0.",
     )
 
     duration_months: int = Field(
@@ -72,7 +72,16 @@ class CreateQuoteRequest(BaseModel):
     )
 
     trade_in: QuoteTradeInRequest | None = None
+    @field_validator("duration_months")
+    @classmethod
+    def validate_duration(cls, v):
 
+        allowed = [24, 36, 48, 60]
+
+        if v not in allowed:
+            raise ValueError("Durée invalide")
+
+        return v
 
 class CreateQuoteResponse(BaseModel):
 
@@ -120,6 +129,9 @@ class QuoteLeadResponse(BaseModel):
         from_attributes=True
     )
 
+class VehicleImageResponse(BaseModel):
+    key: str
+    url: str
 
 class VehicleMiniResponse(BaseModel):
 
@@ -131,10 +143,30 @@ class VehicleMiniResponse(BaseModel):
 
     price: float
 
+    year: int
+    mileage: int
+    engine_type: str
+    images: list[VehicleImageResponse] = []
+
+
     model_config = ConfigDict(
         from_attributes=True
     )
+class VehicleMiniListResponse(BaseModel):
 
+    id: str
+
+    brand: str
+
+    model: str
+
+    price: float
+
+
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
 class QuoteDetailResponse(BaseModel):
 
@@ -207,7 +239,7 @@ class CustomerQuoteListResponse(BaseModel):
 
     monthly_payment: float
 
-    vehicle: VehicleMiniResponse
+    vehicle: VehicleMiniListResponse
 
     created_at: datetime
 
@@ -264,10 +296,17 @@ class QuoteCustomerDetailResponse(BaseModel):
     created_at: datetime
 
     application_id: str | None = None
+    sent_at: datetime | None = None
+    accepted_at: datetime | None = None
+    refusal_reason: QuoteRefusalReason | None = None
+    refusal_comment: str | None = None
+    refused_at: datetime | None = None
+    expires_at: datetime | None = None
 
     model_config = ConfigDict(
         from_attributes=True
     )
+
 
 
 # =========================================================
